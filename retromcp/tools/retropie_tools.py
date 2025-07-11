@@ -231,7 +231,7 @@ class RetroPieTools(BaseTool):
 
         if action == "list":
             # List ROM directories
-            rom_path = "/home/pi/RetroPie/roms"
+            rom_path = self.config.roms_dir or f"{self.config.home_dir}/RetroPie/roms"
             if system:
                 rom_path += f"/{system}"
 
@@ -251,9 +251,23 @@ class RetroPieTools(BaseTool):
 
         elif action == "scan":
             # Scan for new ROMs and update game lists
-            exit_code, _, _ = self.ssh.execute_command(
-                "sudo systemctl restart emulationstation"
+            # Use the same logic as EmulationStation restart
+            service_check_code, service_output, _ = self.ssh.execute_command(
+                "systemctl is-active emulationstation 2>/dev/null"
             )
+
+            if service_check_code == 0 and "active" in service_output:
+                exit_code, _, _ = self.ssh.execute_command(
+                    "sudo systemctl restart emulationstation"
+                )
+            else:
+                # Restart as user process
+                self.ssh.execute_command("pkill -f emulationstation")
+                self.ssh.execute_command("sleep 2")
+                exit_code, _, _ = self.ssh.execute_command(
+                    "nohup emulationstation > /dev/null 2>&1 &",
+                    timeout=5
+                )
 
             if exit_code == 0:
                 return self.format_success(
@@ -265,7 +279,7 @@ class RetroPieTools(BaseTool):
         elif action == "permissions":
             # Fix ROM file permissions
             exit_code, _, stderr = self.ssh.execute_command(
-                "sudo chown -R pi:pi /home/pi/RetroPie/roms && sudo chmod -R 755 /home/pi/RetroPie/roms"
+                f"sudo chown -R {self.config.username}:{self.config.username} {self.config.roms_dir or f'{self.config.home_dir}/RetroPie/roms'} && sudo chmod -R 755 {self.config.roms_dir or f'{self.config.home_dir}/RetroPie/roms'}"
             )
 
             if exit_code == 0:

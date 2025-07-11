@@ -189,7 +189,8 @@ class SystemTools(BaseTool):
             if bios_info["all_present"]:
                 output += "\\n🎉 All required BIOS files are present!\\n"
             else:
-                output += "\\n⚠️ Some BIOS files are missing. Place them in /home/pi/RetroPie/BIOS/\\n"
+                bios_dir = self.config.bios_dir or f"{self.config.home_dir}/RetroPie/BIOS"
+                output += f"\\n⚠️ Some BIOS files are missing. Place them in {bios_dir}/\\n"
 
         return [TextContent(type="text", text=output)]
 

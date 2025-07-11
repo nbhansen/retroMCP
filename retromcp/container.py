@@ -1,6 +1,8 @@
 """Dependency injection container for RetroMCP."""
 
+import logging
 from typing import Any
+from typing import Callable
 from typing import Dict
 
 from .application.use_cases import DetectControllersUseCase
@@ -11,6 +13,7 @@ from .application.use_cases import SetupControllerUseCase
 from .application.use_cases import TestConnectionUseCase
 from .application.use_cases import UpdateSystemUseCase
 from .config import RetroPieConfig
+from .discovery import RetroPieDiscovery
 from .domain.ports import ControllerRepository
 from .domain.ports import EmulatorRepository
 from .domain.ports import RetroPieClient
@@ -21,20 +24,39 @@ from .infrastructure import SSHRetroPieClient
 from .infrastructure import SSHSystemRepository
 from .ssh_handler import RetroPieSSH
 
+logger = logging.getLogger(__name__)
+
 
 class Container:
     """Dependency injection container."""
 
     def __init__(self, config: RetroPieConfig) -> None:
         """Initialize container with configuration."""
+        self._initial_config = config
         self.config = config
         self._instances: Dict[str, Any] = {}
+        self._discovery_completed = False
 
-    def _get_or_create(self, key: str, factory: Any) -> Any:
+    def _get_or_create(self, key: str, factory: Callable[[], Any]) -> Any:  # noqa: ANN401
         """Get existing instance or create new one."""
         if key not in self._instances:
             self._instances[key] = factory()
         return self._instances[key]
+
+    def _ensure_discovery(self) -> None:
+        """Ensure system discovery has been performed."""
+        if not self._discovery_completed:
+            try:
+                logger.info("Performing RetroPie system discovery")
+                client = self.retropie_client
+                discovery = RetroPieDiscovery(client)
+                paths = discovery.discover_system_paths()
+                self.config = self._initial_config.with_paths(paths)
+                self._discovery_completed = True
+                logger.info("System discovery completed successfully")
+            except Exception as e:
+                logger.warning(f"System discovery failed: {e}, using defaults")
+                self._discovery_completed = True  # Don't retry on every call
 
     @property
     def ssh_handler(self) -> RetroPieSSH:
@@ -61,25 +83,28 @@ class Container:
     @property
     def system_repository(self) -> SystemRepository:
         """Get system repository instance."""
+        self._ensure_discovery()
         return self._get_or_create(
             "system_repository",
-            lambda: SSHSystemRepository(self.retropie_client),
+            lambda: SSHSystemRepository(self.retropie_client, self.config),
         )
 
     @property
     def controller_repository(self) -> ControllerRepository:
         """Get controller repository instance."""
+        self._ensure_discovery()
         return self._get_or_create(
             "controller_repository",
-            lambda: SSHControllerRepository(self.retropie_client),
+            lambda: SSHControllerRepository(self.retropie_client, self.config),
         )
 
     @property
     def emulator_repository(self) -> EmulatorRepository:
         """Get emulator repository instance."""
+        self._ensure_discovery()
         return self._get_or_create(
             "emulator_repository",
-            lambda: SSHEmulatorRepository(self.retropie_client),
+            lambda: SSHEmulatorRepository(self.retropie_client, self.config),
         )
 
     # Use cases

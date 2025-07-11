@@ -3,6 +3,7 @@
 import re
 from typing import List
 
+from ..config import RetroPieConfig
 from ..domain.models import BiosFile
 from ..domain.models import CommandResult
 from ..domain.models import Package
@@ -16,9 +17,10 @@ from ..domain.ports import SystemRepository
 class SSHSystemRepository(SystemRepository):
     """SSH implementation of system repository interface."""
 
-    def __init__(self, client: RetroPieClient) -> None:
-        """Initialize with RetroPie client."""
+    def __init__(self, client: RetroPieClient, config: RetroPieConfig) -> None:
+        """Initialize with RetroPie client and configuration."""
         self._client = client
+        self._config = config
 
     def get_system_info(self) -> SystemInfo:
         """Get system information."""
@@ -183,7 +185,7 @@ class SSHSystemRepository(SystemRepository):
 
     def get_bios_files(self) -> List[BiosFile]:
         """Get list of BIOS files."""
-        bios_dir = "/home/pi/RetroPie/BIOS"
+        bios_dir = self._config.bios_dir or f"{self._config.home_dir}/RetroPie/BIOS"
         result = self._client.execute_command(
             f"find {bios_dir} -type f -name '*.bin' -o -name '*.rom' -o -name '*.bios' 2>/dev/null"
         )

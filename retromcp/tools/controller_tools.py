@@ -223,7 +223,7 @@ class ControllerTools(BaseTool):
         if force_reconfigure:
             # Remove existing controller config to force reconfiguration
             exit_code, _, _ = self.ssh.execute_command(
-                "rm -f ~/.emulationstation/es_input.cfg"
+                f"rm -f {self.config.home_dir}/.emulationstation/es_input.cfg"
             )
 
         # Start EmulationStation in configuration mode

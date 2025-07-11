@@ -114,18 +114,31 @@ class EmulationStationTools(BaseTool):
 
     async def _restart_emulationstation(self) -> List[TextContent]:
         """Restart EmulationStation."""
-        # First try to stop EmulationStation gracefully
-        exit_code, _, _ = self.ssh.execute_command(
-            "sudo systemctl stop emulationstation"
+        # First, check if EmulationStation is running as a systemd service
+        service_check_code, service_output, _ = self.ssh.execute_command(
+            "systemctl is-active emulationstation 2>/dev/null"
         )
 
-        # Wait a moment
-        self.ssh.execute_command("sleep 2")
+        if service_check_code == 0 and "active" in service_output:
+            # It's a systemd service
+            exit_code, _, _ = self.ssh.execute_command(
+                "sudo systemctl stop emulationstation"
+            )
+            self.ssh.execute_command("sleep 2")
+            exit_code, _, stderr = self.ssh.execute_command(
+                "sudo systemctl start emulationstation"
+            )
+        else:
+            # It's likely running as a user process
+            # Kill any existing EmulationStation processes
+            self.ssh.execute_command("pkill -f emulationstation")
+            self.ssh.execute_command("sleep 2")
 
-        # Start EmulationStation
-        exit_code, _, stderr = self.ssh.execute_command(
-            "sudo systemctl start emulationstation"
-        )
+            # Start EmulationStation as the user
+            exit_code, _, stderr = self.ssh.execute_command(
+                "nohup emulationstation > /dev/null 2>&1 &",
+                timeout=5  # Don't wait for this to complete
+            )
 
         if exit_code == 0:
             return self.format_success("EmulationStation restarted successfully")
@@ -140,7 +153,7 @@ class EmulationStationTools(BaseTool):
         if action == "list":
             # List installed themes
             exit_code, output, _ = self.ssh.execute_command(
-                "ls -la ~/.emulationstation/themes/ /etc/emulationstation/themes/ 2>/dev/null | grep '^d' | awk '{print $9}' | grep -v '^\\.$\\|^\\.\\.$'"
+                f"ls -la {self.config.home_dir}/.emulationstation/themes/ /etc/emulationstation/themes/ 2>/dev/null | grep '^d' | awk '{{print $9}}' | grep -v '^\\.$\\|^\\.\\.$'"
             )
 
             if exit_code == 0 and output:
@@ -166,7 +179,7 @@ class EmulationStationTools(BaseTool):
 
             # Check if theme exists
             exit_code, _, _ = self.ssh.execute_command(
-                f"test -d ~/.emulationstation/themes/{theme_name} || test -d /etc/emulationstation/themes/{theme_name}"
+                f"test -d {self.config.home_dir}/.emulationstation/themes/{theme_name} || test -d /etc/emulationstation/themes/{theme_name}"
             )
 
             if exit_code != 0:
@@ -237,7 +250,7 @@ class EmulationStationTools(BaseTool):
         setting = arguments.get("setting")
         options = arguments.get("options", {})
 
-        settings_file = "~/.emulationstation/es_settings.cfg"
+        settings_file = f"{self.config.home_dir}/.emulationstation/es_settings.cfg"
 
         if setting == "screensaver":
             # Configure screensaver settings

@@ -2,7 +2,7 @@
 """RetroMCP Server - MCP server for RetroPie configuration and management."""
 
 import asyncio
-import os
+import logging
 from pathlib import Path
 from typing import Any
 from typing import Dict
@@ -15,21 +15,25 @@ from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 from mcp.types import EmbeddedResource
 from mcp.types import ImageContent
+from mcp.types import Resource
 from mcp.types import TextContent
 from mcp.types import Tool
 
 try:
     from .config import RetroPieConfig
     from .config import ServerConfig
-    from .ssh_handler import RetroPieSSH
+    from .container import Container
+    from .profile import SystemProfileManager
     from .tools import ControllerTools
     from .tools import EmulationStationTools
     from .tools import RetroPieTools
     from .tools import SystemTools
 except ImportError:
+    from profile import SystemProfileManager
+
     from config import RetroPieConfig
     from config import ServerConfig
-    from ssh_handler import RetroPieSSH
+    from container import Container
     from tools import ControllerTools
     from tools import EmulationStationTools
     from tools import RetroPieTools
@@ -47,57 +51,62 @@ class RetroMCPServer:
         self.config = config
         self.server_config = server_config
         self.server = Server(server_config.name)
-        self._ssh_connection: RetroPieSSH | None = None
-        self._tool_instances: Dict[str, Any] = {}
+        self.container = Container(config)
+        self.profile_manager = SystemProfileManager()
 
         # Register handlers
         self.server.list_tools()(self.list_tools)
         self.server.call_tool()(self.call_tool)
+        self.server.list_resources()(self.list_resources)
+        self.server.read_resource()(self.read_resource)
 
-    def _get_ssh_connection(self) -> RetroPieSSH:
-        """Get or create SSH connection to RetroPie."""
-        if self._ssh_connection and self._ssh_connection.test_connection():
-            return self._ssh_connection
-
-        # Expand ~ in key path if provided
-        key_path = self.config.key_path
-        if key_path:
-            key_path = os.path.expanduser(key_path)
-
-        self._ssh_connection = RetroPieSSH(
-            host=self.config.host,
-            username=self.config.username,
-            password=self.config.password,
-            key_path=key_path,
-            port=self.config.port,
-        )
-
-        if not self._ssh_connection.connect():
-            raise ConnectionError(
-                f"Failed to connect to RetroPie at {self.config.host}"
+    async def list_resources(self) -> List[Resource]:
+        """List available MCP resources."""
+        return [
+            Resource(
+                uri="retropie://system-profile",
+                name="RetroPie System Profile",
+                description="Current system configuration and learned context",
+                mimeType="text/plain",
             )
+        ]
 
-        return self._ssh_connection
+    async def read_resource(self, uri: str) -> str:
+        """Read an MCP resource."""
+        if uri == "retropie://system-profile":
+            try:
+                # Ensure discovery and get current profile
+                if not self.container.connect():
+                    return "❌ Unable to connect to RetroPie system"
 
-    def _get_tool_instances(self) -> Dict[str, Any]:
-        """Get or create tool instances."""
-        if not self._tool_instances:
-            ssh = self._get_ssh_connection()
-            self._tool_instances = {
-                "system": SystemTools(ssh),
-                "controller": ControllerTools(ssh),
-                "retropie": RetroPieTools(ssh),
-                "emulationstation": EmulationStationTools(ssh),
-            }
+                # Get or create system profile
+                if self.container.config.paths:
+                    profile = self.profile_manager.get_or_create_profile(self.container.config.paths)
+                    return profile.to_context_summary()
+                else:
+                    return "⚠️ System discovery not completed yet"
 
-        return self._tool_instances
+            except Exception as e:
+                return f"❌ Error loading system profile: {e}"
+        else:
+            return f"❌ Unknown resource: {uri}"
 
     async def list_tools(self) -> List[Tool]:
         """List available tools from all modules."""
         tools = []
 
         try:
-            tool_instances = self._get_tool_instances()
+            # Ensure connection is established
+            if not self.container.connect():
+                raise ConnectionError("Failed to connect to RetroPie")
+
+            # Get tool instances from container
+            tool_instances = {
+                "system": SystemTools(self.container.ssh_handler, self.container.config),
+                "controller": ControllerTools(self.container.ssh_handler, self.container.config),
+                "retropie": RetroPieTools(self.container.ssh_handler, self.container.config),
+                "emulationstation": EmulationStationTools(self.container.ssh_handler, self.container.config),
+            }
 
             # Collect tools from all modules
             for _, tool_instance in tool_instances.items():
@@ -129,7 +138,17 @@ class RetroMCPServer:
             ]
 
         try:
-            tool_instances = self._get_tool_instances()
+            # Ensure connection is established
+            if not self.container.connect():
+                raise ConnectionError("Failed to connect to RetroPie")
+
+            # Get tool instances from container
+            tool_instances = {
+                "system": SystemTools(self.container.ssh_handler, self.container.config),
+                "controller": ControllerTools(self.container.ssh_handler, self.container.config),
+                "retropie": RetroPieTools(self.container.ssh_handler, self.container.config),
+                "emulationstation": EmulationStationTools(self.container.ssh_handler, self.container.config),
+            }
 
             # Define tool routing - maps tool names to modules
             tool_routing = {
@@ -161,12 +180,54 @@ class RetroMCPServer:
             if name in tool_routing:
                 module_name = tool_routing[name]
                 tool_instance = tool_instances[module_name]
-                return await tool_instance.handle_tool_call(name, arguments)
+                result = await tool_instance.handle_tool_call(name, arguments)
+
+                # Update profile with any new information learned
+                if self.container.config.paths:
+                    self._update_profile_from_tool_execution(name, arguments, result)
+
+                return result
             else:
                 return [TextContent(type="text", text=f"❌ Unknown tool: {name}")]
 
         except Exception as e:
             return [TextContent(type="text", text=f"❌ Error executing {name}: {e!s}")]
+
+    def _update_profile_from_tool_execution(
+        self, tool_name: str, arguments: Dict[str, Any], result: List[Any]
+    ) -> None:
+        """Update system profile based on tool execution results."""
+        try:
+            if not self.container.config.paths:
+                return
+
+            profile = self.profile_manager.get_or_create_profile(self.container.config.paths)
+
+            # Extract successful result text
+            result_text = ""
+            for item in result:
+                if hasattr(item, 'text'):
+                    result_text += item.text + "\n"
+
+            # Update profile based on tool type
+            if tool_name == "detect_controllers" and "Detected controllers:" in result_text:
+                # Could parse controller detection results and update profile
+                pass
+            elif tool_name == "setup_controller" and "✓" in result_text:
+                # Could record successful controller setup
+                controller_type = arguments.get("controller_type", "unknown")
+                profile.add_user_note(f"Successfully configured {controller_type} controller")
+                self.profile_manager.save_profile(profile)
+            elif tool_name == "install_emulator" and "✓" in result_text:
+                # Could record successful emulator installation
+                emulator = arguments.get("emulator", "unknown")
+                system = arguments.get("system", "unknown")
+                profile.add_user_note(f"Successfully installed {emulator} for {system}")
+                self.profile_manager.save_profile(profile)
+
+        except Exception as e:
+            # Don't fail tool execution if profile update fails
+            logging.debug(f"Failed to update profile from tool execution: {e}")
 
     async def run(self) -> None:
         """Run the MCP server."""

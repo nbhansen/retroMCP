@@ -3,6 +3,7 @@
 import re
 from typing import List
 
+from ..config import RetroPieConfig
 from ..domain.models import CommandResult
 from ..domain.models import ConfigFile
 from ..domain.models import Emulator
@@ -16,9 +17,10 @@ from ..domain.ports import RetroPieClient
 class SSHEmulatorRepository(EmulatorRepository):
     """SSH implementation of emulator repository interface."""
 
-    def __init__(self, client: RetroPieClient) -> None:
-        """Initialize with RetroPie client."""
+    def __init__(self, client: RetroPieClient, config: RetroPieConfig) -> None:
+        """Initialize with RetroPie client and configuration."""
         self._client = client
+        self._config = config
 
     def get_emulators(self) -> List[Emulator]:
         """Get list of available emulators."""
@@ -54,8 +56,9 @@ class SSHEmulatorRepository(EmulatorRepository):
         }
 
         # Get available emulators from RetroPie-Setup
+        retropie_setup_dir = self._config.retropie_setup_dir or f"{self._config.home_dir}/RetroPie-Setup"
         available_result = self._client.execute_command(
-            "ls -la /home/pi/RetroPie-Setup/scriptmodules/emulators/ 2>/dev/null | grep '.sh$'"
+            f"ls -la {retropie_setup_dir}/scriptmodules/emulators/ 2>/dev/null | grep '.sh$'"
         )
         available_emulators = set()
 
@@ -124,13 +127,14 @@ class SSHEmulatorRepository(EmulatorRepository):
     def install_emulator(self, emulator_name: str) -> CommandResult:
         """Install an emulator."""
         # Use RetroPie-Setup to install the emulator
-        command = f"cd /home/pi/RetroPie-Setup && sudo ./retropie_packages.sh {emulator_name} install_bin"
+        retropie_setup_dir = self._config.retropie_setup_dir or f"{self._config.home_dir}/RetroPie-Setup"
+        command = f"cd {retropie_setup_dir} && sudo ./retropie_packages.sh {emulator_name} install_bin"
         return self._client.execute_command(command, use_sudo=True)
 
     def get_rom_directories(self) -> List[RomDirectory]:
         """Get ROM directories information."""
         rom_dirs = []
-        base_dir = "/home/pi/RetroPie/roms"
+        base_dir = self._config.roms_dir or f"{self._config.home_dir}/RetroPie/roms"
 
         # Get list of ROM directories
         result = self._client.execute_command(f"ls -la {base_dir} 2>/dev/null")

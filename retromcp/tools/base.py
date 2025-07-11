@@ -12,16 +12,19 @@ from mcp.types import TextContent
 from mcp.types import Tool
 
 try:
+    from ..config import RetroPieConfig
     from ..ssh_handler import RetroPieSSH
 except ImportError:
+    from config import RetroPieConfig
     from ssh_handler import RetroPieSSH
 
 
 class BaseTool(ABC):
     """Base class for all RetroMCP tools."""
 
-    def __init__(self, ssh_handler: RetroPieSSH) -> None:
+    def __init__(self, ssh_handler: RetroPieSSH, config: RetroPieConfig) -> None:
         self.ssh = ssh_handler
+        self.config = config
 
     @abstractmethod
     def get_tools(self) -> List[Tool]:

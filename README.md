@@ -139,10 +139,23 @@ python manual_test.py
 
 ## Claude Desktop Integration
 
-Add to your Claude Desktop config:
+### Official Support
+Claude Desktop officially supports macOS and Windows.
+
+### Linux Support
+For Linux users (including Fedora), community solutions are available:
+- [Fedora-specific build](https://github.com/bsneed/claude-desktop-fedora) - Recommended for Fedora users
+- [Universal Linux installer](https://github.com/AstroSteveo/claude-desktop-linux-installer) - Supports RHEL/Debian/Arch
+
+### Configuration
+Once Claude Desktop is installed, configure MCP support:
+
+**Config file location:**
 - Mac: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
 
+**Configuration:**
 ```json
 {
   "mcpServers": {
