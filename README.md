@@ -13,20 +13,44 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) is an open protoc
 ## Overview
 
 RetroMCP bridges the gap between AI assistants and RetroPie by providing MCP tools that enable:
-- Remote configuration of RetroPie systems via SSH
-- Automated setup of controllers and emulators
-- System diagnostics and troubleshooting
-- Package management and updates
+- **Dynamic system discovery** - Automatically detects custom usernames and paths
+- **Remote configuration** of RetroPie systems via SSH
+- **Persistent system profiles** - Learns and remembers your specific setup over time
+- **Automated setup** of controllers and emulators
+- **System diagnostics** and troubleshooting
+- **Package management** and updates
 
-Instead of manually SSH-ing into your Pi and running complex commands, you can ask an AI assistant to help configure your RetroPie system using natural language.
+Instead of manually SSH-ing into your Pi and running complex commands, you can ask an AI assistant to help configure your RetroPie system using natural language. The system adapts to custom configurations (like using 'retro' instead of 'pi' username) and builds a knowledge base of your specific setup.
+
+## Key Features
+
+### 🔍 **Dynamic System Discovery**
+- Automatically detects username (pi/retro/custom)
+- Discovers RetroPie installation paths
+- Identifies EmulationStation process type (systemd vs user)
+- No hardcoded assumptions about your setup
+
+### 📝 **Persistent System Profiles**
+- Learns your specific configuration over time
+- Remembers successful tool executions and solutions
+- Tracks controller and emulator configurations
+- Stores profile in `~/.retromcp/system-profile.json`
+
+### 🤖 **AI Context Sharing**
+- Exposes system profile via MCP Resources
+- Claude gets context about your specific setup
+- Enables more effective troubleshooting conversations
+- Remembers past issues and resolutions
 
 ## Architecture
 
 RetroMCP follows hexagonal architecture principles:
 
 - **Domain Layer**: Core business models and interfaces (ports)
-- **Application Layer**: Use cases that orchestrate business logic
+- **Application Layer**: Use cases that orchestrate business logic  
 - **Infrastructure Layer**: SSH implementations of domain interfaces
+- **Discovery Layer**: Automatic system path and configuration detection
+- **Profile Layer**: Persistent learning and context management
 - **MCP Adapter**: Exposes functionality through the Model Context Protocol
 
 ## Requirements
@@ -73,11 +97,13 @@ nano .env
 Required settings in `.env`:
 ```
 RETROPIE_HOST=192.168.1.100  # Your Pi's IP address
-RETROPIE_USERNAME=pi          # SSH username
-RETROPIE_PASSWORD=raspberry   # SSH password
+RETROPIE_USERNAME=retro       # SSH username (auto-detected after first connection)
+RETROPIE_PASSWORD=password    # SSH password
 # OR
 RETROPIE_SSH_KEY_PATH=~/.ssh/id_rsa  # Path to SSH key
 ```
+
+**Note**: RetroMCP automatically discovers your system configuration on first connection, including custom usernames, RetroPie paths, and EmulationStation setup. The system adapts to your specific configuration without requiring manual path configuration.
 
 ## Available Tools
 
@@ -184,10 +210,12 @@ retromcp/
 ├── infrastructure/   # External system implementations
 │   ├── ssh_*.py      # SSH-based repositories
 │   └── ...
-├── tools/           # MCP tool adapters (legacy)
+├── tools/           # MCP tool adapters
+├── discovery.py     # System path and configuration discovery
+├── profile.py       # Persistent system profile management
 ├── server.py        # MCP server entry point
-├── container.py     # Dependency injection
-└── config.py        # Configuration objects
+├── container.py     # Dependency injection with auto-discovery
+└── config.py        # Configuration objects with dynamic paths
 ```
 
 ### Code Quality

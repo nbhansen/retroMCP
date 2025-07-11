@@ -38,6 +38,10 @@ env/
 .env
 *.log
 
+# Development docs (internal only)
+CLAUDE.md
+SPEC.md
+
 # Node.js (if using MCP Inspector locally)
 node_modules/
 package-lock.json
