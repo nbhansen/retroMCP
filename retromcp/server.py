@@ -26,6 +26,7 @@ try:
     from .profile import SystemProfileManager
     from .tools import ControllerTools
     from .tools import EmulationStationTools
+    from .tools import HardwareTools
     from .tools import RetroPieTools
     from .tools import SystemTools
 except ImportError:
@@ -36,6 +37,7 @@ except ImportError:
     from container import Container
     from tools import ControllerTools
     from tools import EmulationStationTools
+    from tools import HardwareTools
     from tools import RetroPieTools
     from tools import SystemTools
 
@@ -81,7 +83,9 @@ class RetroMCPServer:
 
                 # Get or create system profile
                 if self.container.config.paths:
-                    profile = self.profile_manager.get_or_create_profile(self.container.config.paths)
+                    profile = self.profile_manager.get_or_create_profile(
+                        self.container.config.paths
+                    )
                     return profile.to_context_summary()
                 else:
                     return "⚠️ System discovery not completed yet"
@@ -102,10 +106,21 @@ class RetroMCPServer:
 
             # Get tool instances from container
             tool_instances = {
-                "system": SystemTools(self.container.ssh_handler, self.container.config),
-                "controller": ControllerTools(self.container.ssh_handler, self.container.config),
-                "retropie": RetroPieTools(self.container.ssh_handler, self.container.config),
-                "emulationstation": EmulationStationTools(self.container.ssh_handler, self.container.config),
+                "system": SystemTools(
+                    self.container.ssh_handler, self.container.config
+                ),
+                "controller": ControllerTools(
+                    self.container.ssh_handler, self.container.config
+                ),
+                "retropie": RetroPieTools(
+                    self.container.ssh_handler, self.container.config
+                ),
+                "emulationstation": EmulationStationTools(
+                    self.container.ssh_handler, self.container.config
+                ),
+                "hardware": HardwareTools(
+                    self.container.ssh_handler, self.container.config
+                ),
             }
 
             # Collect tools from all modules
@@ -144,10 +159,21 @@ class RetroMCPServer:
 
             # Get tool instances from container
             tool_instances = {
-                "system": SystemTools(self.container.ssh_handler, self.container.config),
-                "controller": ControllerTools(self.container.ssh_handler, self.container.config),
-                "retropie": RetroPieTools(self.container.ssh_handler, self.container.config),
-                "emulationstation": EmulationStationTools(self.container.ssh_handler, self.container.config),
+                "system": SystemTools(
+                    self.container.ssh_handler, self.container.config
+                ),
+                "controller": ControllerTools(
+                    self.container.ssh_handler, self.container.config
+                ),
+                "retropie": RetroPieTools(
+                    self.container.ssh_handler, self.container.config
+                ),
+                "emulationstation": EmulationStationTools(
+                    self.container.ssh_handler, self.container.config
+                ),
+                "hardware": HardwareTools(
+                    self.container.ssh_handler, self.container.config
+                ),
             }
 
             # Define tool routing - maps tool names to modules
@@ -174,6 +200,12 @@ class RetroMCPServer:
                 "configure_themes": "emulationstation",
                 "manage_gamelists": "emulationstation",
                 "configure_es_settings": "emulationstation",
+                # Hardware tools
+                "check_temperatures": "hardware",
+                "monitor_fan_control": "hardware",
+                "check_power_supply": "hardware",
+                "inspect_hardware_errors": "hardware",
+                "check_gpio_status": "hardware",
             }
 
             # Route tool call to appropriate module
@@ -201,22 +233,29 @@ class RetroMCPServer:
             if not self.container.config.paths:
                 return
 
-            profile = self.profile_manager.get_or_create_profile(self.container.config.paths)
+            profile = self.profile_manager.get_or_create_profile(
+                self.container.config.paths
+            )
 
             # Extract successful result text
             result_text = ""
             for item in result:
-                if hasattr(item, 'text'):
+                if hasattr(item, "text"):
                     result_text += item.text + "\n"
 
             # Update profile based on tool type
-            if tool_name == "detect_controllers" and "Detected controllers:" in result_text:
+            if (
+                tool_name == "detect_controllers"
+                and "Detected controllers:" in result_text
+            ):
                 # Could parse controller detection results and update profile
                 pass
             elif tool_name == "setup_controller" and "✓" in result_text:
                 # Could record successful controller setup
                 controller_type = arguments.get("controller_type", "unknown")
-                profile.add_user_note(f"Successfully configured {controller_type} controller")
+                profile.add_user_note(
+                    f"Successfully configured {controller_type} controller"
+                )
                 self.profile_manager.save_profile(profile)
             elif tool_name == "install_emulator" and "✓" in result_text:
                 # Could record successful emulator installation
@@ -264,14 +303,19 @@ Tool Categories:
 🎮 Controller Tools: Detection, setup, testing, configuration
 🚀 RetroPie Tools: Emulator installation, ROM management, overclocking
 🎨 EmulationStation Tools: Theme management, settings, service control
+🔬 Hardware Tools: Temperature monitoring, fan control, power analysis, GPIO debugging
 
 Popular Tools:
 - test_connection: Test SSH connection to your RetroPie
+- check_temperatures: Monitor CPU/GPU temperatures and thermal throttling
+- monitor_fan_control: Check fan operation and cooling system
 - detect_controllers: Detect connected game controllers
 - install_packages: Install packages via apt-get
 - setup_controller: Configure Xbox, PS4, or 8BitDo controllers
 - install_emulator: Install emulators via RetroPie-Setup
 - configure_overclock: Adjust Pi performance settings
+- check_power_supply: Monitor power health and under-voltage warnings
+- inspect_hardware_errors: Analyze system logs for hardware issues
 
 Before using, ensure your .env file is configured with:
 - RETROPIE_HOST: IP address of your Raspberry Pi

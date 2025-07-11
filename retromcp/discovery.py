@@ -91,7 +91,9 @@ class RetroPieDiscovery:
         """Discover RetroPie directory location."""
         # Check standard location first
         standard_path = f"{home_dir}/RetroPie"
-        result = self._client.execute_command(f"test -d '{standard_path}' && echo 'exists'")
+        result = self._client.execute_command(
+            f"test -d '{standard_path}' && echo 'exists'"
+        )
         if result.success and "exists" in result.stdout:
             logger.debug(f"Found RetroPie directory: {standard_path}")
             return standard_path
@@ -121,7 +123,9 @@ class RetroPieDiscovery:
         """Discover RetroPie-Setup directory location."""
         # Check standard location first
         standard_path = f"{home_dir}/RetroPie-Setup"
-        result = self._client.execute_command(f"test -d '{standard_path}' && echo 'exists'")
+        result = self._client.execute_command(
+            f"test -d '{standard_path}' && echo 'exists'"
+        )
         if result.success and "exists" in result.stdout:
             logger.debug(f"Found RetroPie-Setup directory: {standard_path}")
             return standard_path
@@ -152,7 +156,9 @@ class RetroPieDiscovery:
         if retropie_dir:
             # Check in RetroPie directory
             bios_path = f"{retropie_dir}/BIOS"
-            result = self._client.execute_command(f"test -d '{bios_path}' && echo 'exists'")
+            result = self._client.execute_command(
+                f"test -d '{bios_path}' && echo 'exists'"
+            )
             if result.success and "exists" in result.stdout:
                 logger.debug(f"Found BIOS directory: {bios_path}")
                 return bios_path
@@ -174,7 +180,9 @@ class RetroPieDiscovery:
         if retropie_dir:
             # Check in RetroPie directory
             roms_path = f"{retropie_dir}/roms"
-            result = self._client.execute_command(f"test -d '{roms_path}' && echo 'exists'")
+            result = self._client.execute_command(
+                f"test -d '{roms_path}' && echo 'exists'"
+            )
             if result.success and "exists" in result.stdout:
                 logger.debug(f"Found ROMs directory: {roms_path}")
                 return roms_path

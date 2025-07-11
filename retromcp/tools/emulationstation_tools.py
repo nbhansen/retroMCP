@@ -137,7 +137,7 @@ class EmulationStationTools(BaseTool):
             # Start EmulationStation as the user
             exit_code, _, stderr = self.ssh.execute_command(
                 "nohup emulationstation > /dev/null 2>&1 &",
-                timeout=5  # Don't wait for this to complete
+                timeout=5,  # Don't wait for this to complete
             )
 
         if exit_code == 0:

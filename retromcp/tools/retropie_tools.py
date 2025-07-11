@@ -265,8 +265,7 @@ class RetroPieTools(BaseTool):
                 self.ssh.execute_command("pkill -f emulationstation")
                 self.ssh.execute_command("sleep 2")
                 exit_code, _, _ = self.ssh.execute_command(
-                    "nohup emulationstation > /dev/null 2>&1 &",
-                    timeout=5
+                    "nohup emulationstation > /dev/null 2>&1 &", timeout=5
                 )
 
             if exit_code == 0:

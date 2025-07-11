@@ -115,15 +115,22 @@ class SystemProfile:
     def update_controller(self, controller_profile: ControllerProfile) -> None:
         """Update or add controller profile."""
         # Remove existing controller with same device path
-        self.controllers = [c for c in self.controllers if c.device_path != controller_profile.device_path]
+        self.controllers = [
+            c
+            for c in self.controllers
+            if c.device_path != controller_profile.device_path
+        ]
         self.controllers.append(controller_profile)
 
     def update_emulator(self, emulator_profile: EmulatorProfile) -> None:
         """Update or add emulator profile."""
         # Remove existing emulator with same name and system
         self.emulators = [
-            e for e in self.emulators
-            if not (e.name == emulator_profile.name and e.system == emulator_profile.system)
+            e
+            for e in self.emulators
+            if not (
+                e.name == emulator_profile.name and e.system == emulator_profile.system
+            )
         ]
         self.emulators.append(emulator_profile)
 
@@ -163,7 +170,9 @@ class SystemProfile:
             lines.append("\nControllers:")
             for controller in self.controllers:
                 status = "✓ Configured" if controller.configured else "⚠ Not configured"
-                lines.append(f"  - {controller.name} ({controller.controller_type}) {status}")
+                lines.append(
+                    f"  - {controller.name} ({controller.controller_type}) {status}"
+                )
                 if controller.known_issues:
                     for issue in controller.known_issues:
                         lines.append(f"    Issue: {issue}")
@@ -171,7 +180,9 @@ class SystemProfile:
         if self.emulators:
             lines.append("\nEmulators:")
             for emulator in self.emulators:
-                lines.append(f"  - {emulator.name} ({emulator.system}) - {emulator.status}")
+                lines.append(
+                    f"  - {emulator.name} ({emulator.system}) - {emulator.status}"
+                )
                 if emulator.controller_issues:
                     for issue in emulator.controller_issues:
                         lines.append(f"    Controller issue: {issue}")
@@ -213,11 +224,11 @@ class SystemProfileManager:
                 data = json.load(f)
 
             # Convert controller and emulator dicts back to dataclasses
-            controllers = [ControllerProfile(**c) for c in data.get('controllers', [])]
-            emulators = [EmulatorProfile(**e) for e in data.get('emulators', [])]
+            controllers = [ControllerProfile(**c) for c in data.get("controllers", [])]
+            emulators = [EmulatorProfile(**e) for e in data.get("emulators", [])]
 
-            data['controllers'] = controllers
-            data['emulators'] = emulators
+            data["controllers"] = controllers
+            data["emulators"] = emulators
 
             profile = SystemProfile(**data)
             logger.info(f"Loaded system profile for {profile.username}")
@@ -235,7 +246,7 @@ class SystemProfileManager:
             # Convert to dict with dataclass serialization
             data = asdict(profile)
 
-            with open(self.profile_path, 'w') as f:
+            with open(self.profile_path, "w") as f:
                 json.dump(data, f, indent=2, default=str)
 
             logger.info(f"Saved system profile for {profile.username}")
@@ -255,8 +266,10 @@ class SystemProfileManager:
             self.save_profile(profile)
         else:
             # Update discovery info if paths have changed
-            if (profile.home_dir != paths.home_dir or
-                profile.retropie_dir != paths.retropie_dir):
+            if (
+                profile.home_dir != paths.home_dir
+                or profile.retropie_dir != paths.retropie_dir
+            ):
                 logger.info("Updating profile with new discovery info")
                 profile.home_dir = paths.home_dir
                 profile.username = paths.username
@@ -280,4 +293,3 @@ class SystemProfileManager:
     def current_profile(self) -> Optional[SystemProfile]:
         """Get current profile."""
         return self._profile
-

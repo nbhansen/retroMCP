@@ -95,7 +95,7 @@ class Container:
         self._ensure_discovery()
         return self._get_or_create(
             "controller_repository",
-            lambda: SSHControllerRepository(self.retropie_client, self.config),
+            lambda: SSHControllerRepository(self.retropie_client),
         )
 
     @property

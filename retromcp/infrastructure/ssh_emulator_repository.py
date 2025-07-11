@@ -56,7 +56,9 @@ class SSHEmulatorRepository(EmulatorRepository):
         }
 
         # Get available emulators from RetroPie-Setup
-        retropie_setup_dir = self._config.retropie_setup_dir or f"{self._config.home_dir}/RetroPie-Setup"
+        retropie_setup_dir = (
+            self._config.retropie_setup_dir or f"{self._config.home_dir}/RetroPie-Setup"
+        )
         available_result = self._client.execute_command(
             f"ls -la {retropie_setup_dir}/scriptmodules/emulators/ 2>/dev/null | grep '.sh$'"
         )
@@ -127,7 +129,9 @@ class SSHEmulatorRepository(EmulatorRepository):
     def install_emulator(self, emulator_name: str) -> CommandResult:
         """Install an emulator."""
         # Use RetroPie-Setup to install the emulator
-        retropie_setup_dir = self._config.retropie_setup_dir or f"{self._config.home_dir}/RetroPie-Setup"
+        retropie_setup_dir = (
+            self._config.retropie_setup_dir or f"{self._config.home_dir}/RetroPie-Setup"
+        )
         command = f"cd {retropie_setup_dir} && sudo ./retropie_packages.sh {emulator_name} install_bin"
         return self._client.execute_command(command, use_sudo=True)
 
