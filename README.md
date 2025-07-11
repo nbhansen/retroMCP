@@ -1,14 +1,40 @@
 # RetroMCP
 
-A Model Context Protocol (MCP) server for configuring and managing RetroPie on Raspberry Pi.
+**Turn your AI assistant into a RetroPie expert that learns your specific setup.**
+
+RetroMCP bridges the gap between modern AI assistants and retro gaming by making your Raspberry Pi's RetroPie system accessible to AI helpers like Claude. Instead of spending hours troubleshooting controller issues, hunting down missing files, or configuring emulators, you can simply ask your AI assistant for help in natural language.
+
+## The Problem This Solves
+
+**Retro gaming on Raspberry Pi is amazing but can be frustrating:**
+- Setting up controllers often requires specific drivers and configuration files
+- Different emulators need different BIOS files, but which ones?
+- Performance tuning requires knowledge of arcane configuration files
+- Troubleshooting usually means diving into Linux command line and forums
+- Every setup is slightly different, making generic guides unhelpful
+
+**Traditional solutions require you to:**
+- SSH into your Pi and run complex commands
+- Navigate unfamiliar Linux file systems
+- Edit configuration files by hand
+- Remember (or re-learn) which packages and settings work for your specific hardware
+
+## The RetroMCP Solution
+
+RetroMCP turns your AI assistant into a knowledgeable helper that:
+- **Connects directly to your Pi** - No manual SSH commands needed
+- **Learns your specific setup** - Remembers your username, paths, and successful configurations
+- **Speaks your language** - Ask questions like "Why won't my Xbox controller work?" or "Help me get N64 games running smoothly"
+- **Provides expert guidance** - The AI gets full context about your system and can troubleshoot effectively
+- **Adapts automatically** - Works with standard setups and custom configurations alike
+
+## What is RetroPie?
+
+[RetroPie](https://retropie.org.uk/) is a popular retro gaming platform that turns your Raspberry Pi into a retro-gaming machine. It provides a user-friendly interface to run game emulators for classic consoles like NES, SNES, PlayStation, N64, and dozens more.
 
 ## What is MCP?
 
 The [Model Context Protocol](https://modelcontextprotocol.io/) is an open protocol that enables AI assistants like Claude to interact with external systems through standardized server implementations. MCP servers expose tools and resources that AI models can use to perform actions on behalf of users.
-
-## What is RetroPie?
-
-[RetroPie](https://retropie.org.uk/) is a popular retro gaming platform that turns your Raspberry Pi into a retro-gaming machine. It provides a user-friendly interface to run game emulators and manage ROM collections.
 
 ## Overview
 
