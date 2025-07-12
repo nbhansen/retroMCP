@@ -45,6 +45,54 @@ except ImportError:
 load_dotenv()
 
 
+def configure_logging() -> None:
+    """Configure logging based on environment variables."""
+    import os
+
+    log_level = os.getenv("RETROMCP_LOG_LEVEL", "INFO").upper()
+
+    # Map string levels to logging constants
+    level_map = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+    }
+
+    level = level_map.get(log_level, logging.INFO)
+
+    # Configure basic logging
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # For debug mode, also log to file
+    if level == logging.DEBUG:
+        from pathlib import Path
+        log_dir = Path.home() / ".retromcp"
+        log_dir.mkdir(exist_ok=True)
+
+        file_handler = logging.FileHandler(log_dir / "debug.log")
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
+
+        # Add file handler to root logger
+        logging.getLogger().addHandler(file_handler)
+        logging.info(f"Debug logging enabled - writing to {log_dir / 'debug.log'}")
+
+
+# Configure logging on module import
+configure_logging()
+
+
 class RetroMCPServer:
     """Main RetroMCP server class with proper dependency injection."""
 
@@ -144,6 +192,8 @@ class RetroMCPServer:
         self, name: str, arguments: Dict[str, Any]
     ) -> List[TextContent | ImageContent | EmbeddedResource]:
         """Handle tool calls by routing to appropriate module."""
+        logging.debug(f"Tool call received: {name} with arguments: {arguments}")
+
         if name == "connection_error":
             return [
                 TextContent(
@@ -154,6 +204,7 @@ class RetroMCPServer:
 
         try:
             # Ensure connection is established
+            logging.debug("Attempting to establish connection to RetroPie")
             if not self.container.connect():
                 raise ConnectionError("Failed to connect to RetroPie")
 
@@ -212,7 +263,10 @@ class RetroMCPServer:
             if name in tool_routing:
                 module_name = tool_routing[name]
                 tool_instance = tool_instances[module_name]
+                logging.debug(f"Routing tool {name} to module {module_name}")
+
                 result = await tool_instance.handle_tool_call(name, arguments)
+                logging.debug(f"Tool {name} completed successfully")
 
                 # Update profile with any new information learned
                 if self.container.config.paths:
@@ -220,9 +274,11 @@ class RetroMCPServer:
 
                 return result
             else:
+                logging.warning(f"Unknown tool requested: {name}")
                 return [TextContent(type="text", text=f"❌ Unknown tool: {name}")]
 
         except Exception as e:
+            logging.error(f"Tool execution failed for {name}: {e}", exc_info=True)
             return [TextContent(type="text", text=f"❌ Error executing {name}: {e!s}")]
 
     def _update_profile_from_tool_execution(

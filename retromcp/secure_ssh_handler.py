@@ -372,6 +372,7 @@ class SecureSSHHandler:
     def validate_gpio_pin(self, pin: Union[int, str]) -> None:
         """Validate GPIO pin number."""
         if not isinstance(pin, int) or pin < 0 or pin > 40:
+            logger.warning(f"Security: Rejected invalid GPIO pin: {pin}")
             raise ValueError(f"Invalid GPIO pin: {pin} (must be 0-40)")
 
     def validate_gpio_mode(self, mode: str) -> None:
@@ -383,42 +384,50 @@ class SecureSSHHandler:
     def validate_package_name(self, package: str) -> None:
         """Validate package name format."""
         if not package or not package.strip():
+            logger.warning("Security: Rejected empty package name")
             raise ValueError("Invalid package name: cannot be empty")
 
         # Check for obvious dangerous characters
         dangerous_chars = [';', '$', '`', '|', '&', '\x00', '\n', '\r', '..']
         for char in dangerous_chars:
             if char in package:
+                logger.warning(f"Security: Rejected package name with dangerous character: {package!r}")
                 raise ValueError(f"Invalid package name: contains dangerous character '{char}'")
 
     def validate_theme_name(self, theme: str) -> None:
         """Validate theme name."""
         if not theme or not theme.strip():
+            logger.warning("Security: Rejected empty theme name")
             raise ValueError("Invalid theme name: cannot be empty")
 
         # Check for path traversal and command injection
         if '..' in theme or '/' in theme:
+            logger.warning(f"Security: Rejected theme name with path traversal: {theme!r}")
             raise ValueError("Invalid theme name: contains path characters")
 
         dangerous_chars = [';', '$', '`', '|', '&', '\x00', '\n', '\r']
         for char in dangerous_chars:
             if char in theme:
+                logger.warning(f"Security: Rejected theme name with dangerous character: {theme!r}")
                 raise ValueError("Invalid theme name: contains dangerous character")
 
     def validate_device_path(self, device: str) -> None:
         """Validate device path."""
         if not device.startswith('/dev/'):
+            logger.warning(f"Security: Rejected invalid device path: {device!r}")
             raise ValueError("Invalid device path: must start with /dev/")
 
         # Check for command injection
         dangerous_chars = [';', '$', '`', '|', '&', '\x00', '\n', '\r']
         for char in dangerous_chars:
             if char in device:
+                logger.warning(f"Security: Rejected device path with dangerous character: {device!r}")
                 raise ValueError("Invalid device path: contains dangerous character")
 
     def validate_safe_path(self, path: str) -> None:
         """Validate path doesn't contain traversal attempts."""
         if '..' in path:
+            logger.warning(f"Security: Path traversal attempt detected: {path!r}")
             raise ValueError("Path traversal attempt detected")
 
         # Additional checks for Windows-style paths
