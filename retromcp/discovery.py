@@ -38,11 +38,11 @@ class RetroPieDiscovery:
         home_dir = self._discover_home_directory()
         username = self._discover_username()
 
-        # Discover RetroPie directories
-        retropie_dir = self._discover_retropie_directory(home_dir)
-        retropie_setup_dir = self._discover_retropie_setup_directory(home_dir)
-        bios_dir = self._discover_bios_directory(retropie_dir)
-        roms_dir = self._discover_roms_directory(retropie_dir)
+        # Discover RetroPie directories using simple directory checks
+        retropie_dir = self._check_directory(f"{home_dir}/RetroPie")
+        retropie_setup_dir = self._check_directory(f"{home_dir}/RetroPie-Setup")
+        bios_dir = self._check_directory(f"{home_dir}/RetroPie/BIOS")
+        roms_dir = self._check_directory(f"{home_dir}/RetroPie/roms")
 
         paths = RetroPiePaths(
             home_dir=home_dir,
@@ -58,143 +58,34 @@ class RetroPieDiscovery:
 
     def _discover_home_directory(self) -> str:
         """Discover user's home directory."""
-        result = self._client.execute_command("echo $HOME")
-        if result.success and result.stdout.strip():
+        result = self._client.execute_command("pwd")
+        if result.success:
             home_dir = result.stdout.strip()
             logger.debug(f"Discovered home directory: {home_dir}")
             return home_dir
 
-        # Fallback: try to get from whoami
-        result = self._client.execute_command("eval echo ~$(whoami)")
-        if result.success and result.stdout.strip():
-            home_dir = result.stdout.strip()
-            logger.debug(f"Discovered home directory (fallback): {home_dir}")
-            return home_dir
-
-        # Last resort fallback
-        logger.warning("Could not discover home directory, using /home/pi")
-        return "/home/pi"
+        # Fallback
+        logger.warning("Could not discover home directory, using unknown")
+        return "unknown"
 
     def _discover_username(self) -> str:
         """Discover current username."""
         result = self._client.execute_command("whoami")
-        if result.success and result.stdout.strip():
+        if result.success:
             username = result.stdout.strip()
             logger.debug(f"Discovered username: {username}")
             return username
 
         # Fallback
-        logger.warning("Could not discover username, using pi")
-        return "pi"
+        logger.warning("Could not discover username, using unknown")
+        return "unknown"
 
-    def _discover_retropie_directory(self, home_dir: str) -> Optional[str]:
-        """Discover RetroPie directory location."""
-        # Check standard location first
-        standard_path = f"{home_dir}/RetroPie"
-        result = self._client.execute_command(
-            f"test -d '{standard_path}' && echo 'exists'"
-        )
-        if result.success and "exists" in result.stdout:
-            logger.debug(f"Found RetroPie directory: {standard_path}")
-            return standard_path
-
-        # Search in home directory
-        result = self._client.execute_command(
-            f"find '{home_dir}' -maxdepth 2 -name 'RetroPie' -type d 2>/dev/null | head -1"
-        )
-        if result.success and result.stdout.strip():
-            retropie_dir = result.stdout.strip()
-            logger.debug(f"Found RetroPie directory: {retropie_dir}")
-            return retropie_dir
-
-        # Search system-wide (last resort)
-        result = self._client.execute_command(
-            "find /home -name 'RetroPie' -type d 2>/dev/null | head -1"
-        )
-        if result.success and result.stdout.strip():
-            retropie_dir = result.stdout.strip()
-            logger.debug(f"Found RetroPie directory (system-wide): {retropie_dir}")
-            return retropie_dir
-
-        logger.warning("Could not find RetroPie directory")
-        return None
-
-    def _discover_retropie_setup_directory(self, home_dir: str) -> Optional[str]:
-        """Discover RetroPie-Setup directory location."""
-        # Check standard location first
-        standard_path = f"{home_dir}/RetroPie-Setup"
-        result = self._client.execute_command(
-            f"test -d '{standard_path}' && echo 'exists'"
-        )
-        if result.success and "exists" in result.stdout:
-            logger.debug(f"Found RetroPie-Setup directory: {standard_path}")
-            return standard_path
-
-        # Search in home directory
-        result = self._client.execute_command(
-            f"find '{home_dir}' -maxdepth 2 -name 'RetroPie-Setup' -type d 2>/dev/null | head -1"
-        )
-        if result.success and result.stdout.strip():
-            setup_dir = result.stdout.strip()
-            logger.debug(f"Found RetroPie-Setup directory: {setup_dir}")
-            return setup_dir
-
-        # Search system-wide (last resort)
-        result = self._client.execute_command(
-            "find /home -name 'RetroPie-Setup' -type d 2>/dev/null | head -1"
-        )
-        if result.success and result.stdout.strip():
-            setup_dir = result.stdout.strip()
-            logger.debug(f"Found RetroPie-Setup directory (system-wide): {setup_dir}")
-            return setup_dir
-
-        logger.warning("Could not find RetroPie-Setup directory")
-        return None
-
-    def _discover_bios_directory(self, retropie_dir: Optional[str]) -> Optional[str]:
-        """Discover BIOS directory location."""
-        if retropie_dir:
-            # Check in RetroPie directory
-            bios_path = f"{retropie_dir}/BIOS"
-            result = self._client.execute_command(
-                f"test -d '{bios_path}' && echo 'exists'"
-            )
-            if result.success and "exists" in result.stdout:
-                logger.debug(f"Found BIOS directory: {bios_path}")
-                return bios_path
-
-        # Check standard system location
-        result = self._client.execute_command(
-            "find /home -name 'BIOS' -path '*/RetroPie/BIOS' -type d 2>/dev/null | head -1"
-        )
-        if result.success and result.stdout.strip():
-            bios_dir = result.stdout.strip()
-            logger.debug(f"Found BIOS directory: {bios_dir}")
-            return bios_dir
-
-        logger.warning("Could not find BIOS directory")
-        return None
-
-    def _discover_roms_directory(self, retropie_dir: Optional[str]) -> Optional[str]:
-        """Discover ROMs directory location."""
-        if retropie_dir:
-            # Check in RetroPie directory
-            roms_path = f"{retropie_dir}/roms"
-            result = self._client.execute_command(
-                f"test -d '{roms_path}' && echo 'exists'"
-            )
-            if result.success and "exists" in result.stdout:
-                logger.debug(f"Found ROMs directory: {roms_path}")
-                return roms_path
-
-        # Check standard system location
-        result = self._client.execute_command(
-            "find /home -name 'roms' -path '*/RetroPie/roms' -type d 2>/dev/null | head -1"
-        )
-        if result.success and result.stdout.strip():
-            roms_dir = result.stdout.strip()
-            logger.debug(f"Found ROMs directory: {roms_dir}")
-            return roms_dir
-
-        logger.warning("Could not find ROMs directory")
-        return None
+    def _check_directory(self, path: str) -> Optional[str]:
+        """Check if a directory exists and return the path if it does."""
+        result = self._client.execute_command(f"test -d {path}")
+        if result.success:
+            logger.debug(f"Found directory: {path}")
+            return path
+        else:
+            logger.debug(f"Directory not found: {path}")
+            return None

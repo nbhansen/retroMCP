@@ -4,6 +4,35 @@
 
 RetroMCP bridges the gap between modern AI assistants and retro gaming by making your Raspberry Pi's RetroPie system accessible to AI helpers like Claude. Instead of spending hours troubleshooting controller issues, hunting down missing files, or configuring emulators, you can simply ask your AI assistant for help in natural language.
 
+## How It Works
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│                 │    │                 │    │                 │
+│   You ask:      │    │   RetroMCP      │    │   Your RetroPie │
+│   "Fix my       │───▶│   translates    │───▶│   gets the help │
+│    controller"  │    │   to commands   │    │   it needs      │
+│                 │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                        │                        │
+         │                        │                        │
+         ▼                        ▼                        ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│                 │    │                 │    │                 │
+│  Claude Desktop │    │  MCP Protocol   │    │  Raspberry Pi   │
+│  or AI Client   │◀──▶│  over SSH       │◀──▶│  RetroPie Setup │
+│                 │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+
+Natural Language ──▶ System Commands ──▶ Real Configuration Changes
+```
+
+**What you get:**
+- Ask "Set up my Xbox controller" → Controller gets configured automatically
+- Say "My N64 games are slow" → Performance gets tuned for your hardware  
+- Request "Find missing BIOS files" → Gets exact files needed for your setup
+- All through conversation, no Linux commands required
+
 ## The Problem This Solves
 
 **Retro gaming on Raspberry Pi is amazing but can be frustrating:**
@@ -50,19 +79,19 @@ Instead of manually SSH-ing into your Pi and running complex commands, you can a
 
 ## Key Features
 
-### 🔍 **Dynamic System Discovery**
+### **Dynamic System Discovery**
 - Automatically detects username (pi/retro/custom)
 - Discovers RetroPie installation paths
 - Identifies EmulationStation process type (systemd vs user)
 - No hardcoded assumptions about your setup
 
-### 📝 **Persistent System Profiles**
+### **Persistent System Profiles**
 - Learns your specific configuration over time
 - Remembers successful tool executions and solutions
 - Tracks controller and emulator configurations
 - Stores profile in `~/.retromcp/system-profile.json`
 
-### 🤖 **AI Context Sharing**
+### **AI Context Sharing**
 - Exposes system profile via MCP Resources
 - Claude gets context about your specific setup
 - Enables more effective troubleshooting conversations
