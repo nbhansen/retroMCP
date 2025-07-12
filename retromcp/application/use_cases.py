@@ -1,11 +1,13 @@
 """Application use cases for RetroMCP."""
 
 from typing import List
+from typing import Optional
 
 from ..domain.models import CommandResult
 from ..domain.models import ConnectionInfo
 from ..domain.models import Controller
 from ..domain.models import EmulatorStatus
+from ..domain.models import RomDirectory
 from ..domain.models import SystemInfo
 from ..domain.ports import ControllerRepository
 from ..domain.ports import EmulatorRepository
@@ -200,3 +202,47 @@ class InstallEmulatorUseCase:
 
         # Install the emulator
         return self._emulator_repo.install_emulator(emulator_name)
+
+
+class ListRomsUseCase:
+    """Use case for listing ROM directories and files."""
+
+    def __init__(self, emulator_repo: EmulatorRepository) -> None:
+        """Initialize with emulator repository."""
+        self._emulator_repo = emulator_repo
+
+    def execute(
+        self, system_filter: Optional[str] = None, min_rom_count: Optional[int] = None
+    ) -> List[RomDirectory]:
+        """List ROM directories with optional filtering.
+
+        Args:
+            system_filter: Optional system name to filter by
+            min_rom_count: Optional minimum ROM count to filter by
+
+        Returns:
+            List of RomDirectory objects, sorted by ROM count descending
+        """
+        # Get all ROM directories from repository
+        rom_directories = self._emulator_repo.get_rom_directories()
+
+        # Apply system filter if specified
+        if system_filter:
+            rom_directories = [
+                rom_dir
+                for rom_dir in rom_directories
+                if rom_dir.system == system_filter
+            ]
+
+        # Apply minimum ROM count filter if specified
+        if min_rom_count is not None:
+            rom_directories = [
+                rom_dir
+                for rom_dir in rom_directories
+                if rom_dir.rom_count >= min_rom_count
+            ]
+
+        # Sort by ROM count descending (most ROMs first)
+        rom_directories.sort(key=lambda r: r.rom_count, reverse=True)
+
+        return rom_directories

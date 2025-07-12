@@ -3,12 +3,14 @@
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 
 from mcp.types import EmbeddedResource
 from mcp.types import ImageContent
 from mcp.types import TextContent
 from mcp.types import Tool
 
+from ..domain.models import CommandResult
 from .base import BaseTool
 
 
@@ -167,30 +169,58 @@ class RetroPieTools(BaseTool):
         except Exception as e:
             return self.format_error(f"Error in {name}: {e!s}")
 
+    def _format_command_result(
+        self,
+        result: CommandResult,
+        success_message: Optional[str] = None,
+        error_prefix: Optional[str] = None,
+    ) -> List[TextContent]:
+        """Format a CommandResult domain object as MCP TextContent.
+
+        Args:
+            result: Domain CommandResult object
+            success_message: Custom success message (uses result.stdout if None)
+            error_prefix: Prefix for error messages (uses result.stderr if None)
+
+        Returns:
+            List of TextContent for MCP response
+        """
+        if result.success:
+            message = success_message or result.stdout
+            return self.format_success(message)
+        else:
+            if error_prefix:
+                error_msg = (
+                    f"{error_prefix}: {result.stderr}"
+                    if result.stderr
+                    else error_prefix
+                )
+            else:
+                error_msg = result.stderr or "Command failed"
+            return self.format_error(error_msg)
+
     async def _run_retropie_setup(self, arguments: Dict[str, Any]) -> List[TextContent]:
         """Run RetroPie-Setup script."""
         action = arguments.get("action")
         package = arguments.get("package")
 
         if action == "update":
-            success, message = self.ssh.run_retropie_setup()
-            if success:
-                return self.format_success(message)
-            else:
-                return self.format_error(message)
+            # Use domain use case for system updates
+            result = self.container.update_system_use_case.execute()
+            return self._format_command_result(
+                result, success_message="RetroPie system updated successfully"
+            )
 
         elif action in ["install", "remove", "configure"]:
             if not package:
                 return self.format_error(f"Package name required for {action} action")
 
-            # Run specific package action
-            success, message = self.ssh.run_retropie_setup(f"{action} {package}")
-            if success:
-                return self.format_success(
-                    f"{action.capitalize()}ed {package} successfully"
-                )
-            else:
-                return self.format_error(f"Failed to {action} {package}: {message}")
+            # TODO: Implement RunRetroPieSetupUseCase for package management
+            # For now, return an error indicating missing use case
+            return self.format_error(
+                f"RetroPie package {action} not yet implemented. "
+                f"Missing RunRetroPieSetupUseCase for: {action} {package}"
+            )
 
         else:
             return self.format_error(f"Unknown action: {action}")
@@ -198,7 +228,9 @@ class RetroPieTools(BaseTool):
     async def _install_emulator(self, arguments: Dict[str, Any]) -> List[TextContent]:
         """Install a specific emulator."""
         emulator = arguments.get("emulator")
-        arguments.get("install_type", "binary")
+        arguments.get(
+            "install_type", "binary"
+        )  # TODO: Support install_type in use case
 
         if not emulator:
             return self.format_error("No emulator specified")
@@ -217,74 +249,97 @@ class RetroPieTools(BaseTool):
 
         package_name = emulator_map.get(emulator.lower(), emulator)
 
-        success, message = self.ssh.setup_emulator("retropie", package_name)
+        # Use domain use case instead of direct SSH
+        result = self.container.install_emulator_use_case.execute(package_name)
 
-        if success:
-            return self.format_success(f"Successfully installed {emulator} emulator")
-        else:
-            return self.format_error(f"Failed to install {emulator}: {message}")
+        return self._format_command_result(
+            result,
+            success_message=f"Successfully installed {emulator} emulator",
+            error_prefix=f"Failed to install {emulator}",
+        )
 
     async def _manage_roms(self, arguments: Dict[str, Any]) -> List[TextContent]:
-        """Manage ROM files."""
+        """Manage ROM files.
+
+        TODO: Replace with domain use cases:
+        - ✅ ListRomsUseCase: IMPLEMENTED for listing ROM files by system
+        - ScanRomsUseCase: for EmulationStation ROM scanning
+        - FixRomPermissionsUseCase: for fixing ROM file permissions
+        """
         action = arguments.get("action")
-        system = arguments.get("system")
+        system = arguments.get("system")  # Now used by ListRomsUseCase
 
         if action == "list":
-            # List ROM directories
-            rom_path = self.config.roms_dir or f"{self.config.home_dir}/RetroPie/roms"
-            if system:
-                rom_path += f"/{system}"
-
-            exit_code, output, _ = self.ssh.execute_command(
-                f"find {rom_path} -type f -name '*.zip' -o -name '*.rom' -o -name '*.iso' -o -name '*.bin' | head -20"
+            # Use ListRomsUseCase for ROM directory listing
+            rom_directories = self.container.list_roms_use_case.execute(
+                system_filter=system,
+                min_rom_count=0,  # Show all directories, even empty ones
             )
 
-            if exit_code == 0:
-                if output:
-                    return [
-                        TextContent(type="text", text=f"📁 ROM Files:\\n\\n{output}")
-                    ]
+            # Format the output nicely
+            output = "📁 **ROM Directory Listing**\\n\\n"
+
+            if not rom_directories:
+                if system:
+                    output += f"No ROM directories found for system: {system}\\n"
                 else:
-                    return self.format_info("No ROM files found")
+                    output += "No ROM directories found.\\n"
+                output += "\\nConsider adding ROMs to ~/RetroPie/roms/ directories.\\n"
             else:
-                return self.format_error("Failed to list ROM files")
+                total_roms = sum(rom_dir.rom_count for rom_dir in rom_directories)
+                total_size = sum(rom_dir.total_size for rom_dir in rom_directories)
+
+                output += f"**Summary:** {len(rom_directories)} systems, {total_roms} ROMs total, {total_size / 1024 / 1024:.1f} MB\\n\\n"
+
+                for rom_dir in rom_directories:
+                    # Add system icon
+                    icon = "🎮"
+                    if (
+                        "nintendo" in rom_dir.system.lower()
+                        or "nes" in rom_dir.system.lower()
+                    ):
+                        icon = "🟥"
+                    elif (
+                        "playstation" in rom_dir.system.lower()
+                        or "psx" in rom_dir.system.lower()
+                    ) or "sega" in rom_dir.system.lower():
+                        icon = "🔵"
+                    elif (
+                        "arcade" in rom_dir.system.lower()
+                        or "mame" in rom_dir.system.lower()
+                    ):
+                        icon = "🕹️"
+
+                    output += f"  {icon} **{rom_dir.system.upper()}**\\n"
+                    output += f"    • Path: {rom_dir.path}\\n"
+                    output += f"    • ROMs: {rom_dir.rom_count}\\n"
+                    output += (
+                        f"    • Size: {rom_dir.total_size / 1024 / 1024:.1f} MB\\n"
+                    )
+                    if rom_dir.supported_extensions:
+                        extensions = ", ".join(
+                            rom_dir.supported_extensions[:5]
+                        )  # Show first 5
+                        if len(rom_dir.supported_extensions) > 5:
+                            extensions += "..."
+                        output += f"    • Formats: {extensions}\\n"
+                    output += "\\n"
+
+            return [TextContent(type="text", text=output)]
 
         elif action == "scan":
-            # Scan for new ROMs and update game lists
-            # Use the same logic as EmulationStation restart
-            service_check_code, service_output, _ = self.ssh.execute_command(
-                "systemctl is-active emulationstation 2>/dev/null"
+            # TODO: Replace with ScanRomsUseCase
+            return self.format_error(
+                "ROM scanning not yet implemented. "
+                "Missing ScanRomsUseCase for EmulationStation restart and ROM scanning."
             )
-
-            if service_check_code == 0 and "active" in service_output:
-                exit_code, _, _ = self.ssh.execute_command(
-                    "sudo systemctl restart emulationstation"
-                )
-            else:
-                # Restart as user process
-                self.ssh.execute_command("pkill -f emulationstation")
-                self.ssh.execute_command("sleep 2")
-                exit_code, _, _ = self.ssh.execute_command(
-                    "nohup emulationstation > /dev/null 2>&1 &", timeout=5
-                )
-
-            if exit_code == 0:
-                return self.format_success(
-                    "EmulationStation restarted to scan for new ROMs"
-                )
-            else:
-                return self.format_error("Failed to restart EmulationStation")
 
         elif action == "permissions":
-            # Fix ROM file permissions
-            exit_code, _, stderr = self.ssh.execute_command(
-                f"sudo chown -R {self.config.username}:{self.config.username} {self.config.roms_dir or f'{self.config.home_dir}/RetroPie/roms'} && sudo chmod -R 755 {self.config.roms_dir or f'{self.config.home_dir}/RetroPie/roms'}"
+            # TODO: Replace with FixRomPermissionsUseCase
+            return self.format_error(
+                "ROM permissions fix not yet implemented. "
+                "Missing FixRomPermissionsUseCase for fixing ROM file ownership and permissions."
             )
-
-            if exit_code == 0:
-                return self.format_success("ROM file permissions fixed")
-            else:
-                return self.format_error(f"Failed to fix permissions: {stderr}")
 
         else:
             return self.format_error(f"Unknown ROM action: {action}")
@@ -292,73 +347,40 @@ class RetroPieTools(BaseTool):
     async def _configure_overclock(
         self, arguments: Dict[str, Any]
     ) -> List[TextContent]:
-        """Configure overclocking settings."""
+        """Configure overclocking settings.
+
+        TODO: Replace with domain use case:
+        - ConfigureOverclockUseCase: for /boot/config.txt management
+        """
         preset = arguments.get("preset")
 
-        # Overclocking presets for different Pi models
-        presets = {
-            "none": {"arm_freq": 700, "gpu_freq": 250},
-            "modest": {"arm_freq": 800, "gpu_freq": 250},
-            "medium": {"arm_freq": 900, "gpu_freq": 250},
-            "high": {"arm_freq": 950, "gpu_freq": 250},
-            "turbo": {"arm_freq": 1000, "gpu_freq": 500},
-        }
-
-        if preset == "custom":
-            arm_freq = arguments.get("arm_freq")
-            gpu_freq = arguments.get("gpu_freq")
-            if not arm_freq or not gpu_freq:
-                return self.format_error("Custom preset requires arm_freq and gpu_freq")
-            settings = {"arm_freq": arm_freq, "gpu_freq": gpu_freq}
-        elif preset in presets:
-            settings = presets[preset]
-        else:
-            return self.format_error(f"Unknown preset: {preset}")
-
-        # Update config.txt
-        commands = []
-        for key, value in settings.items():
-            commands.append(
-                f"sudo sed -i 's/^{key}=.*/{key}={value}/' /boot/config.txt || echo '{key}={value}' | sudo tee -a /boot/config.txt"
-            )
-
-        for cmd in commands:
-            exit_code, _, stderr = self.ssh.execute_command(cmd)
-            if exit_code != 0:
-                return self.format_error(f"Failed to update config: {stderr}")
-
-        return self.format_success(
-            f"Overclocking configured to {preset} preset. Reboot required for changes to take effect."
+        # TODO: Replace with ConfigureOverclockUseCase
+        return self.format_error(
+            f"Overclocking configuration not yet implemented. "
+            f"Missing ConfigureOverclockUseCase for managing /boot/config.txt overclocking settings. "
+            f"Requested preset: {preset}"
         )
 
     async def _configure_audio(self, arguments: Dict[str, Any]) -> List[TextContent]:
-        """Configure audio settings."""
+        """Configure audio settings.
+
+        TODO: Replace with domain use case:
+        - ConfigureAudioUseCase: for amixer audio configuration
+        """
         output = arguments.get("output")
         volume = arguments.get("volume")
 
-        commands = []
-
+        # TODO: Replace with ConfigureAudioUseCase
+        config_details = []
         if output:
-            # Configure audio output
-            audio_map = {"auto": 0, "headphone": 1, "hdmi": 2, "both": 3}
-
-            if output in audio_map:
-                commands.append(f"sudo amixer cset numid=3 {audio_map[output]}")
-            else:
-                return self.format_error(f"Unknown audio output: {output}")
-
+            config_details.append(f"output={output}")
         if volume is not None:
-            # Set volume
-            commands.append(f"sudo amixer set PCM -- {volume}%")
+            config_details.append(f"volume={volume}")
 
-        success_messages = []
-        for cmd in commands:
-            exit_code, output_text, stderr = self.ssh.execute_command(cmd)
-            if exit_code == 0:
-                success_messages.append(f"✅ {cmd}")
-            else:
-                return self.format_error(f"Audio configuration failed: {stderr}")
+        config_str = ", ".join(config_details) if config_details else "no parameters"
 
-        return self.format_success(
-            "Audio configured successfully:\\n" + "\\n".join(success_messages)
+        return self.format_error(
+            f"Audio configuration not yet implemented. "
+            f"Missing ConfigureAudioUseCase for amixer audio management. "
+            f"Requested configuration: {config_str}"
         )

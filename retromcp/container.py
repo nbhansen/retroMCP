@@ -9,6 +9,7 @@ from .application.use_cases import DetectControllersUseCase
 from .application.use_cases import GetSystemInfoUseCase
 from .application.use_cases import InstallEmulatorUseCase
 from .application.use_cases import InstallPackagesUseCase
+from .application.use_cases import ListRomsUseCase
 from .application.use_cases import SetupControllerUseCase
 from .application.use_cases import TestConnectionUseCase
 from .application.use_cases import UpdateSystemUseCase
@@ -163,6 +164,14 @@ class Container:
         return self._get_or_create(
             "install_emulator_use_case",
             lambda: InstallEmulatorUseCase(self.emulator_repository),
+        )
+
+    @property
+    def list_roms_use_case(self) -> ListRomsUseCase:
+        """Get list ROMs use case."""
+        return self._get_or_create(
+            "list_roms_use_case",
+            lambda: ListRomsUseCase(self.emulator_repository),
         )
 
     def connect(self) -> bool:
