@@ -38,9 +38,9 @@ env/
 .env
 *.log
 
-# Development docs (internal only)
-CLAUDE.md
-SPEC.md
+# Coverage reports
+.coverage
+htmlcov/
 
 # Node.js (if using MCP Inspector locally)
 node_modules/

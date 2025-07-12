@@ -241,16 +241,10 @@ In the Inspector:
 3. Fill in parameters and click "Run"
 4. View results in the response panel
 
-### Python Test Client
+### Quick Setup
 
 ```bash
-python test_client.py
-```
-
-### Manual Testing
-
-```bash
-python manual_test.py
+./setup.sh
 ```
 
 ## Claude Desktop Integration
