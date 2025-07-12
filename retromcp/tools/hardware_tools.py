@@ -134,6 +134,18 @@ class HardwareTools(BaseTool):
             ),
         ]
 
+    def _execute_command(self, command: str) -> tuple[int, str, str]:
+        """Execute command via container and return tuple for compatibility.
+
+        Args:
+            command: Command to execute
+
+        Returns:
+            Tuple of (exit_code, stdout, stderr) for backward compatibility
+        """
+        result = self.container.retropie_client.execute_command(command)
+        return result.exit_code, result.stdout, result.stderr
+
     async def handle_tool_call(
         self, name: str, arguments: Dict[str, Any]
     ) -> List[TextContent | ImageContent | EmbeddedResource]:
@@ -170,7 +182,7 @@ class HardwareTools(BaseTool):
         output = "🌡️ **Temperature Monitoring**\n\n"
 
         # Get current CPU temperature
-        exit_code, cpu_temp_raw, _ = self.ssh.execute_command("vcgencmd measure_temp")
+        exit_code, cpu_temp_raw, _ = self._execute_command("vcgencmd measure_temp")
 
         if exit_code == 0 and cpu_temp_raw:
             # Extract temperature value
@@ -197,9 +209,7 @@ class HardwareTools(BaseTool):
 
         # Check thermal throttling status
         if check_throttling:
-            exit_code, throttle_raw, _ = self.ssh.execute_command(
-                "vcgencmd get_throttled"
-            )
+            exit_code, throttle_raw, _ = self._execute_command("vcgencmd get_throttled")
 
             if exit_code == 0 and throttle_raw:
                 throttle_hex = (
@@ -236,7 +246,7 @@ class HardwareTools(BaseTool):
                 output += "\n\n"
 
         # Check GPU temperature if available
-        exit_code, gpu_temp_raw, _ = self.ssh.execute_command(
+        exit_code, gpu_temp_raw, _ = self._execute_command(
             "vcgencmd measure_temp gpu 2>/dev/null"
         )
 
@@ -252,7 +262,7 @@ class HardwareTools(BaseTool):
         if include_history:
             output += "**Recent Temperature History:**\n"
             # Simple monitoring for 10 seconds
-            exit_code, _, _ = self.ssh.execute_command(
+            exit_code, _, _ = self._execute_command(
                 'for i in {1..5}; do echo "$(date): $(vcgencmd measure_temp)"; sleep 2; done'
             )
             output += "Temperature logged over 10 seconds\n\n"
@@ -261,7 +271,7 @@ class HardwareTools(BaseTool):
         output += "**Cooling Configuration:**\n"
 
         # Check if fan service is running
-        exit_code, fan_service, _ = self.ssh.execute_command(
+        exit_code, fan_service, _ = self._execute_command(
             "systemctl is-active pigpiod 2>/dev/null || echo 'not-running'"
         )
 
@@ -271,7 +281,7 @@ class HardwareTools(BaseTool):
             output += "⚠️ GPIO daemon not running (may affect fan control)\n"
 
         # Check for fan control scripts
-        exit_code, fan_scripts, _ = self.ssh.execute_command(
+        exit_code, fan_scripts, _ = self._execute_command(
             "ls /usr/local/bin/*fan* /home/*/fan* 2>/dev/null || echo 'No fan scripts found'"
         )
 
@@ -293,7 +303,7 @@ class HardwareTools(BaseTool):
 
         if action == "status":
             # Check GPIO daemon
-            exit_code, gpio_status, _ = self.ssh.execute_command(
+            exit_code, gpio_status, _ = self._execute_command(
                 "systemctl status pigpiod --no-pager -l 2>/dev/null"
             )
 
@@ -309,14 +319,14 @@ class HardwareTools(BaseTool):
             output += "**Fan GPIO Pin Status:**\n"
 
             for pin in common_fan_pins:
-                exit_code, pin_mode, _ = self.ssh.execute_command(
+                exit_code, pin_mode, _ = self._execute_command(
                     f"gpio -g mode {pin} 2>/dev/null && gpio -g read {pin} 2>/dev/null"
                 )
                 if exit_code == 0:
                     output += f"- GPIO {pin}: {pin_mode.strip()}\n"
 
             # Check for fan control processes
-            exit_code, fan_processes, _ = self.ssh.execute_command(
+            exit_code, fan_processes, _ = self._execute_command(
                 "ps aux | grep -i fan | grep -v grep"
             )
 
@@ -327,7 +337,7 @@ class HardwareTools(BaseTool):
                 output += "No fan control processes found\n"
 
             # Check device tree for PWM
-            exit_code, pwm_status, _ = self.ssh.execute_command(
+            exit_code, pwm_status, _ = self._execute_command(
                 "ls -la /sys/class/pwm/ 2>/dev/null"
             )
 
@@ -338,7 +348,7 @@ class HardwareTools(BaseTool):
             output += f"**Testing Fan at {target_speed}% Speed**\n\n"
 
             # Try to control fan via GPIO (assuming GPIO 14)
-            exit_code, _, stderr = self.ssh.execute_command(
+            exit_code, _, stderr = self._execute_command(
                 f"gpio -g mode 14 pwm && gpio -g pwm 14 {int(target_speed * 10.23)}"
             )
 
@@ -373,7 +383,7 @@ class HardwareTools(BaseTool):
         output = "⚡ **Power Supply Monitoring**\n\n"
 
         # Check for under-voltage warnings
-        exit_code, throttle_raw, _ = self.ssh.execute_command("vcgencmd get_throttled")
+        exit_code, throttle_raw, _ = self._execute_command("vcgencmd get_throttled")
 
         if exit_code == 0:
             throttle_hex = (
@@ -394,15 +404,13 @@ class HardwareTools(BaseTool):
             output += "\n"
 
         # Get system voltage if available
-        exit_code, core_volts, _ = self.ssh.execute_command(
-            "vcgencmd measure_volts core"
-        )
+        exit_code, core_volts, _ = self._execute_command("vcgencmd measure_volts core")
 
         if exit_code == 0 and core_volts:
             output += f"**Core Voltage:** {core_volts.strip()}\n"
 
         # Check power consumption estimate
-        exit_code, arm_freq, _ = self.ssh.execute_command("vcgencmd measure_clock arm")
+        exit_code, arm_freq, _ = self._execute_command("vcgencmd measure_clock arm")
 
         if exit_code == 0 and arm_freq:
             freq_hz = arm_freq.strip().split("=")[1] if "=" in arm_freq else "0"
@@ -415,7 +423,7 @@ class HardwareTools(BaseTool):
             # Check all voltage rails
             voltage_rails = ["core", "sdram_c", "sdram_i", "sdram_p"]
             for rail in voltage_rails:
-                exit_code, volts, _ = self.ssh.execute_command(
+                exit_code, volts, _ = self._execute_command(
                     f"vcgencmd measure_volts {rail} 2>/dev/null"
                 )
                 if exit_code == 0 and volts:
@@ -425,7 +433,7 @@ class HardwareTools(BaseTool):
             output += "\n**Power Supply Recommendations:**\n"
 
             # Detect Pi model
-            exit_code, pi_model, _ = self.ssh.execute_command(
+            exit_code, pi_model, _ = self._execute_command(
                 "cat /proc/device-tree/model 2>/dev/null"
             )
 
@@ -436,7 +444,7 @@ class HardwareTools(BaseTool):
                 output += "- Raspberry Pi 3: Minimum 2.5A (12.5W) micro-USB supply\n"
 
             # Check USB devices that might draw power
-            exit_code, usb_devices, _ = self.ssh.execute_command("lsusb | wc -l")
+            exit_code, usb_devices, _ = self._execute_command("lsusb | wc -l")
 
             if exit_code == 0:
                 device_count = int(usb_devices.strip()) - 1  # Subtract the hub
@@ -486,7 +494,7 @@ class HardwareTools(BaseTool):
         output += "**Kernel Messages (dmesg):**\n"
 
         pattern_str = "|".join(search_patterns)
-        exit_code, dmesg_errors, _ = self.ssh.execute_command(
+        exit_code, dmesg_errors, _ = self._execute_command(
             f"dmesg -T | grep -i -E '{pattern_str}' | tail -20"
         )
 
@@ -499,7 +507,7 @@ class HardwareTools(BaseTool):
         output += "**System Logs:**\n"
 
         # Use journalctl to get logs from the specified time period
-        exit_code, journal_errors, _ = self.ssh.execute_command(
+        exit_code, journal_errors, _ = self._execute_command(
             f"journalctl --since '{hours} hours ago' | grep -i -E '{pattern_str}' | tail -10"
         )
 
@@ -512,7 +520,7 @@ class HardwareTools(BaseTool):
         output += "**Specific Hardware Checks:**\n"
 
         # Memory errors
-        exit_code, mem_errors, _ = self.ssh.execute_command(
+        exit_code, mem_errors, _ = self._execute_command(
             "grep -i 'memory error\\|segfault\\|killed process' /var/log/kern.log /var/log/syslog 2>/dev/null | tail -5"
         )
 
@@ -523,7 +531,7 @@ class HardwareTools(BaseTool):
             output += "✅ No memory errors detected\n"
 
         # USB issues
-        exit_code, usb_errors, _ = self.ssh.execute_command(
+        exit_code, usb_errors, _ = self._execute_command(
             "grep -i 'usb.*disconnect\\|device not accepting\\|hub' /var/log/kern.log 2>/dev/null | tail -5"
         )
 
@@ -534,7 +542,7 @@ class HardwareTools(BaseTool):
             output += "✅ No USB issues detected\n"
 
         # Temperature warnings
-        exit_code, temp_warnings, _ = self.ssh.execute_command(
+        exit_code, temp_warnings, _ = self._execute_command(
             "grep -i 'temperature\\|thermal\\|throttled' /var/log/kern.log 2>/dev/null | tail -5"
         )
 
@@ -563,7 +571,7 @@ class HardwareTools(BaseTool):
         output = "📟 **GPIO Status Monitoring**\n\n"
 
         # Check if GPIO tools are available
-        exit_code, gpio_check, _ = self.ssh.execute_command(
+        exit_code, gpio_check, _ = self._execute_command(
             "command -v gpio >/dev/null 2>&1 && echo 'available' || echo 'missing'"
         )
 
@@ -577,7 +585,7 @@ class HardwareTools(BaseTool):
             output += f"**Specific GPIO Pins ({', '.join(map(str, pins))}):**\n"
 
             for pin in pins:
-                exit_code, pin_info, _ = self.ssh.execute_command(
+                exit_code, pin_info, _ = self._execute_command(
                     f"gpio -g mode {pin} 2>/dev/null; gpio -g read {pin} 2>/dev/null"
                 )
 
@@ -593,9 +601,7 @@ class HardwareTools(BaseTool):
             # Show all GPIO pins
             output += "**All GPIO Pin Status:**\n"
 
-            exit_code, all_pins, _ = self.ssh.execute_command(
-                "gpio readall 2>/dev/null"
-            )
+            exit_code, all_pins, _ = self._execute_command("gpio readall 2>/dev/null")
 
             if exit_code == 0:
                 output += f"```\n{all_pins}\n```\n"
@@ -616,7 +622,7 @@ class HardwareTools(BaseTool):
             output += "**Common Hardware GPIO Pins:**\n"
 
             for pin, description in common_pins.items():
-                exit_code, pin_info, _ = self.ssh.execute_command(
+                exit_code, pin_info, _ = self._execute_command(
                     f"gpio -g mode {pin} 2>/dev/null; gpio -g read {pin} 2>/dev/null"
                 )
 
@@ -628,7 +634,7 @@ class HardwareTools(BaseTool):
 
         # Check for I2C devices
         output += "\n**I2C Devices:**\n"
-        exit_code, i2c_devices, _ = self.ssh.execute_command(
+        exit_code, i2c_devices, _ = self._execute_command(
             "i2cdetect -y 1 2>/dev/null | grep -E '[0-9a-f]{2}' || echo 'No I2C devices found'"
         )
 
@@ -639,7 +645,7 @@ class HardwareTools(BaseTool):
 
         # Check SPI status
         output += "\n**SPI Status:**\n"
-        exit_code, spi_status, _ = self.ssh.execute_command(
+        exit_code, spi_status, _ = self._execute_command(
             "ls /dev/spidev* 2>/dev/null && echo 'SPI enabled' || echo 'SPI not enabled'"
         )
 

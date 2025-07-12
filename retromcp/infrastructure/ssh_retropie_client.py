@@ -48,15 +48,19 @@ class SSHRetroPieClient(RetroPieClient):
         start_time = time.time()
 
         try:
-            success, stdout, stderr = self._ssh.execute_command(command, use_sudo)
+            # Handle sudo if needed
+            if use_sudo and not command.startswith("sudo "):
+                command = f"sudo {command}"
+
+            exit_code, stdout, stderr = self._ssh.execute_command(command)
             execution_time = time.time() - start_time
 
             return CommandResult(
                 command=command,
-                exit_code=0 if success else 1,
+                exit_code=exit_code,
                 stdout=stdout,
                 stderr=stderr,
-                success=success,
+                success=exit_code == 0,
                 execution_time=execution_time,
             )
         except Exception as e:

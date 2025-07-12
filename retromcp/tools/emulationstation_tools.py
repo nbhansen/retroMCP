@@ -86,6 +86,18 @@ class EmulationStationTools(BaseTool):
             ),
         ]
 
+    def _execute_command(self, command: str) -> tuple[int, str, str]:
+        """Execute command via container and return tuple for compatibility.
+
+        Args:
+            command: Command to execute
+
+        Returns:
+            Tuple of (exit_code, stdout, stderr) for backward compatibility
+        """
+        result = self.container.retropie_client.execute_command(command)
+        return result.exit_code, result.stdout, result.stderr
+
     async def handle_tool_call(
         self, name: str, arguments: Dict[str, Any]
     ) -> List[TextContent | ImageContent | EmbeddedResource]:
@@ -115,27 +127,27 @@ class EmulationStationTools(BaseTool):
     async def _restart_emulationstation(self) -> List[TextContent]:
         """Restart EmulationStation."""
         # First, check if EmulationStation is running as a systemd service
-        service_check_code, service_output, _ = self.ssh.execute_command(
+        service_check_code, service_output, _ = self._execute_command(
             "systemctl is-active emulationstation 2>/dev/null"
         )
 
         if service_check_code == 0 and "active" in service_output:
             # It's a systemd service
-            exit_code, _, _ = self.ssh.execute_command(
+            exit_code, _, _ = self._execute_command(
                 "sudo systemctl stop emulationstation"
             )
-            self.ssh.execute_command("sleep 2")
-            exit_code, _, stderr = self.ssh.execute_command(
+            self._execute_command("sleep 2")
+            exit_code, _, stderr = self._execute_command(
                 "sudo systemctl start emulationstation"
             )
         else:
             # It's likely running as a user process
             # Kill any existing EmulationStation processes
-            self.ssh.execute_command("pkill -f emulationstation")
-            self.ssh.execute_command("sleep 2")
+            self._execute_command("pkill -f emulationstation")
+            self._execute_command("sleep 2")
 
             # Start EmulationStation as the user
-            exit_code, _, stderr = self.ssh.execute_command(
+            exit_code, _, stderr = self._execute_command(
                 "nohup emulationstation > /dev/null 2>&1 &",
                 timeout=5,  # Don't wait for this to complete
             )
@@ -152,7 +164,7 @@ class EmulationStationTools(BaseTool):
 
         if action == "list":
             # List installed themes
-            exit_code, output, _ = self.ssh.execute_command(
+            exit_code, output, _ = self._execute_command(
                 f"ls -la {self.config.home_dir}/.emulationstation/themes/ /etc/emulationstation/themes/ 2>/dev/null | grep '^d' | awk '{{print $9}}' | grep -v '^\\.$\\|^\\.\\.$'"
             )
 
@@ -178,7 +190,7 @@ class EmulationStationTools(BaseTool):
                 return self.format_error("Theme name required for set action")
 
             # Check if theme exists
-            exit_code, _, _ = self.ssh.execute_command(
+            exit_code, _, _ = self._execute_command(
                 f"test -d {self.config.home_dir}/.emulationstation/themes/{theme_name} || test -d /etc/emulationstation/themes/{theme_name}"
             )
 
@@ -186,10 +198,10 @@ class EmulationStationTools(BaseTool):
                 return self.format_error(f"Theme '{theme_name}' not found")
 
             # Update es_settings.cfg
-            exit_code, _, stderr = self.ssh.execute_command(
+            exit_code, _, stderr = self._execute_command(
                 'sed -i \'s/<string name="ThemeSet" value=".*" \\/>/g\' ~/.emulationstation/es_settings.cfg'
             )
-            exit_code, _, stderr = self.ssh.execute_command(
+            exit_code, _, stderr = self._execute_command(
                 f'echo \'<string name="ThemeSet" value="{theme_name}" />\' >> ~/.emulationstation/es_settings.cfg'
             )
 
@@ -214,8 +226,8 @@ class EmulationStationTools(BaseTool):
 
         if action == "backup":
             # Backup gamelists
-            backup_path = f"~/gamelist_backup_{self.ssh.execute_command('date +%Y%m%d_%H%M%S')[1].strip()}"
-            exit_code, _, stderr = self.ssh.execute_command(
+            backup_path = f"~/gamelist_backup_{self._execute_command('date +%Y%m%d_%H%M%S')[1].strip()}"
+            exit_code, _, stderr = self._execute_command(
                 f"cp -r {gamelist_path} {backup_path}"
             )
 
@@ -231,7 +243,7 @@ class EmulationStationTools(BaseTool):
 
         elif action == "regenerate":
             # Remove existing gamelists to force regeneration
-            exit_code, _, stderr = self.ssh.execute_command(f"rm -rf {gamelist_path}")
+            exit_code, _, stderr = self._execute_command(f"rm -rf {gamelist_path}")
 
             if exit_code == 0:
                 return self.format_success(
@@ -256,10 +268,10 @@ class EmulationStationTools(BaseTool):
             # Configure screensaver settings
             timeout = options.get("timeout", 600)  # 10 minutes default
 
-            exit_code, _, stderr = self.ssh.execute_command(
+            exit_code, _, stderr = self._execute_command(
                 f'sed -i \'s/<int name="ScreenSaverTime" value=".*" \\/>/g\' {settings_file}'
             )
-            exit_code, _, stderr = self.ssh.execute_command(
+            exit_code, _, stderr = self._execute_command(
                 f'echo \'<int name="ScreenSaverTime" value="{timeout}" />\' >> {settings_file}'
             )
 
@@ -286,10 +298,10 @@ class EmulationStationTools(BaseTool):
             # Configure UI settings
             transition = options.get("transition", "fade")
 
-            exit_code, _, stderr = self.ssh.execute_command(
+            exit_code, _, stderr = self._execute_command(
                 f'sed -i \'s/<string name="TransitionStyle" value=".*" \\/>/g\' {settings_file}'
             )
-            exit_code, _, stderr = self.ssh.execute_command(
+            exit_code, _, stderr = self._execute_command(
                 f'echo \'<string name="TransitionStyle" value="{transition}" />\' >> {settings_file}'
             )
 

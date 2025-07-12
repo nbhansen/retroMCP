@@ -102,49 +102,53 @@ class ControllerTools(BaseTool):
 
     async def _detect_controllers(self) -> List[TextContent]:
         """Detect connected controllers."""
-        controllers = self.ssh.detect_controllers()
+        controllers = self.container.detect_controllers_use_case.execute()
 
         # Format the output nicely
         output = "🎮 Controller Detection Results:\\n\\n"
 
-        # USB devices
-        if "usb_devices" in controllers:
-            output += "USB Devices:\\n"
-            for device in controllers["usb_devices"]:
-                # Highlight likely game controllers
-                if any(
-                    keyword in device.lower()
-                    for keyword in [
-                        "gamepad",
-                        "controller",
-                        "joystick",
-                        "xbox",
-                        "playstation",
-                        "sony",
-                        "8bitdo",
-                    ]
-                ):
-                    output += f"  • 🎮 {device}\\n"
-                else:
-                    output += f"  • {device}\\n"
-            output += "\\n"
-
-        # Joystick devices
-        if "joystick_devices" in controllers:
-            output += (
-                f"Joystick Devices Found: {len(controllers['joystick_devices'])}\\n"
-            )
-            for device in controllers["joystick_devices"]:
-                output += f"  • {device}\\n"
-            output += "\\n"
+        if not controllers:
+            output += "No controllers detected.\\n\\n"
         else:
-            output += "No joystick devices found in /dev/input/\\n\\n"
+            output += f"Controllers Found: {len(controllers)}\\n\\n"
 
-        # jstest availability
-        if controllers.get("jstest_available"):
+            for controller in controllers:
+                # Add controller icon based on type
+                icon = "🎮"
+                if (
+                    "xbox" in controller.name.lower()
+                    or "playstation" in controller.name.lower()
+                    or "ps" in controller.controller_type.value
+                    or "8bitdo" in controller.name.lower()
+                ):
+                    icon = "🎮"
+
+                output += f"  {icon} {controller.name}\\n"
+                output += f"    • Device: {controller.device_path}\\n"
+                output += f"    • Type: {controller.controller_type.value}\\n"
+                output += f"    • Vendor ID: {controller.vendor_id}\\n"
+                output += f"    • Product ID: {controller.product_id}\\n"
+                output += (
+                    f"    • Configured: {'✅' if controller.is_configured else '❌'}\\n"
+                )
+                if controller.driver_required:
+                    output += f"    • Driver Required: {controller.driver_required}\\n"
+                output += "\\n"
+
+        # Check jstest availability through retropie client
+        client = self.container.retropie_client
+        result = client.execute_command("which jstest")
+        exit_code = result.exit_code
+        if exit_code == 0:
             output += "✅ jstest is available for controller testing\\n"
-            if "js0_info" in controllers:
-                output += f"\\nFirst controller info:\\n{controllers['js0_info']}\\n"
+            # If there are controllers, show info for the first one
+            if controllers:
+                first_device = controllers[0].device_path
+                exit_code, js_info, _ = client.execute_command(
+                    f"jstest --list {first_device} 2>/dev/null || echo 'Device not ready'"
+                )
+                if exit_code == 0 and js_info.strip():
+                    output += f"\\nFirst controller info:\\n{js_info}\\n"
         else:
             output += "⚠️ jstest not installed (install with: sudo apt-get install joystick)\\n"
 
@@ -157,33 +161,34 @@ class ControllerTools(BaseTool):
         if not controller_type:
             return self.format_error("No controller type specified")
 
-        success, message = self.ssh.configure_controller(controller_type)
+        result = self.container.setup_controller_use_case.execute(controller_type)
 
-        if success:
+        if result.success:
             return self.format_success(
-                f"{message}\\n\\nYou may need to restart EmulationStation or reboot your Pi for changes to take effect."
+                f"{result.stdout}\\n\\nYou may need to restart EmulationStation or reboot your Pi for changes to take effect."
             )
         else:
-            return self.format_error(message)
+            return self.format_error(result.stderr or "Failed to setup controller")
 
     async def _test_controller(self, arguments: Dict[str, Any]) -> List[TextContent]:
         """Test a controller using jstest."""
         device = arguments.get("device", "/dev/input/js0")
 
         # Check if jstest is available
-        exit_code, _, _ = self.ssh.execute_command("which jstest")
+        client = self.container.retropie_client
+        exit_code, _, _ = client.execute_command("which jstest")
         if exit_code != 0:
             return self.format_error(
                 "jstest not found. Install with: sudo apt-get install joystick"
             )
 
         # Test if device exists
-        exit_code, _, _ = self.ssh.execute_command(f"test -e {device}")
+        exit_code, _, _ = client.execute_command(f"test -e {device}")
         if exit_code != 0:
             return self.format_error(f"Controller device {device} not found")
 
         # Run jstest for a few seconds
-        exit_code, output, stderr = self.ssh.execute_command(
+        exit_code, output, stderr = client.execute_command(
             f"timeout 3 jstest --normal {device} || true"
         )
 
@@ -206,14 +211,15 @@ class ControllerTools(BaseTool):
         force_reconfigure = arguments.get("force_reconfigure", False)
 
         # Check if a controller is connected
-        controllers = self.ssh.detect_controllers()
-        if not controllers.get("joystick_devices"):
+        controllers = self.container.detect_controllers_use_case.execute()
+        if not controllers:
             return self.format_error(
                 "No controllers detected. Please connect a controller first."
             )
 
         # Check if EmulationStation is running
-        exit_code, _, _ = self.ssh.execute_command("pgrep emulationstation")
+        client = self.container.retropie_client
+        exit_code, _, _ = client.execute_command("pgrep emulationstation")
         if exit_code == 0:
             return self.format_warning(
                 "EmulationStation is currently running. Please exit EmulationStation first to configure controllers."
@@ -222,7 +228,7 @@ class ControllerTools(BaseTool):
         # Run EmulationStation controller configuration
         if force_reconfigure:
             # Remove existing controller config to force reconfiguration
-            exit_code, _, _ = self.ssh.execute_command(
+            exit_code, _, _ = client.execute_command(
                 f"rm -f {self.config.home_dir}/.emulationstation/es_input.cfg"
             )
 

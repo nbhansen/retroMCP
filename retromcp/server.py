@@ -72,6 +72,7 @@ def configure_logging() -> None:
     # For debug mode, also log to file
     if level == logging.DEBUG:
         from pathlib import Path
+
         log_dir = Path.home() / ".retromcp"
         log_dir.mkdir(exist_ok=True)
 
@@ -154,21 +155,11 @@ class RetroMCPServer:
 
             # Get tool instances from container
             tool_instances = {
-                "system": SystemTools(
-                    self.container.ssh_handler, self.container.config
-                ),
-                "controller": ControllerTools(
-                    self.container.ssh_handler, self.container.config
-                ),
-                "retropie": RetroPieTools(
-                    self.container.ssh_handler, self.container.config
-                ),
-                "emulationstation": EmulationStationTools(
-                    self.container.ssh_handler, self.container.config
-                ),
-                "hardware": HardwareTools(
-                    self.container.ssh_handler, self.container.config
-                ),
+                "system": SystemTools(self.container),
+                "controller": ControllerTools(self.container),
+                "retropie": RetroPieTools(self.container),
+                "emulationstation": EmulationStationTools(self.container),
+                "hardware": HardwareTools(self.container),
             }
 
             # Collect tools from all modules
@@ -210,21 +201,11 @@ class RetroMCPServer:
 
             # Get tool instances from container
             tool_instances = {
-                "system": SystemTools(
-                    self.container.ssh_handler, self.container.config
-                ),
-                "controller": ControllerTools(
-                    self.container.ssh_handler, self.container.config
-                ),
-                "retropie": RetroPieTools(
-                    self.container.ssh_handler, self.container.config
-                ),
-                "emulationstation": EmulationStationTools(
-                    self.container.ssh_handler, self.container.config
-                ),
-                "hardware": HardwareTools(
-                    self.container.ssh_handler, self.container.config
-                ),
+                "system": SystemTools(self.container),
+                "controller": ControllerTools(self.container),
+                "retropie": RetroPieTools(self.container),
+                "emulationstation": EmulationStationTools(self.container),
+                "hardware": HardwareTools(self.container),
             }
 
             # Define tool routing - maps tool names to modules
