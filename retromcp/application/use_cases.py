@@ -1,5 +1,7 @@
 """Application use cases for RetroMCP."""
 
+import re
+import shlex
 from typing import List
 from typing import Optional
 
@@ -7,8 +9,10 @@ from ..domain.models import CommandResult
 from ..domain.models import ConnectionInfo
 from ..domain.models import Controller
 from ..domain.models import EmulatorStatus
+from ..domain.models import ExecuteCommandRequest
 from ..domain.models import RomDirectory
 from ..domain.models import SystemInfo
+from ..domain.models import WriteFileRequest
 from ..domain.ports import ControllerRepository
 from ..domain.ports import EmulatorRepository
 from ..domain.ports import RetroPieClient
@@ -246,3 +250,283 @@ class ListRomsUseCase:
         rom_directories.sort(key=lambda r: r.rom_count, reverse=True)
 
         return rom_directories
+
+
+class ExecuteCommandUseCase:
+    """Use case for secure command execution."""
+
+    def __init__(self, client: RetroPieClient) -> None:
+        """Initialize with RetroPie client."""
+        self._client = client
+
+    def execute(self, request: ExecuteCommandRequest) -> CommandResult:
+        """Execute command with security validation.
+
+        Args:
+            request: ExecuteCommandRequest with command details
+
+        Returns:
+            CommandResult with execution details
+
+        Raises:
+            ValueError: If command fails security validation
+        """
+        # Validate command for security
+        self._validate_command_security(request.command)
+
+        # Build final command with proper escaping
+        final_command = self._build_secure_command(request)
+
+        # Execute with proper error handling
+        try:
+            result = self._client.execute_command(final_command)
+            return result
+        except Exception as e:
+            return CommandResult(
+                command=final_command,
+                exit_code=1,
+                stdout="",
+                stderr=f"Command execution failed: {e!s}",
+                success=False,
+                execution_time=0.0,
+            )
+
+    def _validate_command_security(self, command: str) -> None:
+        """Validate command for security vulnerabilities.
+
+        Args:
+            command: Command to validate
+
+        Raises:
+            ValueError: If command contains dangerous patterns
+        """
+        if not command or not command.strip():
+            raise ValueError("Command cannot be empty")
+
+        # Block dangerous patterns
+        dangerous_patterns = [
+            r";.*rm\s+-rf\s*/",  # Destructive rm commands
+            r"\$\(.*\)",  # Command substitution
+            r"`.*`",  # Backtick execution
+            r"\|.*>.*/",  # Pipe to system file overwrite
+            r"&.*&",  # Background process chains
+            r"nc\s+-l.*",  # Netcat listeners
+            r"curl.*\|.*sh",  # Download and execute
+            r"wget.*\|.*sh",  # Download and execute
+            r"exec\s+.*",  # Direct exec calls
+            r"eval\s+.*",  # Eval execution
+        ]
+
+        for pattern in dangerous_patterns:
+            if re.search(pattern, command, re.IGNORECASE):
+                raise ValueError(f"Command contains dangerous pattern: {pattern}")
+
+        # Block destructive commands entirely
+        destructive_commands = [
+            "rm -rf /",
+            "mkfs",
+            "dd if=",
+            "shutdown",
+            "reboot",
+            "halt",
+            "init 0",
+            "init 6",
+        ]
+
+        command_lower = command.lower()
+        for destructive in destructive_commands:
+            if destructive.lower() in command_lower:
+                raise ValueError(
+                    f"Command contains destructive operation: {destructive}"
+                )
+
+    def _build_secure_command(self, request: ExecuteCommandRequest) -> str:
+        """Build secure command with proper escaping.
+
+        Args:
+            request: ExecuteCommandRequest with command details
+
+        Returns:
+            Safely escaped command string
+        """
+        # Start with base command (already validated)
+        command = request.command.strip()
+
+        # Add working directory if specified
+        if request.working_directory:
+            # Validate working directory path
+            if ".." in request.working_directory:
+                raise ValueError("Working directory contains path traversal")
+
+            safe_dir = shlex.quote(request.working_directory)
+            command = f"cd {safe_dir} && {command}"
+
+        # Add sudo if requested
+        if request.use_sudo:
+            command = f"sudo {command}"
+
+        # Add timeout if specified
+        if request.timeout and request.timeout > 0:
+            command = f"timeout {request.timeout} {command}"
+
+        return command
+
+
+class WriteFileUseCase:
+    """Use case for secure file writing."""
+
+    def __init__(self, client: RetroPieClient) -> None:
+        """Initialize with RetroPie client."""
+        self._client = client
+
+    def execute(self, request: WriteFileRequest) -> CommandResult:
+        """Write file with security validation.
+
+        Args:
+            request: WriteFileRequest with file details
+
+        Returns:
+            CommandResult with write operation details
+
+        Raises:
+            ValueError: If path fails security validation
+        """
+        # Validate path for security
+        self._validate_path_security(request.path)
+
+        # Create backup if requested
+        if request.backup:
+            backup_result = self._create_backup(request.path)
+            if not backup_result.success:
+                return backup_result
+
+        # Write file content
+        return self._write_file_secure(request)
+
+    def _validate_path_security(self, path: str) -> None:
+        """Validate file path for security.
+
+        Args:
+            path: File path to validate
+
+        Raises:
+            ValueError: If path is unsafe
+        """
+        if not path or not path.strip():
+            raise ValueError("File path cannot be empty")
+
+        path = path.strip()
+
+        # Prevent path traversal
+        if ".." in path:
+            raise ValueError("Path traversal attempt detected in file path")
+
+        # Block absolute paths to critical system directories
+        forbidden_prefixes = [
+            "/etc/",
+            "/boot/",
+            "/sys/",
+            "/proc/",
+            "/dev/",
+            "/root/",
+            "/usr/bin/",
+            "/usr/sbin/",
+            "/bin/",
+            "/sbin/",
+        ]
+
+        for prefix in forbidden_prefixes:
+            if path.startswith(prefix):
+                raise ValueError(
+                    f"Cannot write to protected system directory: {prefix}"
+                )
+
+        # Block specific critical files
+        forbidden_files = [
+            "/etc/passwd",
+            "/etc/shadow",
+            "/etc/sudoers",
+            "/etc/hosts",
+            "/etc/fstab",
+            "/var/log/auth.log",
+            "/var/log/syslog",
+        ]
+
+        if path in forbidden_files:
+            raise ValueError(f"Cannot write to protected system file: {path}")
+
+        # Ensure path is within allowed directories
+        allowed_prefixes = [
+            "/home/",
+            "/tmp/",
+            "/opt/retropie/configs/",
+            "/var/tmp/",
+        ]
+
+        if not any(path.startswith(prefix) for prefix in allowed_prefixes):
+            raise ValueError(f"File path not in allowed directories: {path}")
+
+    def _create_backup(self, path: str) -> CommandResult:
+        """Create backup of existing file.
+
+        Args:
+            path: Original file path
+
+        Returns:
+            CommandResult of backup operation
+        """
+        safe_path = shlex.quote(path)
+        backup_path = f"{path}.backup.$(date +%Y%m%d_%H%M%S)"
+        safe_backup = shlex.quote(backup_path)
+
+        backup_command = (
+            f"[ -f {safe_path} ] && sudo cp {safe_path} {safe_backup} || true"
+        )
+
+        return self._client.execute_command(backup_command)
+
+    def _write_file_secure(self, request: WriteFileRequest) -> CommandResult:
+        """Write file content securely.
+
+        Args:
+            request: WriteFileRequest with file details
+
+        Returns:
+            CommandResult of write operation
+        """
+        safe_path = shlex.quote(request.path)
+
+        # Create parent directories if requested
+        if request.create_directories:
+            parent_dir = shlex.quote(str(request.path).rsplit("/", 1)[0])
+            mkdir_result = self._client.execute_command(f"sudo mkdir -p {parent_dir}")
+            if not mkdir_result.success:
+                return mkdir_result
+
+        # Write content using cat with here document for safety
+        # This avoids shell injection issues with echo
+        safe_content = request.content.replace("'", "'\"'\"'")  # Escape single quotes
+
+        write_command = f"sudo tee {safe_path} > /dev/null << 'EOF_RETROMCP'\n{safe_content}\nEOF_RETROMCP"
+
+        write_result = self._client.execute_command(write_command)
+
+        # Set permissions if specified
+        if request.mode and write_result.success:
+            safe_mode = shlex.quote(request.mode)
+            chmod_result = self._client.execute_command(
+                f"sudo chmod {safe_mode} {safe_path}"
+            )
+
+            if not chmod_result.success:
+                return CommandResult(
+                    command=f"chmod {safe_mode} {safe_path}",
+                    exit_code=chmod_result.exit_code,
+                    stdout=write_result.stdout,
+                    stderr=f"File written but chmod failed: {chmod_result.stderr}",
+                    success=False,
+                    execution_time=write_result.execution_time
+                    + chmod_result.execution_time,
+                )
+
+        return write_result

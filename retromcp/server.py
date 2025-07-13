@@ -24,6 +24,7 @@ try:
     from .config import ServerConfig
     from .container import Container
     from .profile import SystemProfileManager
+    from .tools import AdminTools
     from .tools import ControllerTools
     from .tools import EmulationStationTools
     from .tools import HardwareTools
@@ -36,6 +37,7 @@ except ImportError:
     from config import RetroPieConfig
     from config import ServerConfig
     from container import Container
+    from tools import AdminTools
     from tools import ControllerTools
     from tools import EmulationStationTools
     from tools import HardwareTools
@@ -163,6 +165,7 @@ class RetroMCPServer:
                 "emulationstation": EmulationStationTools(self.container),
                 "hardware": HardwareTools(self.container),
                 "management": ManagementTools(self.container),
+                "admin": AdminTools(self.container),
             }
 
             # Collect tools from all modules
@@ -210,6 +213,7 @@ class RetroMCPServer:
                 "emulationstation": EmulationStationTools(self.container),
                 "hardware": HardwareTools(self.container),
                 "management": ManagementTools(self.container),
+                "admin": AdminTools(self.container),
             }
 
             # Define tool routing - maps tool names to modules
@@ -246,6 +250,9 @@ class RetroMCPServer:
                 "manage_services": "management",
                 "manage_packages": "management",
                 "manage_files": "management",
+                # Admin tools
+                "execute_command": "admin",
+                "write_file": "admin",
             }
 
             # Route tool call to appropriate module

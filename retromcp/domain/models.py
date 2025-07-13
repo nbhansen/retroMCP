@@ -175,3 +175,24 @@ class ConnectionInfo:
     connected: bool
     last_connected: Optional[str] = None
     connection_method: str = "ssh"
+
+
+@dataclass(frozen=True)
+class ExecuteCommandRequest:
+    """Command execution request model."""
+
+    command: str
+    use_sudo: bool = False
+    working_directory: Optional[str] = None
+    timeout: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class WriteFileRequest:
+    """File write request model."""
+
+    path: str
+    content: str
+    mode: Optional[str] = None
+    backup: bool = False
+    create_directories: bool = False

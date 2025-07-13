@@ -6,6 +6,7 @@ from typing import Callable
 from typing import Dict
 
 from .application.use_cases import DetectControllersUseCase
+from .application.use_cases import ExecuteCommandUseCase
 from .application.use_cases import GetSystemInfoUseCase
 from .application.use_cases import InstallEmulatorUseCase
 from .application.use_cases import InstallPackagesUseCase
@@ -13,6 +14,7 @@ from .application.use_cases import ListRomsUseCase
 from .application.use_cases import SetupControllerUseCase
 from .application.use_cases import TestConnectionUseCase
 from .application.use_cases import UpdateSystemUseCase
+from .application.use_cases import WriteFileUseCase
 from .config import RetroPieConfig
 from .discovery import RetroPieDiscovery
 from .domain.ports import ControllerRepository
@@ -172,6 +174,22 @@ class Container:
         return self._get_or_create(
             "list_roms_use_case",
             lambda: ListRomsUseCase(self.emulator_repository),
+        )
+
+    @property
+    def execute_command_use_case(self) -> ExecuteCommandUseCase:
+        """Get execute command use case."""
+        return self._get_or_create(
+            "execute_command_use_case",
+            lambda: ExecuteCommandUseCase(self.retropie_client),
+        )
+
+    @property
+    def write_file_use_case(self) -> WriteFileUseCase:
+        """Get write file use case."""
+        return self._get_or_create(
+            "write_file_use_case",
+            lambda: WriteFileUseCase(self.retropie_client),
         )
 
     def connect(self) -> bool:
