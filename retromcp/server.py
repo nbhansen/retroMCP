@@ -27,6 +27,7 @@ try:
     from .tools import ControllerTools
     from .tools import EmulationStationTools
     from .tools import HardwareTools
+    from .tools import ManagementTools
     from .tools import RetroPieTools
     from .tools import SystemTools
 except ImportError:
@@ -38,6 +39,7 @@ except ImportError:
     from tools import ControllerTools
     from tools import EmulationStationTools
     from tools import HardwareTools
+    from tools import ManagementTools
     from tools import RetroPieTools
     from tools import SystemTools
 
@@ -160,6 +162,7 @@ class RetroMCPServer:
                 "retropie": RetroPieTools(self.container),
                 "emulationstation": EmulationStationTools(self.container),
                 "hardware": HardwareTools(self.container),
+                "management": ManagementTools(self.container),
             }
 
             # Collect tools from all modules
@@ -206,6 +209,7 @@ class RetroMCPServer:
                 "retropie": RetroPieTools(self.container),
                 "emulationstation": EmulationStationTools(self.container),
                 "hardware": HardwareTools(self.container),
+                "management": ManagementTools(self.container),
             }
 
             # Define tool routing - maps tool names to modules

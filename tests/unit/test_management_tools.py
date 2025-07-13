@@ -1,0 +1,339 @@
+"""Unit tests for ManagementTools implementation."""
+
+from unittest.mock import Mock
+
+import pytest
+from mcp.types import TextContent
+
+from retromcp.config import RetroPieConfig
+from retromcp.discovery import RetroPiePaths
+from retromcp.domain.models import CommandResult
+from retromcp.tools.management_tools import ManagementTools
+
+
+class TestManagementTools:
+    """Test cases for ManagementTools class."""
+
+    @pytest.fixture
+    def mock_container(self, test_config: RetroPieConfig) -> Mock:
+        """Provide mocked container."""
+        mock = Mock()
+        mock.retropie_client = Mock()
+        mock.retropie_client.execute_command = Mock()
+        mock.config = test_config
+        return mock
+
+    @pytest.fixture
+    def test_config(self) -> RetroPieConfig:
+        """Provide test configuration."""
+        paths = RetroPiePaths(
+            home_dir="/home/retro",
+            username="retro",
+            retropie_dir="/home/retro/RetroPie",
+            retropie_setup_dir="/home/retro/RetroPie-Setup",
+            bios_dir="/home/retro/RetroPie/BIOS",
+            roms_dir="/home/retro/RetroPie/roms",
+            configs_dir="/opt/retropie/configs",
+            emulators_dir="/opt/retropie/emulators",
+        )
+
+        return RetroPieConfig(
+            host="test-retropie.local",
+            username="retro",
+            password="test_password",  # noqa: S106 # Test fixture, not real password
+            port=22,
+            paths=paths,
+        )
+
+    @pytest.fixture
+    def management_tools(self, mock_container: Mock) -> ManagementTools:
+        """Provide ManagementTools instance with mocked dependencies."""
+        return ManagementTools(mock_container)
+
+    def test_get_tools(self, management_tools: ManagementTools) -> None:
+        """Test that all expected tools are returned."""
+        tools = management_tools.get_tools()
+
+        # Should have service management tool
+        assert len(tools) >= 1
+        tool_names = [tool.name for tool in tools]
+
+        expected_tools = [
+            "manage_services",
+        ]
+
+        for expected_tool in expected_tools:
+            assert expected_tool in tool_names
+
+    def test_manage_services_tool_schema(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test that manage_services tool schema is properly defined."""
+        tools = management_tools.get_tools()
+        service_tool = next(t for t in tools if t.name == "manage_services")
+
+        # Check schema structure
+        assert service_tool.inputSchema["type"] == "object"
+        assert "action" in service_tool.inputSchema["properties"]
+        assert "service" in service_tool.inputSchema["properties"]
+
+        # Check action enum values
+        actions = service_tool.inputSchema["properties"]["action"]["enum"]
+        expected_actions = ["start", "stop", "restart", "enable", "disable", "status"]
+        for action in expected_actions:
+            assert action in actions
+
+        # Check required fields
+        assert service_tool.inputSchema["required"] == ["action", "service"]
+
+    @pytest.mark.asyncio
+    async def test_manage_services_start_success(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test successful service start."""
+        # Mock successful service start
+        management_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult("sudo systemctl start pigpiod", 0, "", "", True, 0.1)
+        )
+
+        result = await management_tools.handle_tool_call(
+            "manage_services", {"action": "start", "service": "pigpiod"}
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "✅" in result[0].text
+        assert "pigpiod" in result[0].text
+        assert "started" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_manage_services_stop_success(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test successful service stop."""
+        # Mock successful service stop
+        management_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult("sudo systemctl stop emulationstation", 0, "", "", True, 0.1)
+        )
+
+        result = await management_tools.handle_tool_call(
+            "manage_services", {"action": "stop", "service": "emulationstation"}
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "✅" in result[0].text
+        assert "emulationstation" in result[0].text
+        assert "stopped" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_manage_services_restart_success(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test successful service restart."""
+        # Mock successful service restart
+        management_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult("sudo systemctl restart pi5-fancontrol", 0, "", "", True, 0.1)
+        )
+
+        result = await management_tools.handle_tool_call(
+            "manage_services", {"action": "restart", "service": "pi5-fancontrol"}
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "✅" in result[0].text
+        assert "pi5-fancontrol" in result[0].text
+        assert "restarted" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_manage_services_enable_success(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test successful service enable."""
+        # Mock successful service enable
+        management_tools.container.retropie_client.execute_command.return_value = CommandResult(
+            "sudo systemctl enable pigpiod",
+            0,
+            "Created symlink /etc/systemd/system/multi-user.target.wants/pigpiod.service",
+            "",
+            True,
+            0.1,
+        )
+
+        result = await management_tools.handle_tool_call(
+            "manage_services", {"action": "enable", "service": "pigpiod"}
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "✅" in result[0].text
+        assert "pigpiod" in result[0].text
+        assert "enabled" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_manage_services_disable_success(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test successful service disable."""
+        # Mock successful service disable
+        management_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                "sudo systemctl disable pigpiod",
+                0,
+                "Removed /etc/systemd/system/multi-user.target.wants/pigpiod.service",
+                "",
+                True,
+                0.1,
+            )
+        )
+
+        result = await management_tools.handle_tool_call(
+            "manage_services", {"action": "disable", "service": "pigpiod"}
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "✅" in result[0].text
+        assert "pigpiod" in result[0].text
+        assert "disabled" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_manage_services_status(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test service status check."""
+        # Mock service status output
+        status_output = """● pigpiod.service - Daemon for pigpio library
+     Loaded: loaded (/lib/systemd/system/pigpiod.service; enabled; vendor preset: enabled)
+     Active: active (running) since Mon 2025-01-13 14:30:00 UTC; 1h ago
+   Main PID: 1234 (pigpiod)
+      Tasks: 1 (limit: 9345)
+     Memory: 1.2M
+        CPU: 100ms
+     CGroup: /system.slice/pigpiod.service
+             └─1234 /usr/bin/pigpiod -l"""
+
+        management_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                "systemctl status pigpiod --no-pager", 0, status_output, "", True, 0.1
+            )
+        )
+
+        result = await management_tools.handle_tool_call(
+            "manage_services", {"action": "status", "service": "pigpiod"}
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "pigpiod.service" in result[0].text
+        assert "active (running)" in result[0].text
+        assert "enabled" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_manage_services_status_inactive(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test inactive service status."""
+        # Mock inactive service
+        status_output = """● pi5-fancontrol.service - Raspberry Pi 5 Fan Control
+     Loaded: loaded (/etc/systemd/system/pi5-fancontrol.service; disabled; vendor preset: enabled)
+     Active: inactive (dead)"""
+
+        management_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                "systemctl status pi5-fancontrol --no-pager",
+                3,  # Exit code 3 for inactive service
+                status_output,
+                "",
+                False,
+                0.1,
+            )
+        )
+
+        result = await management_tools.handle_tool_call(
+            "manage_services", {"action": "status", "service": "pi5-fancontrol"}
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "pi5-fancontrol.service" in result[0].text
+        assert "inactive (dead)" in result[0].text
+        assert "disabled" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_manage_services_failure(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test service operation failure."""
+        # Mock failed service start
+        management_tools.container.retropie_client.execute_command.return_value = CommandResult(
+            "sudo systemctl start nonexistent",
+            1,
+            "",
+            "Failed to start nonexistent.service: Unit nonexistent.service not found.",
+            False,
+            0.1,
+        )
+
+        result = await management_tools.handle_tool_call(
+            "manage_services", {"action": "start", "service": "nonexistent"}
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "❌" in result[0].text
+        assert "nonexistent" in result[0].text
+        assert "not found" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_manage_services_invalid_action(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test invalid action handling."""
+        result = await management_tools.handle_tool_call(
+            "manage_services", {"action": "invalid", "service": "pigpiod"}
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "❌" in result[0].text
+        assert "invalid action" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_manage_services_missing_service(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test missing service parameter."""
+        result = await management_tools.handle_tool_call(
+            "manage_services", {"action": "start"}
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "❌" in result[0].text
+        assert "service name required" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_handle_unknown_tool(self, management_tools: ManagementTools) -> None:
+        """Test handling of unknown tool name."""
+        result = await management_tools.handle_tool_call("unknown_tool", {})
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "❌" in result[0].text
+        assert "Unknown tool" in result[0].text
+
+    def test_inheritance_from_base_tool(
+        self, management_tools: ManagementTools
+    ) -> None:
+        """Test that ManagementTools properly inherits from BaseTool."""
+        from retromcp.tools.base import BaseTool
+
+        assert isinstance(management_tools, BaseTool)
+        assert hasattr(management_tools, "container")
+        assert hasattr(management_tools, "config")
+        assert hasattr(management_tools, "format_error")
+        assert hasattr(management_tools, "format_success")
+        assert hasattr(management_tools, "format_warning")
+        assert hasattr(management_tools, "format_info")
