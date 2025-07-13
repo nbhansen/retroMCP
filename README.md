@@ -55,6 +55,17 @@ RetroMCP has undergone comprehensive security hardening to prevent:
 - **Input Validation** - Comprehensive validation for GPIO pins, packages, themes, and paths
 - **Information Leakage** - Error messages sanitized to prevent credential exposure
 
+### ⚠️ Important Security Notice
+
+**RetroMCP uses aggressive sudo privilege escalation** for system operations like package installation, service management, and controller setup. This is necessary for RetroPie management but has security implications:
+
+- **Don't store sensitive data** on your RetroPie system if you're concerned about AI/MCP access
+- **RetroPie is designed for gaming**, not as a secure server - this tool assumes you're okay with system-level access
+- **Review what you're asking for** - the AI can install packages, restart services, and modify system configurations
+- **Use on dedicated gaming systems** - Don't run this on servers with sensitive data or production systems
+
+*If you're running MCP tools on sensitive servers, you're already taking unnecessary risks. RetroPie systems are typically isolated gaming devices, making this approach reasonable for the use case.*
+
 ## The Problem This Solves
 
 **Retro gaming on Raspberry Pi is amazing but can be frustrating:**
