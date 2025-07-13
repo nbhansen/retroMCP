@@ -144,9 +144,11 @@ class ControllerTools(BaseTool):
             # If there are controllers, show info for the first one
             if controllers:
                 first_device = controllers[0].device_path
-                exit_code, js_info, _ = client.execute_command(
+                result = client.execute_command(
                     f"jstest --list {first_device} 2>/dev/null || echo 'Device not ready'"
                 )
+                exit_code = result.exit_code
+                js_info = result.stdout
                 if exit_code == 0 and js_info.strip():
                     output += f"\\nFirst controller info:\\n{js_info}\\n"
         else:
@@ -176,21 +178,23 @@ class ControllerTools(BaseTool):
 
         # Check if jstest is available
         client = self.container.retropie_client
-        exit_code, _, _ = client.execute_command("which jstest")
+        result = client.execute_command("which jstest")
+        exit_code = result.exit_code
         if exit_code != 0:
             return self.format_error(
                 "jstest not found. Install with: sudo apt-get install joystick"
             )
 
         # Test if device exists
-        exit_code, _, _ = client.execute_command(f"test -e {device}")
+        result = client.execute_command(f"test -e {device}")
+        exit_code = result.exit_code
         if exit_code != 0:
             return self.format_error(f"Controller device {device} not found")
 
         # Run jstest for a few seconds
-        exit_code, output, stderr = client.execute_command(
-            f"timeout 3 jstest --normal {device} || true"
-        )
+        result = client.execute_command(f"timeout 3 jstest --normal {device} || true")
+        exit_code = result.exit_code
+        output = result.stdout
 
         if output:
             return [
@@ -219,7 +223,8 @@ class ControllerTools(BaseTool):
 
         # Check if EmulationStation is running
         client = self.container.retropie_client
-        exit_code, _, _ = client.execute_command("pgrep emulationstation")
+        result = client.execute_command("pgrep emulationstation")
+        exit_code = result.exit_code
         if exit_code == 0:
             return self.format_warning(
                 "EmulationStation is currently running. Please exit EmulationStation first to configure controllers."
@@ -228,9 +233,10 @@ class ControllerTools(BaseTool):
         # Run EmulationStation controller configuration
         if force_reconfigure:
             # Remove existing controller config to force reconfiguration
-            exit_code, _, _ = client.execute_command(
+            result = client.execute_command(
                 f"rm -f {self.config.home_dir}/.emulationstation/es_input.cfg"
             )
+            exit_code = result.exit_code
 
         # Start EmulationStation in configuration mode
         output = "🎮 Controller Configuration:\\n\\n"
