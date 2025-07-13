@@ -33,6 +33,8 @@ env/
 *.swp
 *.swo
 *~
+CLAUDE.md
+
 
 # Project specific
 .env
