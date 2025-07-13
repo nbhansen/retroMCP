@@ -252,9 +252,8 @@ class TestSSHHandler:
         self, mock_disconnect: Mock, mock_connect: Mock, ssh_handler: SSHHandler
     ) -> None:
         """Test context manager when exception occurs."""
-        with pytest.raises(ValueError):
-            with ssh_handler:
-                raise ValueError("Test error")
+        with pytest.raises(ValueError), ssh_handler:
+            raise ValueError("Test error")
 
         mock_connect.assert_called_once()
         mock_disconnect.assert_called_once()

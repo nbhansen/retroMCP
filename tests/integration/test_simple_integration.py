@@ -1,15 +1,20 @@
 """Simple integration tests that verify basic component interactions."""
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
-from pathlib import Path
 import tempfile
+from pathlib import Path
+from unittest.mock import AsyncMock
+from unittest.mock import Mock
+from unittest.mock import patch
+
+import pytest
 
 from retromcp.config import RetroPieConfig
-from retromcp.discovery import RetroPieDiscovery, RetroPiePaths
-from retromcp.profile import SystemProfileManager, SystemProfile
+from retromcp.discovery import RetroPieDiscovery
+from retromcp.discovery import RetroPiePaths
 from retromcp.domain.models import CommandResult
 from retromcp.domain.ports import RetroPieClient
+from retromcp.profile import SystemProfile
+from retromcp.profile import SystemProfileManager
 from retromcp.tools.system_tools import SystemTools
 
 
@@ -74,7 +79,7 @@ class TestBasicIntegration:
         # Load a new manager instance to test persistence
         new_manager = SystemProfileManager(profile_dir=temp_profiles_dir)
         loaded_profile = new_manager.current_profile
-        
+
         # Note: May be None if profile wasn't actually saved, which is fine for basic test
         if loaded_profile:
             assert loaded_profile.home_dir == "/home/retro"
@@ -85,10 +90,16 @@ class TestBasicIntegration:
         mock_client.execute_command.side_effect = [
             CommandResult("pwd", 0, "/home/pi", "", True, 0.1),
             CommandResult("whoami", 0, "pi", "", True, 0.1),
-            CommandResult("test -d /home/pi/RetroPie", 1, "", "", False, 0.1),  # Missing
+            CommandResult(
+                "test -d /home/pi/RetroPie", 1, "", "", False, 0.1
+            ),  # Missing
             CommandResult("test -d /home/pi/RetroPie-Setup", 0, "", "", True, 0.1),
-            CommandResult("test -d /home/pi/RetroPie/BIOS", 1, "", "", False, 0.1),  # Missing
-            CommandResult("test -d /home/pi/RetroPie/roms", 1, "", "", False, 0.1),  # Missing
+            CommandResult(
+                "test -d /home/pi/RetroPie/BIOS", 1, "", "", False, 0.1
+            ),  # Missing
+            CommandResult(
+                "test -d /home/pi/RetroPie/roms", 1, "", "", False, 0.1
+            ),  # Missing
         ]
 
         # Perform discovery
@@ -103,7 +114,9 @@ class TestBasicIntegration:
         assert discovered_paths.bios_dir is None  # Missing
         assert discovered_paths.roms_dir is None  # Missing
 
-    def test_config_with_discovered_paths(self, base_config: RetroPieConfig, mock_client: Mock) -> None:
+    def test_config_with_discovered_paths(
+        self, base_config: RetroPieConfig, mock_client: Mock
+    ) -> None:
         """Test configuration update with discovered paths."""
         # Mock discovery
         mock_client.execute_command.side_effect = [
@@ -132,7 +145,7 @@ class TestBasicIntegration:
     @pytest.mark.asyncio
     async def test_basic_tool_usage(self, base_config: RetroPieConfig) -> None:
         """Test basic tool usage with mocked SSH."""
-        with patch('retromcp.ssh_handler.SSHHandler') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.SSHHandler") as mock_ssh_class:
             # Mock SSH handler
             mock_ssh = Mock()
             mock_ssh.execute_command = AsyncMock(return_value=(0, "test-hostname", ""))
@@ -152,7 +165,7 @@ class TestBasicIntegration:
     @pytest.mark.asyncio
     async def test_tool_with_error_handling(self, base_config: RetroPieConfig) -> None:
         """Test tool error handling."""
-        with patch('retromcp.ssh_handler.SSHHandler') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.SSHHandler") as mock_ssh_class:
             # Mock SSH failure
             mock_ssh = Mock()
             mock_ssh.execute_command = AsyncMock(return_value=(1, "", "Command failed"))

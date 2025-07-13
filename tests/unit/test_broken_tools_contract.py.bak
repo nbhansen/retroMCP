@@ -1,0 +1,298 @@
+"""Contract tests for broken tools - RED phase tests that should FAIL initially.
+
+Following CLAUDE.md TDD: Write tests FIRST that expose the exact issues 
+found in the MCP Inspector testing.
+"""
+
+import pytest
+from unittest.mock import Mock
+
+from retromcp.config import RetroPieConfig
+from retromcp.tools.hardware_tools import HardwareTools
+from retromcp.tools.emulationstation_tools import EmulationStationTools
+from retromcp.tools.controller_tools import ControllerTools
+from retromcp.tools.retropie_tools import RetroPieTools
+from retromcp.container import Container
+from retromcp.domain.models import CommandResult, Controller, ControllerType
+
+
+class TestHardwareToolsContainerUsage:
+    """Test that HardwareTools uses Container properly (should FAIL initially)."""
+
+    @pytest.fixture
+    def mock_container(self) -> Mock:
+        """Mock container for testing."""
+        container = Mock(spec=Container)
+        container.config = Mock()
+        container.retropie_client = Mock()
+        return container
+
+    @pytest.mark.asyncio
+    async def test_check_temperatures_uses_container_not_ssh(self, mock_container: Mock) -> None:
+        """TEST SHOULD FAIL: HardwareTools.check_temperatures should use container, not self.ssh."""
+        # Mock the SSH response for temperature check
+        mock_container.retropie_client.execute_command.return_value = CommandResult(
+            command="vcgencmd measure_temp",
+            exit_code=0,
+            stdout="temp=45.1'C",
+            stderr="",
+            success=True,
+            execution_time=0.1
+        )
+        
+        hardware_tools = HardwareTools(mock_container)
+        
+        # This should work without AttributeError: 'HardwareTools' object has no attribute 'ssh'
+        result = await hardware_tools.handle_tool_call("check_temperatures", {})
+        
+        # Should use container's client, not direct SSH
+        mock_container.retropie_client.execute_command.assert_called()
+        assert len(result) == 1
+        assert "temp" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_monitor_fan_control_uses_container_not_ssh(self, mock_container: Mock) -> None:
+        """TEST SHOULD FAIL: HardwareTools.monitor_fan_control should use container, not self.ssh."""
+        mock_container.retropie_client.execute_command.return_value = CommandResult(
+            command="systemctl status fancontrol",
+            exit_code=0,
+            stdout="fancontrol.service - Fan control",
+            stderr="",
+            success=True,
+            execution_time=0.1
+        )
+        
+        hardware_tools = HardwareTools(mock_container)
+        
+        # This should work without AttributeError
+        result = await hardware_tools.handle_tool_call("monitor_fan_control", {"action": "status"})
+        
+        mock_container.retropie_client.execute_command.assert_called()
+        assert len(result) == 1
+
+    def test_hardware_tools_has_no_direct_ssh_attribute(self, mock_container: Mock) -> None:
+        """TEST SHOULD FAIL: HardwareTools should not have direct SSH access."""
+        hardware_tools = HardwareTools(mock_container)
+        
+        # This should fail if the tool tries to access self.ssh
+        assert not hasattr(hardware_tools, 'ssh'), "HardwareTools should not have direct SSH access"
+        assert hasattr(hardware_tools, 'container'), "HardwareTools should use container"
+
+    @pytest.mark.asyncio
+    async def test_all_hardware_tools_use_container_pattern(self, mock_container: Mock) -> None:
+        """TEST SHOULD FAIL: All hardware tools should use container pattern."""
+        mock_container.retropie_client.execute_command.return_value = CommandResult(
+            command="test", exit_code=0, stdout="ok", stderr="", success=True, execution_time=0.1
+        )
+        
+        hardware_tools = HardwareTools(mock_container)
+        
+        # Test all hardware tools to ensure they use container, not SSH
+        tool_names = [
+            "check_temperatures",
+            "monitor_fan_control", 
+            "check_power_supply",
+            "inspect_hardware_errors",
+            "check_gpio_status"
+        ]
+        
+        for tool_name in tool_names:
+            try:
+                result = await hardware_tools.handle_tool_call(tool_name, {})
+                # Should not get AttributeError about missing 'ssh' attribute
+                assert len(result) >= 1, f"Tool {tool_name} should return results"
+            except AttributeError as e:
+                if "'ssh'" in str(e):
+                    pytest.fail(f"Tool {tool_name} is trying to access self.ssh instead of self.container: {e}")
+                else:
+                    raise
+
+
+class TestEmulationStationToolsContainerUsage:
+    """Test that EmulationStationTools uses Container properly (should FAIL initially)."""
+
+    @pytest.fixture
+    def mock_container(self) -> Mock:
+        """Mock container for testing."""
+        container = Mock(spec=Container)
+        container.config = Mock()
+        container.retropie_client = Mock()
+        return container
+
+    @pytest.mark.asyncio
+    async def test_configure_themes_uses_container_not_ssh(self, mock_container: Mock) -> None:
+        """TEST SHOULD FAIL: EmulationStationTools.configure_themes should use container, not self.ssh."""
+        mock_container.retropie_client.execute_command.return_value = CommandResult(
+            command="ls /etc/emulationstation/themes",
+            exit_code=0,
+            stdout="carbon\ncomfy",
+            stderr="",
+            success=True,
+            execution_time=0.1
+        )
+        
+        es_tools = EmulationStationTools(mock_container)
+        
+        # This should work without AttributeError: 'EmulationStationTools' object has no attribute 'ssh'
+        result = await es_tools.handle_tool_call("configure_themes", {"action": "list"})
+        
+        mock_container.retropie_client.execute_command.assert_called()
+        assert len(result) == 1
+
+    def test_emulationstation_tools_has_no_direct_ssh_attribute(self, mock_container: Mock) -> None:
+        """TEST SHOULD FAIL: EmulationStationTools should not have direct SSH access."""
+        es_tools = EmulationStationTools(mock_container)
+        
+        assert not hasattr(es_tools, 'ssh'), "EmulationStationTools should not have direct SSH access"
+        assert hasattr(es_tools, 'container'), "EmulationStationTools should use container"
+
+    @pytest.mark.asyncio
+    async def test_all_es_tools_use_container_pattern(self, mock_container: Mock) -> None:
+        """TEST SHOULD FAIL: All ES tools should use container pattern."""
+        mock_container.retropie_client.execute_command.return_value = CommandResult(
+            command="test", exit_code=0, stdout="ok", stderr="", success=True, execution_time=0.1
+        )
+        
+        es_tools = EmulationStationTools(mock_container)
+        
+        # Test all ES tools to ensure they use container, not SSH
+        tool_names = [
+            ("restart_emulationstation", {}),
+            ("configure_themes", {"action": "list"}),
+            ("manage_gamelists", {"action": "backup"}),
+            ("configure_es_settings", {"setting": "screensaver"})
+        ]
+        
+        for tool_name, args in tool_names:
+            try:
+                result = await es_tools.handle_tool_call(tool_name, args)
+                assert len(result) >= 1, f"Tool {tool_name} should return results"
+            except AttributeError as e:
+                if "'ssh'" in str(e):
+                    pytest.fail(f"Tool {tool_name} is trying to access self.ssh instead of self.container: {e}")
+                else:
+                    raise
+
+
+class TestControllerDetectionDataFlow:
+    """Test that controller detection handles data properly (test unpacking issue)."""
+
+    @pytest.fixture
+    def mock_container(self) -> Mock:
+        """Mock container for testing."""
+        container = Mock(spec=Container)
+        container.config = Mock()
+        container.detect_controllers_use_case = Mock()
+        return container
+
+    @pytest.mark.asyncio
+    async def test_detect_controllers_handles_command_result_properly(self, mock_container: Mock) -> None:
+        """TEST: Controller detection should handle CommandResult without unpacking errors."""
+        # Mock controller detection to return proper Controller objects
+        mock_controllers = [
+            Controller(
+                device_path="/dev/input/js0",
+                name="Xbox Controller",
+                controller_type=ControllerType.XBOX,
+                vendor_id="045e",
+                product_id="028e",
+                is_configured=True
+            )
+        ]
+        mock_container.detect_controllers_use_case.execute.return_value = mock_controllers
+        
+        controller_tools = ControllerTools(mock_container)
+        
+        # This should not raise "cannot unpack non-iterable CommandResult object"
+        result = await controller_tools.handle_tool_call("detect_controllers", {})
+        
+        assert len(result) == 1
+        assert "Xbox Controller" in result[0].text
+        mock_container.detect_controllers_use_case.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_detect_controllers_uses_container_repositories(self, mock_container: Mock) -> None:
+        """TEST: Controller detection should use container repositories."""
+        mock_container.detect_controllers_use_case.execute.return_value = []
+        
+        controller_tools = ControllerTools(mock_container)
+        result = await controller_tools.handle_tool_call("detect_controllers", {})
+        
+        # Should use container's use case, not direct SSH
+        mock_container.detect_controllers_use_case.execute.assert_called_once()
+        assert len(result) == 1
+        assert "No controllers detected" in result[0].text
+
+
+class TestMissingUseCases:
+    """Test missing use case implementations (these should work correctly)."""
+
+    @pytest.fixture
+    def mock_container(self) -> Mock:
+        """Mock container for testing."""
+        container = Mock(spec=Container)
+        container.config = Mock()
+        return container
+
+    @pytest.mark.asyncio
+    async def test_manage_roms_list_requires_list_roms_use_case(self, mock_container: Mock) -> None:
+        """TEST: manage_roms list action should indicate missing ListRomsUseCase."""
+        retropie_tools = RetroPieTools(mock_container)
+        
+        result = await retropie_tools.handle_tool_call("manage_roms", {"action": "list"})
+        
+        assert len(result) == 1
+        assert "not yet implemented" in result[0].text
+        assert "ListRomsUseCase" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_manage_roms_scan_requires_scan_roms_use_case(self, mock_container: Mock) -> None:
+        """TEST: manage_roms scan action should indicate missing ScanRomsUseCase."""
+        retropie_tools = RetroPieTools(mock_container)
+        
+        result = await retropie_tools.handle_tool_call("manage_roms", {"action": "scan"})
+        
+        assert len(result) == 1
+        assert "not yet implemented" in result[0].text
+        assert "ScanRomsUseCase" in result[0].text
+
+
+class TestToolArchitectureCompliance:
+    """Test that all tools follow the Container-based architecture."""
+
+    @pytest.fixture
+    def mock_container(self) -> Mock:
+        """Mock container for testing.""" 
+        container = Mock(spec=Container)
+        container.config = Mock()
+        container.retropie_client = Mock()
+        return container
+
+    def test_all_tools_accept_container_not_ssh(self, mock_container: Mock) -> None:
+        """TEST: All tool classes should accept Container, not SSH handlers."""
+        # These should all work with Container injection
+        tools = [
+            HardwareTools(mock_container),
+            EmulationStationTools(mock_container),
+            ControllerTools(mock_container),
+            RetroPieTools(mock_container)
+        ]
+        
+        for tool in tools:
+            assert hasattr(tool, 'container'), f"{tool.__class__.__name__} should have container attribute"
+            assert tool.container is mock_container, f"{tool.__class__.__name__} should store container reference"
+            assert hasattr(tool, 'config'), f"{tool.__class__.__name__} should have config attribute"
+
+    def test_no_tools_have_direct_ssh_access(self, mock_container: Mock) -> None:
+        """TEST: No tool should have direct SSH access."""
+        tools = [
+            HardwareTools(mock_container),
+            EmulationStationTools(mock_container), 
+            ControllerTools(mock_container),
+            RetroPieTools(mock_container)
+        ]
+        
+        for tool in tools:
+            assert not hasattr(tool, 'ssh'), f"{tool.__class__.__name__} should not have SSH attribute"
+            assert not hasattr(tool, 'ssh_client'), f"{tool.__class__.__name__} should not have ssh_client attribute"
+            assert not hasattr(tool, 'ssh_handler'), f"{tool.__class__.__name__} should not have ssh_handler attribute"

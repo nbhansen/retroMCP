@@ -48,6 +48,7 @@ Claude/AI → MCP Client → RetroMCP Server → SSH → Raspberry Pi
 2. **System Tools**: Package installation, service management
 3. **Controller Tools**: Detection, driver installation, configuration
 4. **Emulator Tools**: Installation, configuration, BIOS checking
+5. **Management Tools**: Service/package/file management with elevated privileges
 5. **Diagnostic Tools**: Performance monitoring, log analysis
 
 ## Phase 4A: Security Hardening ✅ COMPLETED
@@ -101,6 +102,49 @@ Claude/AI → MCP Client → RetroMCP Server → SSH → Raspberry Pi
 - **SSH Security**: 12 tests covering host verification, timeouts, validation
 - **Command Injection**: 11 tests covering input escaping and validation
 - **Coverage**: 82% on SecureSSHHandler with comprehensive validation testing
+
+## Privilege Escalation Patterns ⚠️
+
+RetroMCP uses **aggressive sudo privilege escalation** for RetroPie system management. This design decision follows the principle that RetroPie administration requires system-level access.
+
+### Sudo Usage Strategy
+```python
+# Standard pattern for system operations
+exit_code, stdout, stderr = self._execute_command(f"sudo systemctl start {service}")
+exit_code, stdout, stderr = self._execute_command(f"sudo apt-get install -y {package}")
+exit_code, stdout, stderr = self._execute_command(f"sudo rm -rf {path}")
+```
+
+### Tools with Elevated Privileges
+1. **Service Management**: All systemctl operations use sudo
+2. **Package Management**: APT operations (install/remove/update) use sudo
+3. **File Management**: File operations (create/delete/copy/move/chmod) use sudo
+4. **System Configuration**: System file modifications use sudo
+
+### Security Considerations
+- ✅ **Input Validation**: All parameters validated before sudo commands
+- ✅ **Command Injection Prevention**: shlex.quote() applied to all user inputs
+- ✅ **Error Sanitization**: Sudo output sanitized to prevent information disclosure
+- ⚠️ **Privilege Level**: Requires passwordless sudo or stored credentials
+- ⚠️ **Trust Model**: Assumes RetroPie system is dedicated gaming device
+
+### Implementation Example
+```python
+# Management Tools - File Operations
+def _manage_files(self, arguments: Dict[str, Any]) -> List[TextContent]:
+    action = arguments.get("action")
+    path = arguments.get("path")
+    
+    # Input validation happens here
+    if not path:
+        return self.format_error("Path is required")
+    
+    # Secure command execution with sudo
+    if action == "delete":
+        exit_code, stdout, stderr = self._execute_command(f"sudo rm -rf {path}")
+```
+
+This approach enables comprehensive RetroPie management while maintaining security through input validation and command injection prevention.
 
 ## Development Roadmap
 

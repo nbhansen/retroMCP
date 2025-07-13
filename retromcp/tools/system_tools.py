@@ -1,5 +1,6 @@
 """System-level tools for RetroPie management."""
 
+from typing import TYPE_CHECKING
 from typing import Any
 from typing import Dict
 from typing import List
@@ -10,6 +11,12 @@ from mcp.types import TextContent
 from mcp.types import Tool
 
 from .base import BaseTool
+
+if TYPE_CHECKING:
+    from ..domain.models import BiosFile
+    from ..domain.models import CommandResult
+    from ..domain.models import ConnectionInfo
+    from ..domain.models import SystemInfo
 
 
 class SystemTools(BaseTool):
@@ -111,11 +118,17 @@ class SystemTools(BaseTool):
     async def _test_connection(self) -> List[TextContent]:
         """Test SSH connection."""
         try:
-            exit_code, output, _ = self.ssh.execute_command("uname -a")
+            connection_info: ConnectionInfo = (
+                self.container.test_connection_use_case.execute()
+            )
 
-            if exit_code == 0:
+            if connection_info.connected:
                 return self.format_success(
-                    f"Successfully connected to RetroPie!\\n\\nSystem info:\\n{output}"
+                    f"Successfully connected to RetroPie!\\n\\n"
+                    f"Host: {connection_info.host}:{connection_info.port}\\n"
+                    f"Username: {connection_info.username}\\n"
+                    f"Method: {connection_info.connection_method}\\n"
+                    f"Last connected: {connection_info.last_connected or 'Just now'}"
                 )
             else:
                 return self.format_error("Connected but couldn't get system info")
@@ -126,30 +139,48 @@ class SystemTools(BaseTool):
 
     async def _get_system_info(self) -> List[TextContent]:
         """Get system information."""
-        info = self.ssh.get_system_info()
+        system_info: SystemInfo = self.container.get_system_info_use_case.execute()
 
         output = "🖥️ RetroPie System Information:\\n\\n"
 
-        if "temperature" in info:
-            temp = info["temperature"]
-            temp_status = "🔥" if temp > 80 else "⚠️" if temp > 70 else "✅"
-            output += f"Temperature: {temp_status} {temp}°C\\n"
+        # Temperature
+        temp = system_info.cpu_temperature
+        temp_status = "🔥" if temp > 80 else "⚠️" if temp > 70 else "✅"
+        output += f"Temperature: {temp_status} {temp}°C\\n"
 
-        if "memory" in info:
-            mem = info["memory"]
-            used_pct = (mem["used"] / mem["total"]) * 100
+        # Memory
+        memory_total_mb = system_info.memory_total // (1024 * 1024)
+        memory_used_mb = system_info.memory_used // (1024 * 1024)
+        if system_info.memory_total > 0:
+            used_pct = (system_info.memory_used / system_info.memory_total) * 100
             mem_status = "🔴" if used_pct > 90 else "🟡" if used_pct > 75 else "🟢"
-            output += f"Memory: {mem_status} {mem['used']}MB / {mem['total']}MB ({used_pct:.1f}%)\\n"
+            output += f"Memory: {mem_status} {memory_used_mb}MB / {memory_total_mb}MB ({used_pct:.1f}%)\\n"
+        else:
+            output += f"Memory: ⚠️ {memory_used_mb}MB / {memory_total_mb}MB (Unable to determine usage)\\n"
 
-        if "disk" in info:
-            disk = info["disk"]
-            output += f"Disk Usage: {disk['used']} / {disk['total']} ({disk['use_percent']})\\n"
+        # Disk
+        disk_total_gb = system_info.disk_total // (1024 * 1024 * 1024)
+        disk_used_gb = system_info.disk_used // (1024 * 1024 * 1024)
+        if system_info.disk_total > 0:
+            disk_used_pct = (system_info.disk_used / system_info.disk_total) * 100
+            output += f"Disk Usage: {disk_used_gb}GB / {disk_total_gb}GB ({disk_used_pct:.1f}%)\\n"
+        else:
+            output += f"Disk Usage: {disk_used_gb}GB / {disk_total_gb}GB (Unable to determine usage)\\n"
 
-        if "emulationstation_running" in info:
-            es_status = (
-                "✅ Running" if info["emulationstation_running"] else "❌ Not running"
+        # Load average
+        if system_info.load_average:
+            load_1min = (
+                system_info.load_average[0] if len(system_info.load_average) > 0 else 0
             )
-            output += f"EmulationStation: {es_status}\\n"
+            output += f"Load Average (1min): {load_1min:.2f}\\n"
+
+        # Uptime
+        uptime_hours = system_info.uptime // 3600
+        uptime_minutes = (system_info.uptime % 3600) // 60
+        output += f"Uptime: {uptime_hours}h {uptime_minutes}m\\n"
+
+        # Hostname
+        output += f"Hostname: {system_info.hostname}\\n"
 
         return [TextContent(type="text", text=output)]
 
@@ -160,12 +191,19 @@ class SystemTools(BaseTool):
         if not packages:
             return self.format_error("No packages specified")
 
-        success, message = self.ssh.install_packages(packages)
+        result: CommandResult = self.container.install_packages_use_case.execute(
+            packages
+        )
 
-        if success:
-            return self.format_success(message)
+        if result.success:
+            return self.format_success(
+                result.stdout
+                or f"Successfully installed packages: {', '.join(packages)}"
+            )
         else:
-            return self.format_error(message)
+            return self.format_error(
+                f"Package installation failed: {result.stderr or result.stdout}"
+            )
 
     async def _check_bios(self, arguments: Dict[str, Any]) -> List[TextContent]:
         """Check BIOS files."""
@@ -174,51 +212,50 @@ class SystemTools(BaseTool):
         if not system:
             return self.format_error("No system specified")
 
-        bios_info = self.ssh.check_bios_files(system)
+        # Get all BIOS files and filter by system
+        all_bios_files: List[BiosFile] = (
+            self.container.system_repository.get_bios_files()
+        )
+        system_bios_files = [
+            bf for bf in all_bios_files if bf.system.lower() == system.lower()
+        ]
 
         output = f"🎮 BIOS Files for {system.upper()}:\\n\\n"
 
-        if not bios_info["bios_required"]:
+        if not system_bios_files:
             output += "✅ No BIOS files required for this system\\n"
         else:
-            output += "Required BIOS files:\\n"
-            for filename, present in bios_info["files"].items():
-                status = "✅" if present else "❌"
-                output += f"  {status} {filename}\\n"
+            required_files = [bf for bf in system_bios_files if bf.required]
 
-            if bios_info["all_present"]:
-                output += "\\n🎉 All required BIOS files are present!\\n"
+            if not required_files:
+                output += "✅ No BIOS files required for this system\\n"
             else:
-                bios_dir = (
-                    self.config.bios_dir or f"{self.config.home_dir}/RetroPie/BIOS"
-                )
-                output += (
-                    f"\\n⚠️ Some BIOS files are missing. Place them in {bios_dir}/\\n"
-                )
+                output += "Required BIOS files:\\n"
+                all_present = True
+
+                for bios_file in required_files:
+                    status = "✅" if bios_file.present else "❌"
+                    output += f"  {status} {bios_file.name}\\n"
+                    if not bios_file.present:
+                        all_present = False
+
+                if all_present:
+                    output += "\\n🎉 All required BIOS files are present!\\n"
+                else:
+                    bios_dir = (
+                        self.config.bios_dir or f"{self.config.home_dir}/RetroPie/BIOS"
+                    )
+                    output += f"\\n⚠️ Some BIOS files are missing. Place them in {bios_dir}/\\n"
 
         return [TextContent(type="text", text=output)]
 
-    async def _update_system(self, arguments: Dict[str, Any]) -> List[TextContent]:
+    async def _update_system(self, arguments: Dict[str, Any]) -> List[TextContent]:  # noqa: ARG002
         """Update system packages."""
-        update_type = arguments.get("update_type", "basic")
+        result: CommandResult = self.container.update_system_use_case.execute()
 
-        if update_type == "basic":
-            # Update package lists and upgrade system packages
-            exit_code, stdout, stderr = self.ssh.execute_command(
-                "sudo apt-get update && sudo apt-get upgrade -y"
+        if result.success:
+            return self.format_success(
+                f"System packages updated successfully\n\n{result.stdout}"
             )
-            if exit_code == 0:
-                return self.format_success("System packages updated successfully")
-            else:
-                return self.format_error(f"Update failed: {stderr}")
-
-        elif update_type == "retropie-setup":
-            # Run RetroPie-Setup update
-            success, message = self.ssh.run_retropie_setup("update")
-            if success:
-                return self.format_success(message)
-            else:
-                return self.format_error(message)
-
         else:
-            return self.format_error(f"Unknown update type: {update_type}")
+            return self.format_error(f"Update failed: {result.stderr or result.stdout}")

@@ -3,8 +3,9 @@
 Following CLAUDE.md TDD: Write tests FIRST that expose the missing ListRomsUseCase.
 """
 
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from retromcp.application.use_cases import ListRomsUseCase
 from retromcp.domain.models import RomDirectory
@@ -19,7 +20,7 @@ class TestListRomsUseCase:
         """Mock emulator repository for testing."""
         return Mock(spec=EmulatorRepository)
 
-    @pytest.fixture  
+    @pytest.fixture
     def use_case(self, mock_emulator_repository: Mock) -> ListRomsUseCase:
         """Create ListRomsUseCase with mocked dependencies."""
         return ListRomsUseCase(mock_emulator_repository)
@@ -38,7 +39,7 @@ class TestListRomsUseCase:
                 supported_extensions=[".nes", ".zip"]
             ),
             RomDirectory(
-                system="snes", 
+                system="snes",
                 path="/home/pi/RetroPie/roms/snes",
                 rom_count=5,
                 total_size=2048000,
@@ -76,7 +77,7 @@ class TestListRomsUseCase:
         all_roms = [
             RomDirectory(
                 system="nes",
-                path="/home/pi/RetroPie/roms/nes", 
+                path="/home/pi/RetroPie/roms/nes",
                 rom_count=10,
                 total_size=1024000,
                 supported_extensions=[".nes", ".zip"]

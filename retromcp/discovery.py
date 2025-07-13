@@ -58,8 +58,8 @@ class RetroPieDiscovery:
 
     def _discover_home_directory(self) -> str:
         """Discover user's home directory."""
-        result = self._client.execute_command("pwd")
-        if result.success:
+        result = self._client.execute_command("echo $HOME")
+        if result.success and result.stdout.strip():
             home_dir = result.stdout.strip()
             logger.debug(f"Discovered home directory: {home_dir}")
             return home_dir

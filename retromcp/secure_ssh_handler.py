@@ -20,10 +20,10 @@ class SecureSSHHandler:
     """Secure SSH connection handler with security hardening."""
 
     # Valid hostname pattern: alphanumeric, dots, hyphens, colons (for IPv6)
-    VALID_HOST_PATTERN = re.compile(r'^[a-zA-Z0-9.-]+$')
+    VALID_HOST_PATTERN = re.compile(r"^[a-zA-Z0-9.-]+$")
 
     # Valid username pattern: alphanumeric, underscore, hyphen
-    VALID_USERNAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+    VALID_USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
     def __init__(
         self,
@@ -35,7 +35,7 @@ class SecureSSHHandler:
         known_hosts_path: Optional[str] = None,
         timeout: int = 30,
         command_timeout: int = 60,
-        max_retries: int = 3
+        max_retries: int = 3,
     ) -> None:
         """Initialize secure SSH handler.
 
@@ -66,7 +66,9 @@ class SecureSSHHandler:
         self.password = password
         self.key_path = key_path
         self.port = port
-        self.known_hosts_path = known_hosts_path or os.path.expanduser("~/.ssh/known_hosts")
+        self.known_hosts_path = known_hosts_path or os.path.expanduser(
+            "~/.ssh/known_hosts"
+        )
         self.timeout = timeout
         self.command_timeout = command_timeout
         self.max_retries = max_retries
@@ -82,7 +84,7 @@ class SecureSSHHandler:
             raise ValueError("Invalid host format: contains invalid characters")
 
         # Check for obvious injection attempts
-        dangerous_patterns = [';', '$', '`', '|', '&', ' ', '\n', '\r', '\t']
+        dangerous_patterns = [";", "$", "`", "|", "&", " ", "\n", "\r", "\t"]
         for pattern in dangerous_patterns:
             if pattern in host:
                 raise ValueError("Invalid host format: contains dangerous characters")
@@ -96,10 +98,24 @@ class SecureSSHHandler:
             raise ValueError("Invalid username format: contains invalid characters")
 
         # Check for obvious injection attempts
-        dangerous_patterns = [';', '$', '`', '|', '&', '/', '\\', '\x00', '\n', '\r', ' ']
+        dangerous_patterns = [
+            ";",
+            "$",
+            "`",
+            "|",
+            "&",
+            "/",
+            "\\",
+            "\x00",
+            "\n",
+            "\r",
+            " ",
+        ]
         for pattern in dangerous_patterns:
             if pattern in username:
-                raise ValueError("Invalid username format: contains dangerous characters")
+                raise ValueError(
+                    "Invalid username format: contains dangerous characters"
+                )
 
     def _validate_port(self, port: int) -> None:
         """Validate port is in valid range."""
@@ -159,7 +175,10 @@ class SecureSSHHandler:
                 logger.info(f"Connected to {self.host}")
                 return True
 
-            except (paramiko.ssh_exception.SSHException, paramiko.ssh_exception.NoValidConnectionsError) as e:
+            except (
+                paramiko.ssh_exception.SSHException,
+                paramiko.ssh_exception.NoValidConnectionsError,
+            ) as e:
                 # Sanitize error message to avoid exposing sensitive info
                 safe_error = self._sanitize_error(str(e))
                 logger.error(f"Failed to connect to {self.host}: {safe_error}")
@@ -186,10 +205,10 @@ class SecureSSHHandler:
             error_msg = error_msg.replace(self.password, "[REDACTED]")
 
         # Remove full paths
-        error_msg = re.sub(r'/[/\w\-\.]+', '[PATH]', error_msg)
+        error_msg = re.sub(r"/[/\w\-\.]+", "[PATH]", error_msg)
 
         # Remove IP addresses
-        error_msg = re.sub(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', '[IP]', error_msg)
+        error_msg = re.sub(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", "[IP]", error_msg)
 
         return error_msg
 
@@ -221,8 +240,7 @@ class SecureSSHHandler:
         try:
             # Set timeout for command execution
             stdin, stdout, stderr = self.client.exec_command(
-                command,
-                timeout=self.command_timeout
+                command, timeout=self.command_timeout
             )
 
             # Get exit status with timeout
@@ -235,7 +253,9 @@ class SecureSSHHandler:
 
         except paramiko.SSHException as e:
             if "Timeout" in str(e):
-                raise RuntimeError(f"Command execution timeout after {self.command_timeout}s") from e
+                raise RuntimeError(
+                    f"Command execution timeout after {self.command_timeout}s"
+                ) from e
             raise
 
         except Exception as e:
@@ -278,7 +298,10 @@ class SecureSSHHandler:
         update_cmd = "sudo apt-get update"
         exit_code, _, stderr = self.execute_command(update_cmd)
         if exit_code != 0:
-            return False, f"Failed to update package list: {self._sanitize_error(stderr)}"
+            return (
+                False,
+                f"Failed to update package list: {self._sanitize_error(stderr)}",
+            )
 
         # Install packages with escaped names
         install_cmd = f"sudo apt-get install -y {package_str}"
@@ -379,7 +402,9 @@ class SecureSSHHandler:
         """Validate GPIO mode."""
         valid_modes = ["in", "out", "pwm", "clock", "up", "down", "tri"]
         if mode not in valid_modes:
-            raise ValueError(f"Invalid GPIO mode: {mode} (must be one of {valid_modes})")
+            raise ValueError(
+                f"Invalid GPIO mode: {mode} (must be one of {valid_modes})"
+            )
 
     def validate_package_name(self, package: str) -> None:
         """Validate package name format."""
@@ -388,11 +413,15 @@ class SecureSSHHandler:
             raise ValueError("Invalid package name: cannot be empty")
 
         # Check for obvious dangerous characters
-        dangerous_chars = [';', '$', '`', '|', '&', '\x00', '\n', '\r', '..']
+        dangerous_chars = [";", "$", "`", "|", "&", "\x00", "\n", "\r", ".."]
         for char in dangerous_chars:
             if char in package:
-                logger.warning(f"Security: Rejected package name with dangerous character: {package!r}")
-                raise ValueError(f"Invalid package name: contains dangerous character '{char}'")
+                logger.warning(
+                    f"Security: Rejected package name with dangerous character: {package!r}"
+                )
+                raise ValueError(
+                    f"Invalid package name: contains dangerous character '{char}'"
+                )
 
     def validate_theme_name(self, theme: str) -> None:
         """Validate theme name."""
@@ -401,35 +430,41 @@ class SecureSSHHandler:
             raise ValueError("Invalid theme name: cannot be empty")
 
         # Check for path traversal and command injection
-        if '..' in theme or '/' in theme:
-            logger.warning(f"Security: Rejected theme name with path traversal: {theme!r}")
+        if ".." in theme or "/" in theme:
+            logger.warning(
+                f"Security: Rejected theme name with path traversal: {theme!r}"
+            )
             raise ValueError("Invalid theme name: contains path characters")
 
-        dangerous_chars = [';', '$', '`', '|', '&', '\x00', '\n', '\r']
+        dangerous_chars = [";", "$", "`", "|", "&", "\x00", "\n", "\r"]
         for char in dangerous_chars:
             if char in theme:
-                logger.warning(f"Security: Rejected theme name with dangerous character: {theme!r}")
+                logger.warning(
+                    f"Security: Rejected theme name with dangerous character: {theme!r}"
+                )
                 raise ValueError("Invalid theme name: contains dangerous character")
 
     def validate_device_path(self, device: str) -> None:
         """Validate device path."""
-        if not device.startswith('/dev/'):
+        if not device.startswith("/dev/"):
             logger.warning(f"Security: Rejected invalid device path: {device!r}")
             raise ValueError("Invalid device path: must start with /dev/")
 
         # Check for command injection
-        dangerous_chars = [';', '$', '`', '|', '&', '\x00', '\n', '\r']
+        dangerous_chars = [";", "$", "`", "|", "&", "\x00", "\n", "\r"]
         for char in dangerous_chars:
             if char in device:
-                logger.warning(f"Security: Rejected device path with dangerous character: {device!r}")
+                logger.warning(
+                    f"Security: Rejected device path with dangerous character: {device!r}"
+                )
                 raise ValueError("Invalid device path: contains dangerous character")
 
     def validate_safe_path(self, path: str) -> None:
         """Validate path doesn't contain traversal attempts."""
-        if '..' in path:
+        if ".." in path:
             logger.warning(f"Security: Path traversal attempt detected: {path!r}")
             raise ValueError("Path traversal attempt detected")
 
         # Additional checks for Windows-style paths
-        if '\\' in path and '..' in path.replace('\\', '/'):
+        if "\\" in path and ".." in path.replace("\\", "/"):
             raise ValueError("Path traversal attempt detected")

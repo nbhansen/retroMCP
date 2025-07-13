@@ -7,6 +7,7 @@ from mcp.types import TextContent
 
 from retromcp.config import RetroPieConfig
 from retromcp.discovery import RetroPiePaths
+from retromcp.domain.models import CommandResult
 from retromcp.tools.hardware_tools import HardwareTools
 
 
@@ -14,12 +15,14 @@ class TestHardwareTools:
     """Test cases for HardwareTools class."""
 
     @pytest.fixture
-    def mock_ssh_handler(self) -> Mock:
-        """Provide mocked SSH handler."""
+    def mock_container(self, test_config: RetroPieConfig) -> Mock:
+        """Provide mocked container."""
         mock = Mock()
-        mock.execute_command = Mock()
+        mock.retropie_client = Mock()
+        mock.retropie_client.execute_command = Mock()
+        mock.config = test_config
         # Reset the mock for each test
-        mock.execute_command.reset_mock()
+        mock.retropie_client.execute_command.reset_mock()
         return mock
 
     @pytest.fixture
@@ -45,11 +48,9 @@ class TestHardwareTools:
         )
 
     @pytest.fixture
-    def hardware_tools(
-        self, mock_ssh_handler: Mock, test_config: RetroPieConfig
-    ) -> HardwareTools:
+    def hardware_tools(self, mock_container: Mock) -> HardwareTools:
         """Provide HardwareTools instance with mocked dependencies."""
-        return HardwareTools(mock_ssh_handler, test_config)
+        return HardwareTools(mock_container)
 
     def test_get_tools(self, hardware_tools: HardwareTools) -> None:
         """Test that all expected tools are returned."""
@@ -109,18 +110,26 @@ class TestHardwareTools:
         # Mock CPU temperature reading - need to track call order
         call_count = [0]
 
-        def mock_execute_command(command):
+        def mock_execute_command(command, use_sudo=False):
             call_count[0] += 1
             if "measure_temp" in command and "gpu" not in command:
-                return (0, "temp=55.4'C", "")  # CPU temp
+                return CommandResult(
+                    command, 0, "temp=55.4'C", "", True, 0.1
+                )  # CPU temp
             elif "get_throttled" in command:
-                return (0, "throttled=0x0", "")  # No throttling
+                return CommandResult(
+                    command, 0, "throttled=0x0", "", True, 0.1
+                )  # No throttling
             elif "measure_temp" in command and "gpu" in command:
-                return (0, "temp=52.1'C", "")  # GPU temp
+                return CommandResult(
+                    command, 0, "temp=52.1'C", "", True, 0.1
+                )  # GPU temp
             else:
-                return (1, "", "Unknown command")
+                return CommandResult(command, 1, "", "Unknown command", False, 0.1)
 
-        hardware_tools.ssh.execute_command.side_effect = mock_execute_command
+        hardware_tools.container.retropie_client.execute_command.side_effect = (
+            mock_execute_command
+        )
 
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
 
@@ -140,16 +149,18 @@ class TestHardwareTools:
         """Test temperature check with high temperature warnings."""
 
         # Test warm temperature (60-70°C)
-        def mock_warm_temp(command):
+        def mock_warm_temp(command, use_sudo=False):
             if "measure_temp" in command and "gpu" not in command:
-                return (0, "temp=65.7'C", "")
+                return CommandResult(command, 0, "temp=65.7'C", "", True, 0.1)
             elif "get_throttled" in command:
-                return (0, "throttled=0x0", "")
+                return CommandResult(command, 0, "throttled=0x0", "", True, 0.1)
             elif "measure_temp" in command and "gpu" in command:
-                return (0, "", "")
-            return (1, "", "Unknown command")
+                return CommandResult(command, 0, "", "", True, 0.1)
+            return CommandResult(command, 1, "", "Unknown command", False, 0.1)
 
-        hardware_tools.ssh.execute_command.side_effect = mock_warm_temp
+        hardware_tools.container.retropie_client.execute_command.side_effect = (
+            mock_warm_temp
+        )
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
         text = result[0].text
 
@@ -157,16 +168,18 @@ class TestHardwareTools:
         assert "🟡 **WARM**" in text
 
         # Test high temperature (70-80°C)
-        def mock_high_temp(command):
+        def mock_high_temp(command, use_sudo=False):
             if "measure_temp" in command and "gpu" not in command:
-                return (0, "temp=75.2'C", "")
+                return CommandResult(command, 0, "temp=75.2'C", "", True, 0.1)
             elif "get_throttled" in command:
-                return (0, "throttled=0x0", "")
+                return CommandResult(command, 0, "throttled=0x0", "", True, 0.1)
             elif "measure_temp" in command and "gpu" in command:
-                return (0, "", "")
-            return (1, "", "Unknown command")
+                return CommandResult(command, 0, "", "", True, 0.1)
+            return CommandResult(command, 1, "", "Unknown command", False, 0.1)
 
-        hardware_tools.ssh.execute_command.side_effect = mock_high_temp
+        hardware_tools.container.retropie_client.execute_command.side_effect = (
+            mock_high_temp
+        )
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
         text = result[0].text
 
@@ -179,16 +192,18 @@ class TestHardwareTools:
     ) -> None:
         """Test temperature check with critical overheating."""
 
-        def mock_critical_temp(command):
+        def mock_critical_temp(command, use_sudo=False):
             if "measure_temp" in command and "gpu" not in command:
-                return (0, "temp=85.9'C", "")
+                return CommandResult(command, 0, "temp=85.9'C", "", True, 0.1)
             elif "get_throttled" in command:
-                return (0, "throttled=0x0", "")
+                return CommandResult(command, 0, "throttled=0x0", "", True, 0.1)
             elif "measure_temp" in command and "gpu" in command:
-                return (0, "", "")
-            return (1, "", "Unknown command")
+                return CommandResult(command, 0, "", "", True, 0.1)
+            return CommandResult(command, 1, "", "Unknown command", False, 0.1)
 
-        hardware_tools.ssh.execute_command.side_effect = mock_critical_temp
+        hardware_tools.container.retropie_client.execute_command.side_effect = (
+            mock_critical_temp
+        )
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
         text = result[0].text
 
@@ -200,12 +215,25 @@ class TestHardwareTools:
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test temperature check with active throttling."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "temp=82.3'C", ""),  # CPU temp
-            (0, "throttled=0x50004", ""),  # Active throttling + history
-            (0, "", ""),  # No GPU temp
-            (0, "not-running", ""),  # pigpiod service check
-            (0, "No fan scripts found", ""),  # fan scripts check
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "vcgencmd measure_temp", 0, "temp=82.3'C", "", True, 0.1
+            ),  # CPU temp
+            CommandResult(
+                "vcgencmd get_throttled", 0, "throttled=0x50004", "", True, 0.1
+            ),  # Active throttling + history
+            CommandResult("vcgencmd measure_temp", 0, "", "", True, 0.1),  # No GPU temp
+            CommandResult(
+                "systemctl is-active pigpiod", 0, "not-running", "", True, 0.1
+            ),  # pigpiod service check
+            CommandResult(
+                "find /usr/local/bin -name '*fan*'",
+                0,
+                "No fan scripts found",
+                "",
+                True,
+                0.1,
+            ),  # fan scripts check
         ]
 
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
@@ -222,12 +250,25 @@ class TestHardwareTools:
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test temperature check with undervoltage detection."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "temp=65.0'C", ""),  # CPU temp
-            (0, "throttled=0x10001", ""),  # Undervoltage active + history
-            (0, "", ""),  # No GPU temp
-            (0, "not-running", ""),  # pigpiod service check
-            (0, "No fan scripts found", ""),  # fan scripts check
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "vcgencmd measure_temp", 0, "temp=65.0'C", "", True, 0.1
+            ),  # CPU temp
+            CommandResult(
+                "vcgencmd get_throttled", 0, "throttled=0x10001", "", True, 0.1
+            ),  # Undervoltage active + history
+            CommandResult("vcgencmd measure_temp", 0, "", "", True, 0.1),  # No GPU temp
+            CommandResult(
+                "systemctl is-active pigpiod", 0, "not-running", "", True, 0.1
+            ),  # pigpiod service check
+            CommandResult(
+                "find /usr/local/bin -name '*fan*'",
+                0,
+                "No fan scripts found",
+                "",
+                True,
+                0.1,
+            ),  # fan scripts check
         ]
 
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
@@ -241,12 +282,25 @@ class TestHardwareTools:
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test temperature check when CPU temp read fails."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (1, "", "Command not found"),  # CPU temp fails
-            (0, "throttled=0x0", ""),  # Throttling ok
-            (0, "", ""),  # No GPU temp
-            (0, "not-running", ""),  # pigpiod service check
-            (0, "No fan scripts found", ""),  # fan scripts check
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "vcgencmd measure_temp", 1, "", "Command not found", False, 0.1
+            ),  # CPU temp fails
+            CommandResult(
+                "vcgencmd get_throttled", 0, "throttled=0x0", "", True, 0.1
+            ),  # Throttling ok
+            CommandResult("vcgencmd measure_temp", 0, "", "", True, 0.1),  # No GPU temp
+            CommandResult(
+                "systemctl is-active pigpiod", 0, "not-running", "", True, 0.1
+            ),  # pigpiod service check
+            CommandResult(
+                "find /usr/local/bin -name '*fan*'",
+                0,
+                "No fan scripts found",
+                "",
+                True,
+                0.1,
+            ),  # fan scripts check
         ]
 
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
@@ -260,12 +314,25 @@ class TestHardwareTools:
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test temperature check with malformed command output."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (1, "invalid output format", ""),  # CPU temp command fails
-            (0, "throttled=0x0", ""),  # Valid throttling (no issues)
-            (0, "", ""),  # No GPU temp
-            (0, "not-running", ""),  # pigpiod service check
-            (0, "No fan scripts found", ""),  # fan scripts check
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "vcgencmd measure_temp", 1, "invalid output format", "", False, 0.1
+            ),  # CPU temp command fails
+            CommandResult(
+                "vcgencmd get_throttled", 0, "throttled=0x0", "", True, 0.1
+            ),  # Valid throttling (no issues)
+            CommandResult("vcgencmd measure_temp", 0, "", "", True, 0.1),  # No GPU temp
+            CommandResult(
+                "systemctl is-active pigpiod", 0, "not-running", "", True, 0.1
+            ),  # pigpiod service check
+            CommandResult(
+                "find /usr/local/bin -name '*fan*'",
+                0,
+                "No fan scripts found",
+                "",
+                True,
+                0.1,
+            ),  # fan scripts check
         ]
 
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
@@ -278,12 +345,23 @@ class TestHardwareTools:
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test temperature check with throttling check disabled."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "temp=60.5'C", ""),  # CPU temp
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "vcgencmd measure_temp", 0, "temp=60.5'C", "", True, 0.1
+            ),  # CPU temp
             # No throttling check should be made
-            (0, "", ""),  # No GPU temp
-            (0, "not-running", ""),  # pigpiod service check
-            (0, "No fan scripts found", ""),  # fan scripts check
+            CommandResult("vcgencmd measure_temp", 0, "", "", True, 0.1),  # No GPU temp
+            CommandResult(
+                "systemctl is-active pigpiod", 0, "not-running", "", True, 0.1
+            ),  # pigpiod service check
+            CommandResult(
+                "find /usr/local/bin -name '*fan*'",
+                0,
+                "No fan scripts found",
+                "",
+                True,
+                0.1,
+            ),  # fan scripts check
         ]
 
         result = await hardware_tools.handle_tool_call(
@@ -294,19 +372,34 @@ class TestHardwareTools:
         assert "**CPU Temperature:** 60.5°C" in text
         assert "**Thermal Status:**" not in text
         # Should call execute_command 4 times (CPU temp + GPU temp + fan service + fan scripts)
-        assert hardware_tools.ssh.execute_command.call_count == 4
+        assert hardware_tools.container.retropie_client.execute_command.call_count == 4
 
     @pytest.mark.asyncio
     async def test_check_temperatures_with_gpu(
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test temperature check including GPU temperature."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "temp=58.2'C", ""),  # CPU temp
-            (0, "throttled=0x0", ""),  # No throttling
-            (0, "temp=45.7'C", ""),  # GPU temp
-            (0, "not-running", ""),  # pigpiod service check
-            (0, "No fan scripts found", ""),  # fan scripts check
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "vcgencmd measure_temp", 0, "temp=58.2'C", "", True, 0.1
+            ),  # CPU temp
+            CommandResult(
+                "vcgencmd get_throttled", 0, "throttled=0x0", "", True, 0.1
+            ),  # No throttling
+            CommandResult(
+                "vcgencmd measure_temp", 0, "temp=45.7'C", "", True, 0.1
+            ),  # GPU temp
+            CommandResult(
+                "systemctl is-active pigpiod", 0, "not-running", "", True, 0.1
+            ),  # pigpiod service check
+            CommandResult(
+                "find /usr/local/bin -name '*fan*'",
+                0,
+                "No fan scripts found",
+                "",
+                True,
+                0.1,
+            ),  # fan scripts check
         ]
 
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
@@ -323,12 +416,25 @@ class TestHardwareTools:
     ) -> None:
         """Test temperature check with complex throttling status."""
         # Test all throttling flags
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "temp=80.1'C", ""),  # CPU temp
-            (0, "throttled=0xF000F", ""),  # All flags set
-            (0, "", ""),  # No GPU temp
-            (0, "not-running", ""),  # pigpiod service check
-            (0, "No fan scripts found", ""),  # fan scripts check
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "vcgencmd measure_temp", 0, "temp=80.1'C", "", True, 0.1
+            ),  # CPU temp
+            CommandResult(
+                "vcgencmd get_throttled", 0, "throttled=0xF000F", "", True, 0.1
+            ),  # All flags set
+            CommandResult("vcgencmd measure_temp", 0, "", "", True, 0.1),  # No GPU temp
+            CommandResult(
+                "systemctl is-active pigpiod", 0, "not-running", "", True, 0.1
+            ),  # pigpiod service check
+            CommandResult(
+                "find /usr/local/bin -name '*fan*'",
+                0,
+                "No fan scripts found",
+                "",
+                True,
+                0.1,
+            ),  # fan scripts check
         ]
 
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
@@ -358,10 +464,16 @@ class TestHardwareTools:
         ]
 
         for throttle_output in test_cases:
-            hardware_tools.ssh.execute_command.side_effect = [
-                (0, "temp=65.0'C", ""),  # CPU temp
-                (0, throttle_output, ""),  # Throttling
-                (0, "", ""),  # No GPU temp
+            hardware_tools.container.retropie_client.execute_command.side_effect = [
+                CommandResult(
+                    "vcgencmd measure_temp", 0, "temp=65.0'C", "", True, 0.1
+                ),  # CPU temp
+                CommandResult(
+                    "vcgencmd get_throttled", 0, throttle_output, "", True, 0.1
+                ),  # Throttling
+                CommandResult(
+                    "vcgencmd measure_temp", 0, "", "", True, 0.1
+                ),  # No GPU temp
             ]
 
             result = await hardware_tools.handle_tool_call("check_temperatures", {})
@@ -375,9 +487,18 @@ class TestHardwareTools:
     ) -> None:
         """Test fan control status monitoring."""
         # Mock fan control commands
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "gpio_fan_temp=60000", ""),  # Fan temp threshold
-            (0, "some fan status", ""),  # Fan status
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "vcgencmd get_config gpio_fan_temp",
+                0,
+                "gpio_fan_temp=60000",
+                "",
+                True,
+                0.1,
+            ),  # Fan temp threshold
+            CommandResult(
+                "systemctl status fan-control", 0, "some fan status", "", True, 0.1
+            ),  # Fan status
         ]
 
         result = await hardware_tools.handle_tool_call(
@@ -395,8 +516,10 @@ class TestHardwareTools:
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test basic power supply monitoring."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "volt=1.2000V", ""),  # Core voltage
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "vcgencmd measure_volts core", 0, "volt=1.2000V", "", True, 0.1
+            ),  # Core voltage
         ]
 
         result = await hardware_tools.handle_tool_call("check_power_supply", {})
@@ -411,9 +534,11 @@ class TestHardwareTools:
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test hardware error inspection with default parameters."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "some dmesg output", ""),  # dmesg
-            (0, "some journal output", ""),  # journalctl
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult("dmesg", 0, "some dmesg output", "", True, 0.1),  # dmesg
+            CommandResult(
+                "journalctl", 0, "some journal output", "", True, 0.1
+            ),  # journalctl
         ]
 
         result = await hardware_tools.handle_tool_call("inspect_hardware_errors", {})
@@ -426,9 +551,11 @@ class TestHardwareTools:
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test hardware error inspection with specific error types."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "thermal error in logs", ""),  # dmesg
-            (0, "power error in journal", ""),  # journalctl
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult("dmesg", 0, "thermal error in logs", "", True, 0.1),  # dmesg
+            CommandResult(
+                "journalctl", 0, "power error in journal", "", True, 0.1
+            ),  # journalctl
         ]
 
         result = await hardware_tools.handle_tool_call(
@@ -444,11 +571,19 @@ class TestHardwareTools:
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test GPIO status check showing all pins."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "available", ""),  # GPIO tools check
-            (0, "gpio readall output", ""),  # GPIO readall
-            (0, "No I2C devices found", ""),  # I2C check
-            (0, "SPI not enabled", ""),  # SPI check
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "which gpio", 0, "available", "", True, 0.1
+            ),  # GPIO tools check
+            CommandResult(
+                "gpio readall", 0, "gpio readall output", "", True, 0.1
+            ),  # GPIO readall
+            CommandResult(
+                "i2cdetect -y 1", 0, "No I2C devices found", "", True, 0.1
+            ),  # I2C check
+            CommandResult(
+                "lsmod | grep spi", 0, "SPI not enabled", "", True, 0.1
+            ),  # SPI check
         ]
 
         result = await hardware_tools.handle_tool_call(
@@ -457,19 +592,25 @@ class TestHardwareTools:
 
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert hardware_tools.ssh.execute_command.call_count == 4
+        assert hardware_tools.container.retropie_client.execute_command.call_count == 4
 
     @pytest.mark.asyncio
     async def test_check_gpio_status_specific_pins(
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test GPIO status check for specific pins."""
-        hardware_tools.ssh.execute_command.side_effect = [
-            (0, "available", ""),  # GPIO tools check
-            (0, "pin 18 output", ""),  # GPIO 18
-            (0, "pin 24 output", ""),  # GPIO 24
-            (0, "No I2C devices found", ""),  # I2C check
-            (0, "SPI not enabled", ""),  # SPI check
+        hardware_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "which gpio", 0, "available", "", True, 0.1
+            ),  # GPIO tools check
+            CommandResult("gpio read 18", 0, "pin 18 output", "", True, 0.1),  # GPIO 18
+            CommandResult("gpio read 24", 0, "pin 24 output", "", True, 0.1),  # GPIO 24
+            CommandResult(
+                "i2cdetect -y 1", 0, "No I2C devices found", "", True, 0.1
+            ),  # I2C check
+            CommandResult(
+                "lsmod | grep spi", 0, "SPI not enabled", "", True, 0.1
+            ),  # SPI check
         ]
 
         result = await hardware_tools.handle_tool_call(
@@ -479,7 +620,7 @@ class TestHardwareTools:
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         # Should call execute_command for GPIO tools + pins + I2C + SPI
-        assert hardware_tools.ssh.execute_command.call_count == 5
+        assert hardware_tools.container.retropie_client.execute_command.call_count == 5
 
     @pytest.mark.asyncio
     async def test_handle_unknown_tool(self, hardware_tools: HardwareTools) -> None:
@@ -493,8 +634,8 @@ class TestHardwareTools:
     @pytest.mark.asyncio
     async def test_handle_tool_exception(self, hardware_tools: HardwareTools) -> None:
         """Test exception handling in tool execution."""
-        hardware_tools.ssh.execute_command.side_effect = Exception(
-            "SSH connection lost"
+        hardware_tools.container.retropie_client.execute_command.side_effect = (
+            Exception("SSH connection lost")
         )
 
         result = await hardware_tools.handle_tool_call("check_temperatures", {})
@@ -508,7 +649,11 @@ class TestHardwareTools:
         self, hardware_tools: HardwareTools
     ) -> None:
         """Test handling of command execution failures."""
-        hardware_tools.ssh.execute_command.return_value = (1, "", "Permission denied")
+        hardware_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                "vcgencmd measure_volts core", 1, "", "Permission denied", False, 0.1
+            )
+        )
 
         result = await hardware_tools.handle_tool_call("check_power_supply", {})
 
@@ -521,7 +666,7 @@ class TestHardwareTools:
         # Should have access to BaseTool methods
         assert hasattr(hardware_tools, "format_success")
         assert hasattr(hardware_tools, "format_error")
-        assert hasattr(hardware_tools, "ssh")
+        assert hasattr(hardware_tools, "container")
         assert hasattr(hardware_tools, "config")
 
         # Test format methods work
@@ -548,10 +693,16 @@ class TestHardwareTools:
         ]
 
         for temp_output in test_temps:
-            hardware_tools.ssh.execute_command.side_effect = [
-                (0, temp_output, ""),  # CPU temp
-                (0, "throttled=0x0", ""),  # No throttling
-                (0, "", ""),  # No GPU temp
+            hardware_tools.container.retropie_client.execute_command.side_effect = [
+                CommandResult(
+                    "vcgencmd measure_temp", 0, temp_output, "", True, 0.1
+                ),  # CPU temp
+                CommandResult(
+                    "vcgencmd get_throttled", 0, "throttled=0x0", "", True, 0.1
+                ),  # No throttling
+                CommandResult(
+                    "vcgencmd measure_temp", 0, "", "", True, 0.1
+                ),  # No GPU temp
             ]
 
             result = await hardware_tools.handle_tool_call("check_temperatures", {})

@@ -185,14 +185,16 @@ class TestRetroMCPServer:
 
         with patch(
             "retromcp.server.SystemTools", return_value=mock_system_tools
-        ), patch(
+        ) as mock_system_class, patch(
             "retromcp.server.ControllerTools", return_value=mock_controller_tools
-        ), patch("retromcp.server.RetroPieTools") as mock_retropie, patch(
+        ) as mock_controller_class, patch(
+            "retromcp.server.RetroPieTools"
+        ) as mock_retropie_class, patch(
             "retromcp.server.EmulationStationTools"
-        ) as mock_es, patch("retromcp.server.HardwareTools") as mock_hw:
-            mock_retropie.return_value.get_tools.return_value = []
-            mock_es.return_value.get_tools.return_value = []
-            mock_hw.return_value.get_tools.return_value = []
+        ) as mock_es_class, patch("retromcp.server.HardwareTools") as mock_hw_class:
+            mock_retropie_class.return_value.get_tools.return_value = []
+            mock_es_class.return_value.get_tools.return_value = []
+            mock_hw_class.return_value.get_tools.return_value = []
 
             server.container.connect.return_value = True
 
@@ -202,6 +204,13 @@ class TestRetroMCPServer:
             assert tools[0].name == "test_connection"
             assert tools[1].name == "detect_controllers"
             server.container.connect.assert_called_once()
+
+            # Verify tools are instantiated with container
+            mock_system_class.assert_called_once_with(server.container)
+            mock_controller_class.assert_called_once_with(server.container)
+            mock_retropie_class.assert_called_once_with(server.container)
+            mock_es_class.assert_called_once_with(server.container)
+            mock_hw_class.assert_called_once_with(server.container)
 
     @pytest.mark.asyncio
     async def test_list_tools_connection_failure(self, server: RetroMCPServer) -> None:
@@ -244,7 +253,21 @@ class TestRetroMCPServer:
         mock_system_tools = Mock()
         mock_system_tools.handle_tool_call = AsyncMock(return_value=mock_tool_result)
 
-        with patch("retromcp.server.SystemTools", return_value=mock_system_tools):
+        with patch(
+            "retromcp.server.SystemTools", return_value=mock_system_tools
+        ) as mock_system_class, patch(
+            "retromcp.server.ControllerTools"
+        ) as mock_controller_class, patch(
+            "retromcp.server.RetroPieTools"
+        ) as mock_retropie_class, patch(
+            "retromcp.server.EmulationStationTools"
+        ) as mock_es_class, patch("retromcp.server.HardwareTools") as mock_hw_class:
+            # Mock other tool classes to avoid instantiation issues
+            mock_controller_class.return_value = Mock()
+            mock_retropie_class.return_value = Mock()
+            mock_es_class.return_value = Mock()
+            mock_hw_class.return_value = Mock()
+
             server.container.connect.return_value = True
             server.container.config.paths = Mock()
 
@@ -256,6 +279,13 @@ class TestRetroMCPServer:
             mock_system_tools.handle_tool_call.assert_called_once_with(
                 "test_connection", {}
             )
+
+            # Verify tools are instantiated with container
+            mock_system_class.assert_called_once_with(server.container)
+            mock_controller_class.assert_called_once_with(server.container)
+            mock_retropie_class.assert_called_once_with(server.container)
+            mock_es_class.assert_called_once_with(server.container)
+            mock_hw_class.assert_called_once_with(server.container)
 
     @pytest.mark.asyncio
     async def test_call_tool_connection_failure(self, server: RetroMCPServer) -> None:
@@ -446,6 +476,14 @@ class TestRetroMCPServer:
                 assert len(result) == 1
                 assert isinstance(result[0], TextContent)
                 assert "success" in result[0].text
+
+            # Verify tools are instantiated with container (each call creates instances)
+            # Since we call tools multiple times, each class should be called with container
+            mock_system.assert_called_with(server.container)
+            mock_controller.assert_called_with(server.container)
+            mock_retropie.assert_called_with(server.container)
+            mock_es.assert_called_with(server.container)
+            mock_hw.assert_called_with(server.container)
 
 
 class TestMainFunction:

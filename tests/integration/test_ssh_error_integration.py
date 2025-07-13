@@ -3,17 +3,18 @@
 Tests error propagation and recovery across the entire application stack.
 """
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import asyncio
-from typing import List, Tuple
+from unittest.mock import AsyncMock
+from unittest.mock import Mock
+from unittest.mock import patch
+
+import pytest
+from mcp.types import TextContent
 
 from retromcp.config import RetroPieConfig
 from retromcp.discovery import RetroPiePaths
-from retromcp.ssh_handler import SSHHandler
-from retromcp.tools.system_tools import SystemTools
 from retromcp.tools.hardware_tools import HardwareTools
-from mcp.types import TextContent
+from retromcp.tools.system_tools import SystemTools
 
 
 class TestSSHConnectionIntegration:
@@ -36,12 +37,16 @@ class TestSSHConnectionIntegration:
         )
 
     @pytest.mark.asyncio
-    async def test_ssh_connection_failure_propagation(self, test_config: RetroPieConfig) -> None:
+    async def test_ssh_connection_failure_propagation(
+        self, test_config: RetroPieConfig
+    ) -> None:
         """Test how SSH connection failures propagate through the stack."""
-        with patch('retromcp.ssh_handler.RetroPieSSH') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
             # Mock SSH connection failure
             mock_ssh = Mock()
-            mock_ssh.get_system_info = Mock(side_effect=ConnectionError("SSH connection failed"))
+            mock_ssh.get_system_info = Mock(
+                side_effect=ConnectionError("SSH connection failed")
+            )
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools (correct constructor signature: ssh_handler, config)
@@ -54,22 +59,28 @@ class TestSSHConnectionIntegration:
             assert isinstance(result, list), "Should return MCP-compliant list"
             assert len(result) == 1
             response = result[0]
-            
+
             # Check for error using text content (MCP standard approach)
-            assert hasattr(response, 'text'), "Should have text attribute"
+            assert hasattr(response, "text"), "Should have text attribute"
             response_text = response.text.lower()
-            assert "❌" in response.text or any(word in response_text for word in ["error", "failed"]), \
-                "Should indicate error in text"
-            assert "connection" in response_text or "ssh" in response_text, \
+            assert "❌" in response.text or any(
+                word in response_text for word in ["error", "failed"]
+            ), "Should indicate error in text"
+            assert "connection" in response_text or "ssh" in response_text, (
                 "Should mention connection or SSH in error message"
+            )
 
     @pytest.mark.asyncio
-    async def test_ssh_command_timeout_handling(self, test_config: RetroPieConfig) -> None:
+    async def test_ssh_command_timeout_handling(
+        self, test_config: RetroPieConfig
+    ) -> None:
         """Test handling of SSH command timeouts."""
-        with patch('retromcp.ssh_handler.RetroPieSSH') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
             # Mock SSH command timeout
             mock_ssh = Mock()
-            mock_ssh.execute_command = Mock(side_effect=asyncio.TimeoutError("Command timed out"))
+            mock_ssh.execute_command = Mock(
+                side_effect=asyncio.TimeoutError("Command timed out")
+            )
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools (correct constructor signature: ssh_handler, config)
@@ -82,19 +93,23 @@ class TestSSHConnectionIntegration:
             assert isinstance(result, list), "Should return MCP-compliant list"
             assert len(result) == 1
             response = result[0]
-            
+
             # Check for error using text content (MCP standard approach)
-            assert hasattr(response, 'text'), "Should have text attribute"
+            assert hasattr(response, "text"), "Should have text attribute"
             response_text = response.text.lower()
-            assert "❌" in response.text or any(word in response_text for word in ["error", "failed"]), \
-                "Should indicate error in text"
-            assert "timeout" in response_text or "time" in response_text, \
+            assert "❌" in response.text or any(
+                word in response_text for word in ["error", "failed"]
+            ), "Should indicate error in text"
+            assert "timeout" in response_text or "time" in response_text, (
                 "Should mention timeout in error message"
+            )
 
     @pytest.mark.asyncio
-    async def test_ssh_authentication_failure(self, test_config: RetroPieConfig) -> None:
+    async def test_ssh_authentication_failure(
+        self, test_config: RetroPieConfig
+    ) -> None:
         """Test handling of SSH authentication failures."""
-        with patch('retromcp.ssh_handler.RetroPieSSH') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
             # Mock authentication failure
             mock_ssh = Mock()
             mock_ssh.get_system_info = Mock(
@@ -112,14 +127,16 @@ class TestSSHConnectionIntegration:
             assert isinstance(result, list), "Should return MCP-compliant list"
             assert len(result) == 1
             response = result[0]
-            
+
             # Check for error using text content (MCP standard approach)
-            assert hasattr(response, 'text'), "Should have text attribute"
+            assert hasattr(response, "text"), "Should have text attribute"
             response_text = response.text.lower()
-            assert "❌" in response.text or any(word in response_text for word in ["error", "failed"]), \
-                "Should indicate error in text"
-            assert any(word in response_text for word in ["auth", "permission", "access"]), \
-                "Should mention authentication issue in error message"
+            assert "❌" in response.text or any(
+                word in response_text for word in ["error", "failed"]
+            ), "Should indicate error in text"
+            assert any(
+                word in response_text for word in ["auth", "permission", "access"]
+            ), "Should mention authentication issue in error message"
 
 
 class TestErrorRecoveryIntegration:
@@ -136,13 +153,16 @@ class TestErrorRecoveryIntegration:
         )
 
     @pytest.mark.asyncio
-    async def test_command_retry_on_temporary_failure(self, test_config: RetroPieConfig) -> None:
+    async def test_command_retry_on_temporary_failure(
+        self, test_config: RetroPieConfig
+    ) -> None:
         """Test retry mechanism for temporary command failures."""
-        with patch('retromcp.ssh_handler.SSHHandler') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.SSHHandler") as mock_ssh_class:
             mock_ssh = Mock()
-            
+
             # Mock temporary failure followed by success
             call_count = 0
+
             def mock_execute_command(command):
                 nonlocal call_count
                 call_count += 1
@@ -152,7 +172,7 @@ class TestErrorRecoveryIntegration:
                 else:
                     # Second call succeeds
                     return (0, "success output", "")
-            
+
             mock_ssh.execute_command = AsyncMock(side_effect=mock_execute_command)
             mock_ssh_class.return_value = mock_ssh
 
@@ -170,15 +190,17 @@ class TestErrorRecoveryIntegration:
             # Should have success output
 
     @pytest.mark.asyncio
-    async def test_partial_command_failure_handling(self, test_config: RetroPieConfig) -> None:
+    async def test_partial_command_failure_handling(
+        self, test_config: RetroPieConfig
+    ) -> None:
         """Test handling when some commands succeed and others fail."""
-        with patch('retromcp.ssh_handler.RetroPieSSH') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
             mock_ssh = Mock()
-            
+
             # Mock get_system_info to return partial data (some info available, some missing)
             mock_ssh.get_system_info.return_value = {
                 "temperature": 55.0,  # Success
-                "memory": {"total": 1024, "used": 512},  # Success  
+                "memory": {"total": 1024, "used": 512},  # Success
                 # Missing disk info - simulates partial failure
             }
             mock_ssh_class.return_value = mock_ssh
@@ -193,16 +215,18 @@ class TestErrorRecoveryIntegration:
             assert isinstance(result, list), "Should return MCP-compliant list"
             assert len(result) == 1
             response = result[0]
-            
+
             # Check response follows MCP standard
-            assert hasattr(response, 'text'), "Should have text attribute"
-            
-            # Should contain successful parts  
+            assert hasattr(response, "text"), "Should have text attribute"
+
+            # Should contain successful parts
             response_text = response.text
-            assert "55" in response_text or "temperature" in response_text.lower(), \
+            assert "55" in response_text or "temperature" in response_text.lower(), (
                 "Should include successful temperature data"
-            assert "memory" in response_text.lower() or "512" in response_text, \
+            )
+            assert "memory" in response_text.lower() or "512" in response_text, (
                 "Should include successful memory data"
+            )
 
 
 class TestConcurrentOperationsIntegration:
@@ -219,15 +243,17 @@ class TestConcurrentOperationsIntegration:
         )
 
     @pytest.mark.asyncio
-    async def test_concurrent_tool_operations(self, test_config: RetroPieConfig) -> None:
+    async def test_concurrent_tool_operations(
+        self, test_config: RetroPieConfig
+    ) -> None:
         """Test multiple tools running concurrently."""
-        with patch('retromcp.ssh_handler.RetroPieSSH') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
             mock_ssh = Mock()
-            
+
             # Mock the high-level methods that tools actually call
             mock_ssh.get_system_info.return_value = {
                 "temperature": 45.0,
-                "memory": {"total": 1024, "used": 512}
+                "memory": {"total": 1024, "used": 512},
             }
             mock_ssh.execute_command.return_value = (0, "temp=45.0'C", "")
             mock_ssh_class.return_value = mock_ssh
@@ -247,13 +273,19 @@ class TestConcurrentOperationsIntegration:
 
             # Verify all operations completed using MCP-compliant format
             assert len(results) == 3
-            
+
             # Check that none raised exceptions and all return MCP-compliant lists
             for i, result in enumerate(results):
-                assert not isinstance(result, Exception), f"Task {i} should not raise exception"
-                assert isinstance(result, list), f"Task {i} should return MCP-compliant list"
+                assert not isinstance(result, Exception), (
+                    f"Task {i} should not raise exception"
+                )
+                assert isinstance(result, list), (
+                    f"Task {i} should return MCP-compliant list"
+                )
                 assert len(result) == 1, f"Task {i} should return one response"
-                assert hasattr(result[0], 'text'), f"Task {i} response should have text attribute"
+                assert hasattr(result[0], "text"), (
+                    f"Task {i} response should have text attribute"
+                )
 
             # Verify SSH methods were called
             assert mock_ssh.get_system_info.call_count >= 2  # System info called twice
@@ -261,9 +293,9 @@ class TestConcurrentOperationsIntegration:
     @pytest.mark.asyncio
     async def test_resource_cleanup_on_error(self, test_config: RetroPieConfig) -> None:
         """Test proper resource cleanup when errors occur."""
-        with patch('retromcp.ssh_handler.RetroPieSSH') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
             mock_ssh = Mock()
-            
+
             # Mock context manager behavior if needed
             mock_ssh.__enter__ = Mock(return_value=mock_ssh)
             mock_ssh.__exit__ = Mock(return_value=None)
@@ -280,12 +312,13 @@ class TestConcurrentOperationsIntegration:
             assert isinstance(result, list), "Should return MCP-compliant list"
             assert len(result) == 1
             response = result[0]
-            
+
             # Check for error using text content (MCP standard approach)
-            assert hasattr(response, 'text'), "Should have text attribute"
+            assert hasattr(response, "text"), "Should have text attribute"
             response_text = response.text.lower()
-            assert "❌" in response.text or any(word in response_text for word in ["error", "failed"]), \
-                "Should indicate error in text"
+            assert "❌" in response.text or any(
+                word in response_text for word in ["error", "failed"]
+            ), "Should indicate error in text"
 
             # Note: Specific cleanup verification would depend on actual SSH handler implementation
 
@@ -306,7 +339,7 @@ class TestEndToEndErrorScenarios:
     @pytest.mark.asyncio
     async def test_unreachable_host_scenario(self, test_config: RetroPieConfig) -> None:
         """Test scenario where RetroPie host is unreachable."""
-        with patch('retromcp.ssh_handler.RetroPieSSH') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
             # Mock network unreachable error
             mock_ssh = Mock()
             mock_ssh.get_system_info = Mock(
@@ -324,21 +357,26 @@ class TestEndToEndErrorScenarios:
             assert isinstance(result, list), "Should return MCP-compliant list"
             assert len(result) == 1
             response = result[0]
-            
+
             # Check for error using text content (MCP standard approach)
-            assert hasattr(response, 'text'), "Should have text attribute"
+            assert hasattr(response, "text"), "Should have text attribute"
             response_text = response.text.lower()
-            assert "❌" in response.text or any(word in response_text for word in ["error", "failed"]), \
-                "Should indicate error in text"
-            assert any(word in response_text for word in ["network", "unreachable", "connection"]), \
-                "Should mention network issue in error message"
+            assert "❌" in response.text or any(
+                word in response_text for word in ["error", "failed"]
+            ), "Should indicate error in text"
+            assert any(
+                word in response_text
+                for word in ["network", "unreachable", "connection"]
+            ), "Should mention network issue in error message"
 
     @pytest.mark.asyncio
-    async def test_malformed_command_output_scenario(self, test_config: RetroPieConfig) -> None:
+    async def test_malformed_command_output_scenario(
+        self, test_config: RetroPieConfig
+    ) -> None:
         """Test scenario where commands return unexpected output."""
-        with patch('retromcp.ssh_handler.SSHHandler') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.SSHHandler") as mock_ssh_class:
             mock_ssh = Mock()
-            
+
             # Mock malformed/unexpected command outputs
             def mock_execute_command(command):
                 if "hostname" in command:
@@ -349,7 +387,7 @@ class TestEndToEndErrorScenarios:
                     return (0, "completely unexpected output format", "")
                 else:
                     return (0, "???", "")
-            
+
             mock_ssh.execute_command = AsyncMock(side_effect=mock_execute_command)
             mock_ssh_class.return_value = mock_ssh
 
@@ -362,7 +400,7 @@ class TestEndToEndErrorScenarios:
             # Verify malformed output is handled gracefully
             assert len(result) == 1
             response = result[0]
-            
+
             # Should either handle gracefully or report parsing issues
             # The exact behavior depends on implementation, but shouldn't crash
             assert isinstance(response, TextContent)

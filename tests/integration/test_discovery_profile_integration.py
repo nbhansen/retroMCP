@@ -4,18 +4,22 @@ Tests the complete flow: SSH connection → discovery → profile creation → t
 Also verifies CLAUDE.md compliance during these workflows.
 """
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from pathlib import Path
 import tempfile
-import os
-from dataclasses import fields, is_dataclass
+from dataclasses import fields
+from dataclasses import is_dataclass
+from pathlib import Path
+from unittest.mock import AsyncMock
+from unittest.mock import Mock
+from unittest.mock import patch
+
+import pytest
 
 from retromcp.config import RetroPieConfig
-from retromcp.discovery import RetroPieDiscovery, RetroPiePaths
-from retromcp.profile import SystemProfileManager, SystemProfile
+from retromcp.discovery import RetroPieDiscovery
+from retromcp.discovery import RetroPiePaths
 from retromcp.domain.models import CommandResult
 from retromcp.domain.ports import RetroPieClient
+from retromcp.profile import SystemProfileManager
 from retromcp.tools.system_tools import SystemTools
 
 
@@ -58,22 +62,26 @@ class TestDiscoveryProfileIntegration:
         # Test immutability for dataclasses
         if is_dataclass(obj):
             # Check if it's a frozen dataclass
-            if hasattr(obj, '__dataclass_params__'):
+            if hasattr(obj, "__dataclass_params__"):
                 # Allow mutable for profile classes that need updates
-                if 'Profile' not in obj.__class__.__name__:
-                    assert obj.__dataclass_params__.frozen is True, \
+                if "Profile" not in obj.__class__.__name__:
+                    assert obj.__dataclass_params__.frozen is True, (
                         f"{obj.__class__.__name__} should be frozen for immutability"
-        
+                    )
+
         # Test meaningful naming
         class_name = obj.__class__.__name__
         assert len(class_name) >= 4, f"Class name '{class_name}' too short"
-        assert class_name[0].isupper(), f"Class name '{class_name}' should use PascalCase"
-        
+        assert class_name[0].isupper(), (
+            f"Class name '{class_name}' should use PascalCase"
+        )
+
         # Test type hints exist for dataclass fields
         if is_dataclass(obj):
             for field in fields(obj):
-                assert field.type is not None, \
+                assert field.type is not None, (
                     f"Field {field.name} in {class_name} should have type annotation"
+                )
 
     def test_complete_discovery_to_profile_workflow(
         self,
@@ -151,10 +159,16 @@ class TestDiscoveryProfileIntegration:
         mock_client.execute_command.side_effect = [
             CommandResult("pwd", 0, "/home/pi", "", True, 0.1),
             CommandResult("whoami", 0, "pi", "", True, 0.1),
-            CommandResult("test -d /home/pi/RetroPie", 1, "", "", False, 0.1),  # Missing
+            CommandResult(
+                "test -d /home/pi/RetroPie", 1, "", "", False, 0.1
+            ),  # Missing
             CommandResult("test -d /home/pi/RetroPie-Setup", 0, "", "", True, 0.1),
-            CommandResult("test -d /home/pi/RetroPie/BIOS", 1, "", "", False, 0.1),  # Missing
-            CommandResult("test -d /home/pi/RetroPie/roms", 1, "", "", False, 0.1),  # Missing
+            CommandResult(
+                "test -d /home/pi/RetroPie/BIOS", 1, "", "", False, 0.1
+            ),  # Missing
+            CommandResult(
+                "test -d /home/pi/RetroPie/roms", 1, "", "", False, 0.1
+            ),  # Missing
         ]
 
         # Perform discovery
@@ -241,7 +255,7 @@ class TestDiscoveryProfileIntegration:
         self._verify_claude_md_compliance(updated_config)
 
         # Step 2: Use tools with the configured system
-        with patch('retromcp.ssh_handler.SSHHandler') as mock_ssh_class:
+        with patch("retromcp.ssh_handler.SSHHandler") as mock_ssh_class:
             # Mock SSH handler for tool usage
             mock_ssh = Mock()
             mock_ssh.execute_command = AsyncMock(return_value=(0, "test-hostname", ""))
@@ -288,17 +302,20 @@ class TestProfilePersistenceIntegration:
         """Verify that an object follows CLAUDE.md principles."""
         # Test immutability for dataclasses
         if is_dataclass(obj):
-            # Check if it's a frozen dataclass  
-            if hasattr(obj, '__dataclass_params__'):
+            # Check if it's a frozen dataclass
+            if hasattr(obj, "__dataclass_params__"):
                 # Allow mutable for profile classes that need updates
-                if 'Profile' not in obj.__class__.__name__:
-                    assert obj.__dataclass_params__.frozen is True, \
+                if "Profile" not in obj.__class__.__name__:
+                    assert obj.__dataclass_params__.frozen is True, (
                         f"{obj.__class__.__name__} should be frozen for immutability"
-        
+                    )
+
         # Test meaningful naming
         class_name = obj.__class__.__name__
         assert len(class_name) >= 4, f"Class name '{class_name}' too short"
-        assert class_name[0].isupper(), f"Class name '{class_name}' should use PascalCase"
+        assert class_name[0].isupper(), (
+            f"Class name '{class_name}' should use PascalCase"
+        )
 
     def test_profile_creation_and_retrieval(
         self, temp_profiles_dir: Path, sample_paths: RetroPiePaths
@@ -329,7 +346,7 @@ class TestProfilePersistenceIntegration:
         if loaded_profile:
             # CLAUDE.md compliance check for loaded profile
             self._verify_claude_md_compliance(loaded_profile)
-            
+
             assert loaded_profile.username == profile.username
             assert loaded_profile.home_dir == profile.home_dir
             assert loaded_profile.retropie_dir == profile.retropie_dir
@@ -339,13 +356,13 @@ class TestProfilePersistenceIntegration:
     ) -> None:
         """Test profile updates and versioning with CLAUDE.md compliance."""
         manager = SystemProfileManager(profile_dir=temp_profiles_dir)
-        
+
         # Create initial profile
         profile = manager.get_or_create_profile(sample_paths)
-        
+
         # CLAUDE.md compliance check
         self._verify_claude_md_compliance(profile)
-        
+
         original_discovered_at = profile.discovered_at
 
         # Add user note (test mutable operations)
@@ -358,16 +375,14 @@ class TestProfilePersistenceIntegration:
         # Load and verify persistence of update
         loaded_profile = manager.load_profile()
         assert loaded_profile is not None
-        
+
         # CLAUDE.md compliance check for loaded profile
         self._verify_claude_md_compliance(loaded_profile)
-        
+
         assert "Test note from integration test" in loaded_profile.user_notes
         assert loaded_profile.discovered_at == original_discovered_at
 
-    def test_multiple_profiles_integration(
-        self, temp_profiles_dir: Path
-    ) -> None:
+    def test_multiple_profiles_integration(self, temp_profiles_dir: Path) -> None:
         """Test handling multiple profile scenarios with CLAUDE.md compliance."""
         # Create two different path configurations
         retro_paths = RetroPiePaths(
@@ -375,9 +390,9 @@ class TestProfilePersistenceIntegration:
             username="retro",
             retropie_dir="/home/retro/RetroPie",
         )
-        
+
         pi_paths = RetroPiePaths(
-            home_dir="/home/pi", 
+            home_dir="/home/pi",
             username="pi",
             retropie_dir="/home/pi/RetroPie",
         )
@@ -402,7 +417,7 @@ class TestProfilePersistenceIntegration:
         # Verify profile was updated, not duplicated
         assert pi_profile.username == "pi"
         assert pi_profile.home_dir == "/home/pi"
-        
+
         # Profiles should have different paths but may be separate objects
         # The important thing is that the manager only maintains one profile at a time
         current_profile = manager.current_profile

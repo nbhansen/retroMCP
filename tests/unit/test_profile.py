@@ -595,7 +595,7 @@ class TestSystemProfileManager:
         manager = SystemProfileManager(profile_dir=temp_profile_dir)
 
         # Create initial profile
-        profile = manager.get_or_create_profile(test_paths)
+        manager.get_or_create_profile(test_paths)
 
         # Update profile
         def add_controller(p: SystemProfile) -> None:
