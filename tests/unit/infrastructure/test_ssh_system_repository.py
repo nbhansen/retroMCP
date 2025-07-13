@@ -223,7 +223,8 @@ class TestSSHSystemRepository:
 
         assert result.success is True
         mock_client.execute_command.assert_called_once_with(
-            "sudo apt-get update && sudo apt-get install -y package1 package2", use_sudo=True
+            "sudo apt-get update && sudo apt-get install -y package1 package2",
+            use_sudo=True,
         )
 
     def test_install_packages_failure(

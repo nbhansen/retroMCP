@@ -372,14 +372,14 @@ class TestControllerTools:
         """Test that CommandResult unpacking is now fixed - should work properly."""
         # Mock execute_command to return CommandResult objects
         # The first call to "which jstest" fails
-        controller_tools.container.retropie_client.execute_command.return_value = CommandResult(
-            "which jstest", 1, "", "not found", False, 0.1
+        controller_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult("which jstest", 1, "", "not found", False, 0.1)
         )
 
-        # This should now work properly with CommandResult objects 
+        # This should now work properly with CommandResult objects
         # instead of trying to unpack them as tuples
         result = await controller_tools.handle_tool_call("test_controller", {})
-        
+
         # Should return proper jstest error message, not CommandResult unpacking error
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
@@ -393,24 +393,28 @@ class TestControllerTools:
         self, controller_tools: ControllerTools
     ) -> None:
         """Test that reproduces CommandResult unpacking error in detect_controllers - SHOULD FAIL until fixed."""
-        # Mock detect_controllers_use_case to return controllers  
+        # Mock detect_controllers_use_case to return controllers
         mock_controller = Controller(
             device_path="/dev/input/js0",
-            name="Test Controller", 
+            name="Test Controller",
             controller_type="xbox",
             vendor_id="045e",
             product_id="028e",
             is_connected=True,
         )
-        controller_tools.container.detect_controllers_use_case.execute.return_value = [mock_controller]
-        
+        controller_tools.container.detect_controllers_use_case.execute.return_value = [
+            mock_controller
+        ]
+
         # Mock execute_command to return CommandResult (this will cause unpacking error)
-        controller_tools.container.retropie_client.execute_command.return_value = CommandResult(
-            "which jstest", 0, "/usr/bin/jstest", "", True, 0.1
+        controller_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult("which jstest", 0, "/usr/bin/jstest", "", True, 0.1)
         )
 
         # This SHOULD fail with CommandResult unpacking error until fixed
-        with pytest.raises(TypeError, match="cannot unpack non-iterable CommandResult object"):
+        with pytest.raises(
+            TypeError, match="cannot unpack non-iterable CommandResult object"
+        ):
             await controller_tools.handle_tool_call("detect_controllers", {})
 
     @pytest.mark.asyncio

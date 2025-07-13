@@ -164,9 +164,7 @@ class TestMCPToolCompliance:
 
         for tool_def in tools:
             # Should be proper MCP Tool type
-            assert isinstance(tool_def, Tool), (
-                "Tool definition should be MCP Tool type"
-            )
+            assert isinstance(tool_def, Tool), "Tool definition should be MCP Tool type"
 
             # Should have required fields
             assert hasattr(tool_def, "name"), "Tool should have name"

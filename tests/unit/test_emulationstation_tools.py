@@ -782,8 +782,8 @@ class TestEmulationStationTools:
 
         # This should now work properly without timeout parameter error
         result = await es_tools.handle_tool_call("restart_emulationstation", {})
-        
-        # Should return success message, not timeout error  
+
+        # Should return success message, not timeout error
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "EmulationStation restarted successfully" in result[0].text

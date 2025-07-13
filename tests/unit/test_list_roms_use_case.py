@@ -36,15 +36,15 @@ class TestListRomsUseCase:
                 path="/home/pi/RetroPie/roms/nes",
                 rom_count=10,
                 total_size=1024000,
-                supported_extensions=[".nes", ".zip"]
+                supported_extensions=[".nes", ".zip"],
             ),
             RomDirectory(
                 system="snes",
                 path="/home/pi/RetroPie/roms/snes",
                 rom_count=5,
                 total_size=2048000,
-                supported_extensions=[".sfc", ".smc", ".zip"]
-            )
+                supported_extensions=[".sfc", ".smc", ".zip"],
+            ),
         ]
         mock_emulator_repository.get_rom_directories.return_value = expected_roms
 
@@ -80,15 +80,15 @@ class TestListRomsUseCase:
                 path="/home/pi/RetroPie/roms/nes",
                 rom_count=10,
                 total_size=1024000,
-                supported_extensions=[".nes", ".zip"]
+                supported_extensions=[".nes", ".zip"],
             ),
             RomDirectory(
                 system="snes",
                 path="/home/pi/RetroPie/roms/snes",
                 rom_count=5,
                 total_size=2048000,
-                supported_extensions=[".sfc", ".smc", ".zip"]
-            )
+                supported_extensions=[".sfc", ".smc", ".zip"],
+            ),
         ]
         mock_emulator_repository.get_rom_directories.return_value = all_roms
 
@@ -106,9 +106,27 @@ class TestListRomsUseCase:
         """TEST SHOULD FAIL: ListRomsUseCase should filter by minimum ROM count."""
         # Arrange
         all_roms = [
-            RomDirectory(system="nes", path="/path/nes", rom_count=10, total_size=1000, supported_extensions=[]),
-            RomDirectory(system="empty", path="/path/empty", rom_count=0, total_size=0, supported_extensions=[]),
-            RomDirectory(system="few", path="/path/few", rom_count=2, total_size=500, supported_extensions=[])
+            RomDirectory(
+                system="nes",
+                path="/path/nes",
+                rom_count=10,
+                total_size=1000,
+                supported_extensions=[],
+            ),
+            RomDirectory(
+                system="empty",
+                path="/path/empty",
+                rom_count=0,
+                total_size=0,
+                supported_extensions=[],
+            ),
+            RomDirectory(
+                system="few",
+                path="/path/few",
+                rom_count=2,
+                total_size=500,
+                supported_extensions=[],
+            ),
         ]
         mock_emulator_repository.get_rom_directories.return_value = all_roms
 
@@ -126,9 +144,27 @@ class TestListRomsUseCase:
         """TEST SHOULD FAIL: ListRomsUseCase should sort by ROM count descending by default."""
         # Arrange
         unsorted_roms = [
-            RomDirectory(system="few", path="/path/few", rom_count=2, total_size=500, supported_extensions=[]),
-            RomDirectory(system="many", path="/path/many", rom_count=20, total_size=5000, supported_extensions=[]),
-            RomDirectory(system="medium", path="/path/medium", rom_count=10, total_size=2000, supported_extensions=[])
+            RomDirectory(
+                system="few",
+                path="/path/few",
+                rom_count=2,
+                total_size=500,
+                supported_extensions=[],
+            ),
+            RomDirectory(
+                system="many",
+                path="/path/many",
+                rom_count=20,
+                total_size=5000,
+                supported_extensions=[],
+            ),
+            RomDirectory(
+                system="medium",
+                path="/path/medium",
+                rom_count=10,
+                total_size=2000,
+                supported_extensions=[],
+            ),
         ]
         mock_emulator_repository.get_rom_directories.return_value = unsorted_roms
 
