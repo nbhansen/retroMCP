@@ -242,6 +242,10 @@ class RetroMCPServer:
                 "check_power_supply": "hardware",
                 "inspect_hardware_errors": "hardware",
                 "check_gpio_status": "hardware",
+                # Management tools
+                "manage_services": "management",
+                "manage_packages": "management",
+                "manage_files": "management",
             }
 
             # Route tool call to appropriate module

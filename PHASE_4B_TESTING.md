@@ -12,7 +12,23 @@ sudo raspi-config
 hostname -I  # Note the IP address
 ```
 
-### 2. Security Setup (Local Machine)
+### 2. Configure Passwordless Sudo (Critical - Required)
+```bash
+# On your RetroPie system (SSH into it)
+sudo visudo
+
+# Add this line at the end (replace 'pi' with your actual username):
+pi ALL=(ALL) NOPASSWD:ALL
+
+# Or for retro user:
+retro ALL=(ALL) NOPASSWD:ALL
+
+# Save and exit (Ctrl+X, then Y, then Enter)
+```
+
+**WARNING**: This allows passwordless sudo access. Only do this on dedicated gaming systems.
+
+### 3. Security Setup (Local Machine)
 ```bash
 # Add RetroPie to known_hosts for security testing
 ssh-keyscan -H <RETROPIE_IP> >> ~/.ssh/known_hosts
@@ -26,7 +42,7 @@ cp .env.example .env
 # RETROPIE_PASSWORD=your_password
 ```
 
-### 3. Enable Debug Logging
+### 4. Enable Debug Logging
 ```bash
 # Set debug logging level
 export RETROMCP_LOG_LEVEL=DEBUG
@@ -100,6 +116,19 @@ export RETROMCP_LOG_LEVEL=DEBUG
 - Theme changes apply properly?
 - Any service management issues?
 
+### Management Tools (NEW)
+**Ask Claude**: *"Start the pigpiod service and install the htop package"*
+
+**Test**:
+- Service management (start/stop/restart/status)
+- Package installation and removal
+- File operations (list/create/delete)
+
+**Watch for**:
+- Sudo privilege escalation working correctly
+- Proper error handling for invalid operations
+- Security validation of inputs
+
 ## Testing Phase 3: Realistic User Scenarios (20 minutes)
 
 ### Scenario 1: New User Setup
@@ -144,10 +173,12 @@ export RETROMCP_LOG_LEVEL=DEBUG
 ### Security Boundary Testing
 **Try these edge cases**:
 - **Ask Claude**: *"Install a package with a weird name like 'test;rm -rf /'"*
-- **Ask Claude**: *"Set GPIO pin 999 to output mode"*
+- **Ask Claude**: *"Set GPIO pin 999 to output mode"*  
 - **Ask Claude**: *"Use theme name '../../../etc/passwd'"*
+- **Ask Claude**: *"Create a file at path '/etc/shadow.backup'"*
+- **Ask Claude**: *"Start a service named 'fake;shutdown -h now'"*
 
-**Expected**: All should be safely rejected with proper validation errors
+**Expected**: All should be safely rejected with proper validation errors and shlex.quote() protection
 
 ### Performance Testing
 - **Large command outputs**: Ask for extensive system logs
@@ -170,6 +201,8 @@ export RETROMCP_LOG_LEVEL=DEBUG
 4. *"Monitor my system temperature continuously"*
 5. *"Compare my setup with recommended configurations"*
 6. *"Help me organize my game collection better"*
+7. *"Configure overclocking for better N64 performance"* (Should return "not implemented")
+8. *"Set up HDMI audio output"* (Should return "not implemented")
 
 **Document** each response:
 - ✅ **Works**: Feature exists and functions
@@ -192,6 +225,7 @@ Steps: [How to reproduce]
 Expected: [What should happen]
 Actual: [What actually happened]
 Priority: [High/Medium/Low]
+Component: [Tool/Security/Discovery/etc]
 ```
 
 ### 🚀 Feature Opportunities  
@@ -233,11 +267,11 @@ grep "Tool.*completed\|Tool.*failed" ~/.retromcp/debug.log
 ```
 
 ### Success Metrics
-- **Security**: No vulnerabilities exploited ✅
-- **Functionality**: Core tools work as expected ✅
-- **Discovery**: System correctly identified ✅
-- **Performance**: Acceptable response times ✅
-- **UX**: Claude provides helpful guidance ✅
+- **Security**: No vulnerabilities exploited, all edge cases safely handled ✅
+- **Functionality**: Core tools work as expected, management tools functional ✅
+- **Discovery**: System correctly identified, sudo configuration working ✅
+- **Performance**: Acceptable response times for all operations ✅
+- **UX**: Claude provides helpful guidance with clear error messages ✅
 
 ### Development Priorities
 **Rank findings by**:

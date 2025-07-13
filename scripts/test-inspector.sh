@@ -36,4 +36,12 @@ echo ""
 
 # Change to project root and run MCP Inspector with our Python server
 cd "$PROJECT_ROOT"
+
+# Enable debug logging for inspector testing
+export RETROMCP_LOG_LEVEL=DEBUG
+
+echo "Debug logging enabled (RETROMCP_LOG_LEVEL=DEBUG)"
+echo "Debug logs will be written to ~/.retromcp/debug.log"
+echo ""
+
 npx @modelcontextprotocol/inspector python -m retromcp.server

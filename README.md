@@ -1,8 +1,8 @@
 # RetroMCP
 
-**Turn your AI assistant into a RetroPie expert that learns your specific setup.**
+An MCP server that connects AI assistants to RetroPie systems for configuration and troubleshooting.
 
-RetroMCP bridges the gap between modern AI assistants and retro gaming by making your Raspberry Pi's RetroPie system accessible to AI helpers like Claude. Instead of spending hours troubleshooting controller issues, hunting down missing files, or configuring emulators, you can simply ask your AI assistant for help in natural language.
+RetroMCP enables AI assistants like Claude to help configure and manage RetroPie installations on Raspberry Pi through secure SSH connections. Ask questions in natural language instead of learning Linux commands.
 
 ## How It Works
 
@@ -27,44 +27,35 @@ RetroMCP bridges the gap between modern AI assistants and retro gaming by making
 Natural Language ──▶ System Commands ──▶ Real Configuration Changes
 ```
 
-**What you get:**
-- Ask "Set up my Xbox controller" → Controller gets configured automatically
-- Say "My N64 games are slow" → Performance gets tuned for your hardware  
-- Request "Find missing BIOS files" → Gets exact files needed for your setup
-- All through conversation, no Linux commands required
+**Examples:**
+- "Set up my Xbox controller" - Installs drivers and configures button mappings
+- "My N64 games are slow" - Checks performance and suggests tuning options
+- "Find missing BIOS files" - Identifies required files for your emulators
+- "Install arcade emulators" - Sets up MAME and configures input
 
-## Project Status 🚀
+## Project Status
 
-**Current Phase**: **Phase 4A: Security Hardening** ✅ **COMPLETED**  
-**Security Status**: 🟡 **SAFE FOR CONTROLLED TESTING**  
-**Next Phase**: Phase 4B - Real-World Testing  
-
-### Recent Achievements
-
-- ✅ **Comprehensive Security Hardening** - All critical vulnerabilities fixed
-- ✅ **23 Security Tests Passing** - SSH hardening and command injection prevention
-- ✅ **84% Test Coverage** - 417 tests passing with comprehensive validation
-- ✅ **Production-Quality Architecture** - Hexagonal design with dependency injection
-- ✅ **Zero-Tolerance Code Quality** - All linting standards met
+**Current Phase**: Phase 4B - Real-World Testing  
+**Security Status**: Safe for controlled testing environments  
+**Test Coverage**: 84% (417 tests passing)  
 
 ### Security Implementation
 
-RetroMCP has undergone comprehensive security hardening to prevent:
-- **Command Injection** - All user inputs properly escaped with `shlex.quote()`
-- **SSH Vulnerabilities** - Replaced AutoAddPolicy with proper host key verification
-- **Input Validation** - Comprehensive validation for GPIO pins, packages, themes, and paths
-- **Information Leakage** - Error messages sanitized to prevent credential exposure
+- **Command Injection Prevention** - All user inputs escaped with shlex.quote()
+- **SSH Security** - Proper host key verification and connection timeouts
+- **Input Validation** - Comprehensive validation for all parameters
+- **Error Sanitization** - Prevents information leakage through error messages
 
-### ⚠️ Important Security Notice
+### Security Notice
 
-**RetroMCP uses aggressive sudo privilege escalation** for system operations like package installation, service management, and controller setup. This is necessary for RetroPie management but has security implications:
+**RetroMCP requires sudo privileges** for system operations including package installation, service management, and file operations. This is necessary for RetroPie administration but has security implications:
 
-- **Don't store sensitive data** on your RetroPie system if you're concerned about AI/MCP access
-- **RetroPie is designed for gaming**, not as a secure server - this tool assumes you're okay with system-level access
-- **Review what you're asking for** - the AI can install packages, restart services, and modify system configurations
-- **Use on dedicated gaming systems** - Don't run this on servers with sensitive data or production systems
+- Use only on dedicated RetroPie/gaming systems
+- Do not use on systems with sensitive data
+- AI can install packages, restart services, and modify configurations
+- Review commands before execution when possible
 
-*If you're running MCP tools on sensitive servers, you're already taking unnecessary risks. RetroPie systems are typically isolated gaming devices, making this approach reasonable for the use case.*
+RetroPie systems are typically isolated gaming devices, making this privilege level appropriate for the use case.
 
 ## The Problem This Solves
 
@@ -118,23 +109,23 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) is an open protoc
 - Enables more effective troubleshooting conversations
 - Remembers past issues and resolutions
 
-### **Enterprise-Grade Security**
-- **SSH Security Hardening** - Proper host key verification and connection timeouts
+### **Security Features**
+- **SSH Security** - Proper host key verification and connection timeouts
 - **Command Injection Prevention** - All user inputs properly escaped and validated
-- **Input Validation Framework** - Comprehensive validation for all parameters
+- **Input Validation** - Comprehensive validation for all parameters
 - **Error Sanitization** - Prevents information leakage through error messages
 
 ## Architecture
 
-RetroMCP follows hexagonal architecture principles with comprehensive security:
+RetroMCP follows hexagonal architecture principles:
 
 - **Domain Layer**: Core business models and interfaces (ports)
 - **Application Layer**: Use cases that orchestrate business logic  
-- **Infrastructure Layer**: Secure SSH implementations of domain interfaces
+- **Infrastructure Layer**: SSH implementations of domain interfaces
 - **Discovery Layer**: Automatic system path and configuration detection
 - **Profile Layer**: Persistent learning and context management
 - **MCP Adapter**: Exposes functionality through the Model Context Protocol
-- **Security Layer**: Comprehensive input validation and command injection prevention
+- **Security Layer**: Input validation and command injection prevention
 
 ## Requirements
 
@@ -152,7 +143,32 @@ On your Raspberry Pi:
 3. Go to "Interface Options" → "SSH" → Enable
 4. Note your Pi's IP address: `hostname -I`
 
-### 2. Install RetroMCP
+### 2. Configure Passwordless Sudo (Required)
+
+**WARNING: This allows any user with SSH access to run any command as root without a password. Only do this on dedicated gaming systems.**
+
+RetroMCP requires passwordless sudo for package installation, service management, and system configuration. On your RetroPie system:
+
+```bash
+# Edit sudoers file
+sudo visudo
+
+# Add this line at the end (replace 'pi' with your username):
+pi ALL=(ALL) NOPASSWD:ALL
+
+# Or for the retro user:
+retro ALL=(ALL) NOPASSWD:ALL
+
+# Save and exit (Ctrl+X, then Y, then Enter in nano)
+```
+
+**Security implications:**
+- Any compromise of your SSH connection grants full root access
+- Use only on isolated gaming systems
+- Consider using SSH keys instead of passwords
+- Do not use on systems with sensitive data
+
+### 3. Install RetroMCP
 
 ```bash
 # Clone repository
@@ -167,7 +183,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e .
 ```
 
-### 3. Configure Connection
+### 4. Configure Connection
 
 ```bash
 # Copy example configuration
@@ -210,22 +226,33 @@ RETROPIE_SSH_KEY_PATH=~/.ssh/id_rsa  # Path to SSH key
 - **configure_overclock** - Adjust performance settings
 - **configure_audio** - Configure audio settings
 
+### Management Tools
+- **manage_services** - Control systemd services (start/stop/restart/enable/disable/status)
+- **manage_packages** - Install/remove/update system packages via apt
+- **manage_files** - File operations (list/create/delete/copy/move/permissions/backup)
+
 ### EmulationStation Tools
 - **restart_emulationstation** - Restart EmulationStation
 - **configure_themes** - Manage themes
 - **manage_gamelists** - Manage game lists
 - **configure_es_settings** - Configure EmulationStation settings
 
+### Hardware Tools
+- **check_temperatures** - Monitor CPU/GPU temperatures and thermal throttling
+- **monitor_fan_control** - Check fan operation and cooling system
+- **check_power_supply** - Monitor power health and under-voltage warnings
+- **inspect_hardware_errors** - Analyze system logs for hardware issues
+- **check_gpio_status** - GPIO pin status and configuration
+
 ## Testing
 
 ### Test Coverage & Quality
 
-RetroMCP maintains comprehensive test coverage with enterprise-grade quality standards:
+RetroMCP maintains comprehensive test coverage:
 
-- **Overall Coverage**: 84% (exceeds 80% target)
+- **Overall Coverage**: 84%
 - **Total Tests**: 417 across all layers
-- **Passing Tests**: 417 (100% pass rate) ✅
-- **Security Tests**: 23 comprehensive security tests
+- **Security Tests**: 23 tests for command injection prevention and SSH hardening
 - **Integration Tests**: 30 end-to-end workflow tests
 - **Contract Tests**: 34 architectural compliance tests
 
@@ -391,9 +418,9 @@ RetroMCP implements enterprise-grade security measures:
 - Test SSH manually: `ssh pi@<your-pi-ip>`
 
 ### Permission Issues
-- Some operations require sudo access
-- Ensure the Pi user has appropriate permissions
-- Check RetroPie directory ownership
+- RetroMCP requires passwordless sudo for system operations
+- Ensure your user has NOPASSWD:ALL configured in sudoers
+- Check RetroPie directory ownership if file operations fail
 
 ### MCP Inspector Issues
 - Ensure Node.js is installed: `node --version`
