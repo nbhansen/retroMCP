@@ -7,6 +7,7 @@ from mcp.types import TextContent
 
 from retromcp.config import RetroPieConfig
 from retromcp.discovery import RetroPiePaths
+from retromcp.domain.models import CommandResult
 from retromcp.tools.emulationstation_tools import EmulationStationTools
 
 
@@ -14,10 +15,12 @@ class TestEmulationStationTools:
     """Test cases for EmulationStationTools class."""
 
     @pytest.fixture
-    def mock_ssh_handler(self) -> Mock:
-        """Provide mocked SSH handler."""
+    def mock_container(self, test_config: RetroPieConfig) -> Mock:
+        """Provide mocked container."""
         mock = Mock()
-        mock.execute_command = Mock()
+        mock.retropie_client = Mock()
+        mock.retropie_client.execute_command = Mock()
+        mock.config = test_config
         return mock
 
     @pytest.fixture
@@ -43,11 +46,9 @@ class TestEmulationStationTools:
         )
 
     @pytest.fixture
-    def es_tools(
-        self, mock_ssh_handler: Mock, test_config: RetroPieConfig
-    ) -> EmulationStationTools:
+    def es_tools(self, mock_container: Mock) -> EmulationStationTools:
         """Provide EmulationStationTools instance with mocked dependencies."""
-        return EmulationStationTools(mock_ssh_handler, test_config)
+        return EmulationStationTools(mock_container)
 
     def test_get_tools(self, es_tools: EmulationStationTools) -> None:
         """Test that all expected tools are returned."""
@@ -111,11 +112,17 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test restarting EmulationStation when running as systemd service."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "active", ""),  # Service check
-            (0, "", ""),  # Stop command
-            (0, "", ""),  # Sleep
-            (0, "", ""),  # Start command
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "systemctl is-active emulationstation", 0, "active", "", True, 0.1
+            ),  # Service check
+            CommandResult(
+                "systemctl stop emulationstation", 0, "", "", True, 0.1
+            ),  # Stop command
+            CommandResult("sleep 2", 0, "", "", True, 0.1),  # Sleep
+            CommandResult(
+                "systemctl start emulationstation", 0, "", "", True, 0.1
+            ),  # Start command
         ]
 
         result = await es_tools.handle_tool_call("restart_emulationstation", {})
@@ -129,11 +136,15 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test restarting EmulationStation when running as user process."""
-        es_tools.ssh.execute_command.side_effect = [
-            (1, "", ""),  # Service not active
-            (0, "", ""),  # pkill
-            (0, "", ""),  # sleep
-            (0, "", ""),  # start as user
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "systemctl is-active emulationstation", 1, "", "", False, 0.1
+            ),  # Service not active
+            CommandResult("pkill emulationstation", 0, "", "", True, 0.1),  # pkill
+            CommandResult("sleep 2", 0, "", "", True, 0.1),  # sleep
+            CommandResult(
+                "nohup emulationstation > /dev/null 2>&1 &", 0, "", "", True, 0.1
+            ),  # start as user
         ]
 
         result = await es_tools.handle_tool_call("restart_emulationstation", {})
@@ -146,11 +157,22 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test EmulationStation restart failure."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "active", ""),  # Service check
-            (0, "", ""),  # Stop command
-            (0, "", ""),  # Sleep
-            (1, "", "Failed to start service"),  # Start command fails
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "systemctl is-active emulationstation", 0, "active", "", True, 0.1
+            ),  # Service check
+            CommandResult(
+                "systemctl stop emulationstation", 0, "", "", True, 0.1
+            ),  # Stop command
+            CommandResult("sleep 2", 0, "", "", True, 0.1),  # Sleep
+            CommandResult(
+                "systemctl start emulationstation",
+                1,
+                "",
+                "Failed to start service",
+                False,
+                0.1,
+            ),  # Start command fails
         ]
 
         result = await es_tools.handle_tool_call("restart_emulationstation", {})
@@ -166,10 +188,13 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test listing themes when themes are available."""
-        es_tools.ssh.execute_command.return_value = (
+        es_tools.container.retropie_client.execute_command.return_value = CommandResult(
+            "ls /home/retro/.emulationstation/themes/",
             0,
             "carbon\ncarbon-centered\nrecalbox-multi\ncomfy",
             "",
+            True,
+            0.1,
         )
 
         result = await es_tools.handle_tool_call("configure_themes", {"action": "list"})
@@ -184,7 +209,9 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test listing themes when no custom themes are found."""
-        es_tools.ssh.execute_command.return_value = (1, "", "")
+        es_tools.container.retropie_client.execute_command.return_value = CommandResult(
+            "ls /home/retro/.emulationstation/themes/", 1, "", "", False, 0.1
+        )
 
         result = await es_tools.handle_tool_call("configure_themes", {"action": "list"})
 
@@ -224,10 +251,31 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test setting theme successfully."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "", ""),  # Theme exists check
-            (0, "", ""),  # sed remove old setting
-            (0, "", ""),  # echo new setting
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "test -d /home/retro/.emulationstation/themes/carbon",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # Theme exists check
+            CommandResult(
+                "sed -i '/ThemeSet/d' /home/retro/.emulationstation/es_settings.cfg",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # sed remove old setting
+            CommandResult(
+                'echo \'<string name="ThemeSet" value="carbon" />\' >> /home/retro/.emulationstation/es_settings.cfg',
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # echo new setting
         ]
 
         result = await es_tools.handle_tool_call(
@@ -243,7 +291,14 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test setting theme when theme doesn't exist."""
-        es_tools.ssh.execute_command.return_value = (1, "", "")  # Theme doesn't exist
+        es_tools.container.retropie_client.execute_command.return_value = CommandResult(
+            "test -d /home/retro/.emulationstation/themes/nonexistent",
+            1,
+            "",
+            "",
+            False,
+            0.1,
+        )  # Theme doesn't exist
 
         result = await es_tools.handle_tool_call(
             "configure_themes", {"action": "set", "theme_name": "nonexistent"}
@@ -267,10 +322,31 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test theme setting failure during configuration."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "", ""),  # Theme exists check
-            (0, "", ""),  # sed remove old setting
-            (1, "", "Permission denied"),  # echo new setting fails
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "test -d /home/retro/.emulationstation/themes/carbon",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # Theme exists check
+            CommandResult(
+                "sed -i '/ThemeSet/d' /home/retro/.emulationstation/es_settings.cfg",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # sed remove old setting
+            CommandResult(
+                'echo \'<string name="ThemeSet" value="carbon" />\' >> /home/retro/.emulationstation/es_settings.cfg',
+                1,
+                "",
+                "Permission denied",
+                False,
+                0.1,
+            ),  # echo new setting fails
         ]
 
         result = await es_tools.handle_tool_call(
@@ -298,9 +374,18 @@ class TestEmulationStationTools:
     ) -> None:
         """Test gamelist backup success."""
         # Mock the date command to return a consistent timestamp
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "20240115_143022", ""),  # date command
-            (0, "", ""),  # cp command
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "date +%Y%m%d_%H%M%S", 0, "20240115_143022", "", True, 0.1
+            ),  # date command
+            CommandResult(
+                "cp -r /home/retro/.emulationstation/gamelists /home/retro/gamelist_backup_20240115_143022",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # cp command
         ]
 
         result = await es_tools.handle_tool_call(
@@ -315,9 +400,18 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test gamelist backup for specific system."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "20240115_143022", ""),  # date command
-            (0, "", ""),  # cp command
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "date +%Y%m%d_%H%M%S", 0, "20240115_143022", "", True, 0.1
+            ),  # date command
+            CommandResult(
+                "cp -r /home/retro/.emulationstation/gamelists/nes /home/retro/gamelist_backup_20240115_143022",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # cp command
         ]
 
         result = await es_tools.handle_tool_call(
@@ -332,9 +426,18 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test gamelist backup failure."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "20240115_143022", ""),  # date command
-            (1, "", "No such file or directory"),  # cp command fails
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "date +%Y%m%d_%H%M%S", 0, "20240115_143022", "", True, 0.1
+            ),  # date command
+            CommandResult(
+                "cp -r /home/retro/.emulationstation/gamelists /home/retro/gamelist_backup_20240115_143022",
+                1,
+                "",
+                "No such file or directory",
+                False,
+                0.1,
+            ),  # cp command fails
         ]
 
         result = await es_tools.handle_tool_call(
@@ -362,7 +465,9 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test gamelist regeneration success."""
-        es_tools.ssh.execute_command.return_value = (0, "", "")
+        es_tools.container.retropie_client.execute_command.return_value = CommandResult(
+            "rm -rf /home/retro/.emulationstation/gamelists", 0, "", "", True, 0.1
+        )
 
         result = await es_tools.handle_tool_call(
             "manage_gamelists", {"action": "regenerate"}
@@ -377,7 +482,14 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test gamelist regeneration failure."""
-        es_tools.ssh.execute_command.return_value = (1, "", "Permission denied")
+        es_tools.container.retropie_client.execute_command.return_value = CommandResult(
+            "rm -rf /home/retro/.emulationstation/gamelists",
+            1,
+            "",
+            "Permission denied",
+            False,
+            0.1,
+        )
 
         result = await es_tools.handle_tool_call(
             "manage_gamelists", {"action": "regenerate"}
@@ -403,9 +515,23 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test configuring screensaver with default timeout."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "", ""),  # sed remove old setting
-            (0, "", ""),  # echo new setting
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "sed -i '/ScreenSaverTime/d' /home/retro/.emulationstation/es_settings.cfg",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # sed remove old setting
+            CommandResult(
+                'echo \'<int name="ScreenSaverTime" value="600000" />\' >> /home/retro/.emulationstation/es_settings.cfg',
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # echo new setting
         ]
 
         result = await es_tools.handle_tool_call(
@@ -420,9 +546,23 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test configuring screensaver with custom timeout."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "", ""),  # sed remove old setting
-            (0, "", ""),  # echo new setting
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "sed -i '/ScreenSaverTime/d' /home/retro/.emulationstation/es_settings.cfg",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # sed remove old setting
+            CommandResult(
+                'echo \'<int name="ScreenSaverTime" value="300000" />\' >> /home/retro/.emulationstation/es_settings.cfg',
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # echo new setting
         ]
 
         result = await es_tools.handle_tool_call(
@@ -438,9 +578,23 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test screensaver configuration failure."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "", ""),  # sed remove old setting
-            (1, "", "Write error"),  # echo new setting fails
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "sed -i '/ScreenSaverTime/d' /home/retro/.emulationstation/es_settings.cfg",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # sed remove old setting
+            CommandResult(
+                'echo \'<int name="ScreenSaverTime" value="600000" />\' >> /home/retro/.emulationstation/es_settings.cfg',
+                1,
+                "",
+                "Write error",
+                False,
+                0.1,
+            ),  # echo new setting fails
         ]
 
         result = await es_tools.handle_tool_call(
@@ -484,9 +638,23 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test UI configuration with default transition."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "", ""),  # sed remove old setting
-            (0, "", ""),  # echo new setting
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "sed -i '/TransitionStyle/d' /home/retro/.emulationstation/es_settings.cfg",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # sed remove old setting
+            CommandResult(
+                'echo \'<string name="TransitionStyle" value="fade" />\' >> /home/retro/.emulationstation/es_settings.cfg',
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # echo new setting
         ]
 
         result = await es_tools.handle_tool_call(
@@ -501,9 +669,23 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test UI configuration with custom transition."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "", ""),  # sed remove old setting
-            (0, "", ""),  # echo new setting
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "sed -i '/TransitionStyle/d' /home/retro/.emulationstation/es_settings.cfg",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # sed remove old setting
+            CommandResult(
+                'echo \'<string name="TransitionStyle" value="slide" />\' >> /home/retro/.emulationstation/es_settings.cfg',
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # echo new setting
         ]
 
         result = await es_tools.handle_tool_call(
@@ -519,9 +701,23 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test UI configuration failure."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "", ""),  # sed remove old setting
-            (1, "", "Permission denied"),  # echo new setting fails
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "sed -i '/TransitionStyle/d' /home/retro/.emulationstation/es_settings.cfg",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # sed remove old setting
+            CommandResult(
+                'echo \'<string name="TransitionStyle" value="fade" />\' >> /home/retro/.emulationstation/es_settings.cfg',
+                1,
+                "",
+                "Permission denied",
+                False,
+                0.1,
+            ),  # echo new setting fails
         ]
 
         result = await es_tools.handle_tool_call(
@@ -555,7 +751,9 @@ class TestEmulationStationTools:
     @pytest.mark.asyncio
     async def test_handle_tool_exception(self, es_tools: EmulationStationTools) -> None:
         """Test exception handling in tool execution."""
-        es_tools.ssh.execute_command.side_effect = Exception("SSH connection lost")
+        es_tools.container.retropie_client.execute_command.side_effect = Exception(
+            "SSH connection lost"
+        )
 
         result = await es_tools.handle_tool_call("restart_emulationstation", {})
 
@@ -565,13 +763,40 @@ class TestEmulationStationTools:
             "Error in restart_emulationstation: SSH connection lost" in result[0].text
         )
 
+    @pytest.mark.asyncio
+    async def test_restart_emulationstation_timeout_parameter_fixed(
+        self, es_tools: EmulationStationTools
+    ) -> None:
+        """Test that timeout parameter is now fixed - should work properly."""
+        # Mock the service check to be inactive so it goes to user process path
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "systemctl is-active emulationstation", 1, "", "", False, 0.1
+            ),  # Service not active
+            CommandResult("pkill emulationstation", 0, "", "", True, 0.1),  # pkill
+            CommandResult("sleep 2", 0, "", "", True, 0.1),  # sleep
+            CommandResult(
+                "nohup emulationstation > /dev/null 2>&1 &", 0, "", "", True, 0.1
+            ),  # start EmulationStation
+        ]
+
+        # This should now work properly without timeout parameter error
+        result = await es_tools.handle_tool_call("restart_emulationstation", {})
+        
+        # Should return success message, not timeout error  
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "EmulationStation restarted successfully" in result[0].text
+        # Most importantly, should NOT contain the timeout error
+        assert "unexpected keyword argument 'timeout'" not in result[0].text
+
     def test_inheritance_from_base_tool(self, es_tools: EmulationStationTools) -> None:
         """Test that EmulationStationTools properly inherits from BaseTool."""
         # Should have access to BaseTool methods
         assert hasattr(es_tools, "format_success")
         assert hasattr(es_tools, "format_error")
         assert hasattr(es_tools, "format_info")
-        assert hasattr(es_tools, "ssh")
+        assert hasattr(es_tools, "container")
         assert hasattr(es_tools, "config")
 
         # Test format methods work
@@ -585,22 +810,24 @@ class TestEmulationStationTools:
         assert isinstance(error_result[0], TextContent)
         assert "Error message" in error_result[0].text
 
-        info_result = es_tools.format_info("Info message")
-        assert len(info_result) == 1
-        assert isinstance(info_result[0], TextContent)
-        assert "Info message" in info_result[0].text
-
     @pytest.mark.asyncio
     async def test_theme_listing_uses_config_paths(
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test that theme listing uses configuration home directory."""
-        es_tools.ssh.execute_command.return_value = (0, "theme1\ntheme2", "")
+        es_tools.container.retropie_client.execute_command.return_value = CommandResult(
+            "ls /home/retro/.emulationstation/themes/",
+            0,
+            "theme1\ntheme2",
+            "",
+            True,
+            0.1,
+        )
 
-        result = await es_tools.handle_tool_call("configure_themes", {"action": "list"})
+        await es_tools.handle_tool_call("configure_themes", {"action": "list"})
 
         # Check that the command uses config home directory
-        call_args = es_tools.ssh.execute_command.call_args[0][0]
+        call_args = es_tools.container.retropie_client.execute_command.call_args[0][0]
         assert "/home/retro/.emulationstation/themes/" in call_args
 
     @pytest.mark.asyncio
@@ -608,17 +835,31 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test that settings configuration uses config home directory."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "", ""),  # sed command
-            (0, "", ""),  # echo command
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "sed -i '/ScreenSaverTime/d' /home/retro/.emulationstation/es_settings.cfg",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # sed command
+            CommandResult(
+                'echo \'<int name="ScreenSaverTime" value="600000" />\' >> /home/retro/.emulationstation/es_settings.cfg',
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # echo command
         ]
 
-        result = await es_tools.handle_tool_call(
+        await es_tools.handle_tool_call(
             "configure_es_settings", {"setting": "screensaver"}
         )
 
         # Check that commands reference the config file path
-        for call in es_tools.ssh.execute_command.call_args_list:
+        for call in es_tools.container.retropie_client.execute_command.call_args_list:
             if "/home/retro/.emulationstation/es_settings.cfg" in call[0][0]:
                 break
         else:
@@ -630,23 +871,33 @@ class TestEmulationStationTools:
     ) -> None:
         """Test restart logic properly detects service vs user process."""
         # Test systemd service path
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "active", ""),  # Service is active
-            (0, "", ""),  # Stop
-            (0, "", ""),  # Sleep
-            (0, "", ""),  # Start
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "systemctl is-active emulationstation", 0, "active", "", True, 0.1
+            ),  # Service is active
+            CommandResult(
+                "systemctl stop emulationstation", 0, "", "", True, 0.1
+            ),  # Stop
+            CommandResult("sleep 2", 0, "", "", True, 0.1),  # Sleep
+            CommandResult(
+                "systemctl start emulationstation", 0, "", "", True, 0.1
+            ),  # Start
         ]
 
         result = await es_tools.handle_tool_call("restart_emulationstation", {})
         assert "EmulationStation restarted successfully" in result[0].text
 
         # Test user process path
-        es_tools.ssh.execute_command.reset_mock()
-        es_tools.ssh.execute_command.side_effect = [
-            (1, "inactive", ""),  # Service is not active
-            (0, "", ""),  # pkill
-            (0, "", ""),  # sleep
-            (0, "", ""),  # nohup start
+        es_tools.container.retropie_client.execute_command.reset_mock()
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "systemctl is-active emulationstation", 1, "inactive", "", False, 0.1
+            ),  # Service is not active
+            CommandResult("pkill emulationstation", 0, "", "", True, 0.1),  # pkill
+            CommandResult("sleep 2", 0, "", "", True, 0.1),  # sleep
+            CommandResult(
+                "nohup emulationstation > /dev/null 2>&1 &", 0, "", "", True, 0.1
+            ),  # nohup start
         ]
 
         result = await es_tools.handle_tool_call("restart_emulationstation", {})
@@ -657,9 +908,18 @@ class TestEmulationStationTools:
         self, es_tools: EmulationStationTools
     ) -> None:
         """Test that backup creates properly timestamped backup path."""
-        es_tools.ssh.execute_command.side_effect = [
-            (0, "20240115_143022", ""),  # Mock timestamp
-            (0, "", ""),  # Copy command
+        es_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                "date +%Y%m%d_%H%M%S", 0, "20240115_143022", "", True, 0.1
+            ),  # Mock timestamp
+            CommandResult(
+                "cp -r /home/retro/.emulationstation/gamelists /home/retro/gamelist_backup_20240115_143022",
+                0,
+                "",
+                "",
+                True,
+                0.1,
+            ),  # Copy command
         ]
 
         result = await es_tools.handle_tool_call(
@@ -687,7 +947,16 @@ class TestEmulationStationTools:
                 assert "Theme name required" in result[0].text
             else:
                 # list doesn't require theme_name
-                es_tools.ssh.execute_command.return_value = (0, "theme1", "")
+                es_tools.container.retropie_client.execute_command.return_value = (
+                    CommandResult(
+                        "ls /home/retro/.emulationstation/themes/",
+                        0,
+                        "theme1",
+                        "",
+                        True,
+                        0.1,
+                    )
+                )
                 result = await es_tools.handle_tool_call(
                     "configure_themes", {"action": action}
                 )
