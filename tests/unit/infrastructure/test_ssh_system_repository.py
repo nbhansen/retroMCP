@@ -190,7 +190,7 @@ class TestSSHSystemRepository:
     ) -> None:
         """Test successful package installation."""
         mock_client.execute_command.return_value = CommandResult(
-            command="apt-get update && apt-get install -y package1",
+            command="sudo apt-get update && sudo apt-get install -y package1",
             exit_code=0,
             stdout="Package installed successfully",
             stderr="",
@@ -203,7 +203,7 @@ class TestSSHSystemRepository:
         assert result.success is True
         assert "Package installed successfully" in result.stdout
         mock_client.execute_command.assert_called_once_with(
-            "apt-get update && apt-get install -y package1", use_sudo=True
+            "sudo apt-get update && sudo apt-get install -y package1", use_sudo=True
         )
 
     def test_install_packages_multiple(
@@ -211,7 +211,7 @@ class TestSSHSystemRepository:
     ) -> None:
         """Test installing multiple packages."""
         mock_client.execute_command.return_value = CommandResult(
-            command="apt-get update && apt-get install -y package1 package2",
+            command="sudo apt-get update && sudo apt-get install -y package1 package2",
             exit_code=0,
             stdout="Packages installed",
             stderr="",
@@ -223,7 +223,7 @@ class TestSSHSystemRepository:
 
         assert result.success is True
         mock_client.execute_command.assert_called_once_with(
-            "apt-get update && apt-get install -y package1 package2", use_sudo=True
+            "sudo apt-get update && sudo apt-get install -y package1 package2", use_sudo=True
         )
 
     def test_install_packages_failure(
@@ -249,7 +249,7 @@ class TestSSHSystemRepository:
     ) -> None:
         """Test successful system update."""
         mock_client.execute_command.return_value = CommandResult(
-            command="apt-get update && apt-get upgrade -y",
+            command="sudo apt-get update && sudo apt-get upgrade -y",
             exit_code=0,
             stdout="System updated successfully",
             stderr="",
@@ -261,7 +261,7 @@ class TestSSHSystemRepository:
 
         assert result.success is True
         mock_client.execute_command.assert_called_once_with(
-            "apt-get update && apt-get upgrade -y", use_sudo=True
+            "sudo apt-get update && sudo apt-get upgrade -y", use_sudo=True
         )
 
     def test_update_system_failure(
@@ -287,7 +287,7 @@ class TestSSHSystemRepository:
     ) -> None:
         """Test successful service restart."""
         mock_client.execute_command.return_value = CommandResult(
-            command="systemctl restart emulationstation",
+            command="sudo systemctl restart emulationstation",
             exit_code=0,
             stdout="",
             stderr="",
@@ -299,7 +299,7 @@ class TestSSHSystemRepository:
 
         assert result.success is True
         mock_client.execute_command.assert_called_once_with(
-            "systemctl restart emulationstation", use_sudo=True
+            "sudo systemctl restart emulationstation", use_sudo=True
         )
 
     def test_restart_service_failure(
@@ -307,7 +307,7 @@ class TestSSHSystemRepository:
     ) -> None:
         """Test failed service restart."""
         mock_client.execute_command.return_value = CommandResult(
-            command="systemctl restart failing-service",
+            command="sudo systemctl restart failing-service",
             exit_code=1,
             stdout="",
             stderr="restart failed",
@@ -692,3 +692,42 @@ bluetooth.service        loaded failed failed  Bluetooth service"""
 
         # All should be marked as present since they were returned by the command
         assert all(bf.present for bf in bios_files)
+
+    def test_privileged_commands_require_sudo(
+        self, repository: SSHSystemRepository, mock_client: Mock
+    ) -> None:
+        """Test that all privileged operations use sudo for security compliance."""
+        # Test package installation uses sudo
+        mock_client.execute_command.return_value = CommandResult(
+            command="sudo apt-get update && sudo apt-get install -y testpkg",
+            exit_code=0,
+            stdout="",
+            stderr="",
+            success=True,
+            execution_time=1.0,
+        )
+
+        repository.install_packages(["testpkg"])
+
+        # Verify command includes sudo and use_sudo=True
+        mock_client.execute_command.assert_called_with(
+            "sudo apt-get update && sudo apt-get install -y testpkg", use_sudo=True
+        )
+
+        # Test system restart uses sudo
+        mock_client.reset_mock()
+        mock_client.execute_command.return_value = CommandResult(
+            command="sudo systemctl restart test-service",
+            exit_code=0,
+            stdout="",
+            stderr="",
+            success=True,
+            execution_time=1.0,
+        )
+
+        repository.restart_service("test-service")
+
+        # Verify service restart includes sudo and use_sudo=True
+        mock_client.execute_command.assert_called_with(
+            "sudo systemctl restart test-service", use_sudo=True
+        )

@@ -133,23 +133,23 @@ class SSHControllerRepository(ControllerRepository):
         """Set up a controller with appropriate drivers."""
         commands = []
 
-        # Install required driver if needed
+        # Install required driver if needed - ALL with explicit sudo prefix
         if controller.driver_required:
             if controller.driver_required == "xboxdrv":
                 commands.extend(
                     [
-                        "apt-get update",
-                        "apt-get install -y xboxdrv",
-                        "systemctl enable xboxdrv",
-                        "systemctl start xboxdrv",
+                        "sudo apt-get update",
+                        "sudo apt-get install -y xboxdrv",
+                        "sudo systemctl enable xboxdrv",
+                        "sudo systemctl start xboxdrv",
                     ]
                 )
             elif controller.driver_required == "ds4drv":
                 commands.extend(
                     [
-                        "apt-get update",
-                        "apt-get install -y python3-pip",
-                        "pip3 install ds4drv",
+                        "sudo apt-get update",
+                        "sudo apt-get install -y python3-pip",
+                        "sudo pip3 install ds4drv",
                     ]
                 )
 
@@ -158,7 +158,7 @@ class SSHControllerRepository(ControllerRepository):
             f"sudo -u pi emulationstation --configure-input {controller.device_path}"
         )
 
-        # Execute all commands
+        # Execute all commands - still use use_sudo=True for double safety
         if commands:
             full_command = " && ".join(commands)
             return self._client.execute_command(full_command, use_sudo=True)

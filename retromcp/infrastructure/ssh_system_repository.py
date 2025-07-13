@@ -130,12 +130,12 @@ class SSHSystemRepository(SystemRepository):
             )
 
         package_list = " ".join(packages)
-        command = f"apt-get update && apt-get install -y {package_list}"
+        command = f"sudo apt-get update && sudo apt-get install -y {package_list}"
         return self._client.execute_command(command, use_sudo=True)
 
     def update_system(self) -> CommandResult:
         """Update system packages."""
-        command = "apt-get update && apt-get upgrade -y"
+        command = "sudo apt-get update && sudo apt-get upgrade -y"
         return self._client.execute_command(command, use_sudo=True)
 
     def get_services(self) -> List[SystemService]:
@@ -180,7 +180,7 @@ class SSHSystemRepository(SystemRepository):
 
     def restart_service(self, service_name: str) -> CommandResult:
         """Restart a system service."""
-        command = f"systemctl restart {service_name}"
+        command = f"sudo systemctl restart {service_name}"
         return self._client.execute_command(command, use_sudo=True)
 
     def get_bios_files(self) -> List[BiosFile]:

@@ -309,7 +309,7 @@ class SSHEmulatorRepository(EmulatorRepository):
         # Restart EmulationStation to apply the theme
         if result.success:
             restart_result = self._client.execute_command(
-                "systemctl restart emulationstation", use_sudo=True
+                "sudo systemctl restart emulationstation", use_sudo=True
             )
             if restart_result.success:
                 result.stdout += "\nEmulationStation restarted to apply theme"
