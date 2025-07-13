@@ -35,16 +35,17 @@ Natural Language ──▶ System Commands ──▶ Real Configuration Changes
 
 ## Project Status
 
-**Current Phase**: Phase 4B - Real-World Testing  
-**Security Status**: Safe for controlled testing environments  
-**Test Coverage**: 84% (417 tests passing)  
+**Current Phase**: Ready for use  
+**Security Status**: Security validation implemented  
+**Test Coverage**: 81% (434 tests passing)  
 
 ### Security Implementation
 
 - **Command Injection Prevention** - All user inputs escaped with shlex.quote()
-- **SSH Security** - Proper host key verification and connection timeouts
-- **Input Validation** - Comprehensive validation for all parameters
-- **Error Sanitization** - Prevents information leakage through error messages
+- **Path Traversal Protection** - System file and directory protection
+- **SSH Security** - Host key verification and connection timeouts
+- **Input Validation** - Parameter validation for all tools
+- **Error Sanitization** - Removes sensitive data from error messages
 
 ### Security Notice
 
@@ -231,6 +232,10 @@ RETROPIE_SSH_KEY_PATH=~/.ssh/id_rsa  # Path to SSH key
 - **manage_packages** - Install/remove/update system packages via apt
 - **manage_files** - File operations (list/create/delete/copy/move/permissions/backup)
 
+### Admin Tools
+- **execute_command** - Direct command execution with security validation
+- **write_file** - File writing with path traversal and system file protection
+
 ### EmulationStation Tools
 - **restart_emulationstation** - Restart EmulationStation
 - **configure_themes** - Manage themes
@@ -248,17 +253,17 @@ RETROPIE_SSH_KEY_PATH=~/.ssh/id_rsa  # Path to SSH key
 
 ### Test Coverage & Quality
 
-RetroMCP maintains comprehensive test coverage:
+RetroMCP test coverage:
 
-- **Overall Coverage**: 84%
-- **Total Tests**: 417 across all layers
-- **Security Tests**: 23 tests for command injection prevention and SSH hardening
+- **Overall Coverage**: 81%
+- **Total Tests**: 434 across all layers
+- **Security Tests**: 40 tests for command injection prevention and SSH hardening
 - **Integration Tests**: 30 end-to-end workflow tests
 - **Contract Tests**: 34 architectural compliance tests
 
 ### Test Categories
 
-**Unit Tests**: Domain logic, use cases, and repositories with comprehensive mocking  
+**Unit Tests**: Domain logic, use cases, and repositories with mocking  
 **Integration Tests**: End-to-end workflows, SSH error handling, and tool execution  
 **Contract Tests**: Architecture compliance and MCP protocol adherence  
 **Security Tests**: Command injection prevention, SSH hardening, input validation  
@@ -382,17 +387,17 @@ Following **CLAUDE.md** principles:
 
 ## Security
 
-RetroMCP implements enterprise-grade security measures:
+RetroMCP security measures:
 
 ### SSH Security
-- **Host Key Verification**: Replaces AutoAddPolicy with proper known_hosts verification
+- **Host Key Verification**: Replaces AutoAddPolicy with known_hosts verification
 - **Connection Timeouts**: Prevents hanging connections
 - **Credential Cleanup**: Clears passwords from memory after use
-- **Key Permission Validation**: Ensures SSH keys have secure permissions (600/400)
+- **Key Permission Validation**: SSH keys have secure permissions (600/400)
 
 ### Command Injection Prevention
 - **Input Escaping**: All user inputs escaped with `shlex.quote()`
-- **Input Validation**: Comprehensive validation for GPIO pins, packages, themes, paths
+- **Input Validation**: Validation for GPIO pins, packages, themes, paths
 - **Path Traversal Prevention**: Blocks directory traversal attempts
 - **Command Whitelisting**: Only validated operations are executed
 
@@ -402,12 +407,14 @@ RetroMCP implements enterprise-grade security measures:
 - **Security Logging**: Audit trail for security-relevant operations
 
 ### Testing
-23 comprehensive security tests validate:
+40 security tests validate:
 - SSH connection security and host verification
 - Command injection prevention across all tools
 - Input validation for all parameters
 - Error message sanitization
 - Path traversal prevention
+- Dangerous command blocking
+- System file protection
 
 ## Troubleshooting
 
