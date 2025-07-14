@@ -21,79 +21,20 @@ RetroMCP enables AI assistants like Claude to help configure and manage RetroPie
 ## How It Works
 
 ```mermaid
-graph TD
-    %% User Layer
-    User[👤 User<br/>Natural Language Input]
+graph LR
+    A[User] --> B[Claude Desktop]
+    B --> C[MCP Protocol]
+    C --> D[RetroMCP Server]
+    D --> E[SSH Connection]
+    E --> F[Raspberry Pi]
+    F --> G[RetroPie System]
     
-    %% Claude Desktop Layer  
-    Claude[🖥️ Claude Desktop<br/>AI Assistant]
-    
-    %% MCP Protocol Layer
-    MCP[🔌 MCP Protocol<br/>JSON-RPC over stdio]
-    
-    %% RetroMCP Server Layers
-    subgraph RetroMCP ["🎮 RetroMCP Server"]
-        Tools[🛠️ MCP Tools<br/>controller_tools.py<br/>system_tools.py<br/>retropie_tools.py]
-        
-        subgraph AppLayer ["📋 Application Layer"]
-            UseCases[🎯 Use Cases<br/>use_cases.py]
-        end
-        
-        subgraph Security ["🛡️ Security Layer"]
-            Validation[✅ Input Validation]
-            Escaping[🔒 Command Escaping]
-            SSHSec[🔐 SSH Security]
-        end
-        
-        subgraph Infrastructure ["🏗️ Infrastructure Layer"]
-            SSHRepos[📡 SSH Repositories]
-            SSHClient[🔌 SSH Client]
-        end
-    end
-    
-    %% Target System
-    subgraph PiSystem ["🍓 Raspberry Pi"]
-        SSH[🔐 SSH Daemon]
-        RetroPie[🎮 RetroPie<br/>EmulationStation<br/>Emulators & ROMs]
-        Hardware[⚙️ Hardware<br/>Controllers & GPIO]
-    end
-    
-    %% Flow connections
-    User --> Claude
-    Claude -.->|MCP JSON-RPC| MCP
-    MCP --> Tools
-    Tools --> Security
-    Tools --> AppLayer
-    Security --> UseCases
-    AppLayer --> UseCases
-    UseCases --> Infrastructure
-    Infrastructure --> SSHClient
-    SSHClient -.->|SSH Commands| SSH
-    SSH --> RetroPie
-    SSH --> Hardware
-    
-    %% Response flow
-    Hardware -.->|Results| SSH
-    RetroPie -.->|Results| SSH  
-    SSH -.->|Response| SSHClient
-    SSHClient -.->|Data| UseCases
-    UseCases -.->|Results| Tools
-    Tools -.->|MCP Response| MCP
-    MCP -.->|JSON-RPC| Claude
-    Claude -.->|AI Response| User
-    
-    %% Styling
-    classDef userStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef claudeStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef mcpStyle fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
-    classDef retroStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef piStyle fill:#ffebee,stroke:#b71c1c,stroke-width:2px
-    
-    class User userStyle
-    class Claude claudeStyle  
-    class MCP mcpStyle
-    class Tools,UseCases,Validation,Escaping,SSHSec,SSHRepos,SSHClient retroStyle
-    class SSH,RetroPie,Hardware piStyle
+    G --> F
+    F --> E
+    E --> D
+    D --> C
+    C --> B
+    B --> A
 ```
 
 **Simple Flow:** Natural Language ➜ AI Understanding ➜ Secure Commands ➜ RetroPie Configuration
