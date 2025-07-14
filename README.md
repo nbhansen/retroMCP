@@ -4,6 +4,20 @@ An MCP server that connects AI assistants to RetroPie systems for configuration 
 
 RetroMCP enables AI assistants like Claude to help configure and manage RetroPie installations on Raspberry Pi through secure SSH connections. Ask questions in natural language instead of learning Linux commands.
 
+## Claude Talking to Your RetroPie Setup
+
+<img src="docs/screenshots/hardware-specs.png" alt="Claude analyzing Raspberry Pi hardware specifications" width="800">
+
+*Claude analyzing your Raspberry Pi 5 hardware specifications and system information*
+
+<img src="docs/screenshots/rom-management.png" alt="Claude managing GameCube ROMs" width="800">
+
+*Claude discovering and managing your GameCube ROM collection*
+
+<img src="docs/screenshots/controller-detection.png" alt="Claude detecting and testing PS5 controllers" width="800">
+
+*Claude detecting PS5 controllers and providing configuration guidance*
+
 ## How It Works
 
 ```
