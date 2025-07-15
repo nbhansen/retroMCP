@@ -2,6 +2,8 @@
 
 from abc import ABC
 from abc import abstractmethod
+from typing import Any
+from typing import Dict
 from typing import List
 
 from .models import BiosFile
@@ -12,8 +14,10 @@ from .models import Controller
 from .models import Emulator
 from .models import Package
 from .models import RomDirectory
+from .models import StateManagementResult
 from .models import SystemInfo
 from .models import SystemService
+from .models import SystemState
 from .models import Theme
 
 
@@ -125,3 +129,23 @@ class EmulatorRepository(ABC):
     @abstractmethod
     def set_theme(self, theme_name: str) -> CommandResult:
         """Set active theme."""
+
+
+class StateRepository(ABC):
+    """Interface for state persistence."""
+
+    @abstractmethod
+    def load_state(self) -> SystemState:
+        """Load state from storage."""
+
+    @abstractmethod
+    def save_state(self, state: SystemState) -> StateManagementResult:
+        """Save state to storage."""
+
+    @abstractmethod
+    def update_state_field(self, path: str, value: Any) -> StateManagementResult:
+        """Update specific field in state."""
+
+    @abstractmethod
+    def compare_state(self, current_state: SystemState) -> Dict[str, Any]:
+        """Compare current state with stored state."""

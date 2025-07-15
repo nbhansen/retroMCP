@@ -30,6 +30,7 @@ try:
     from .tools import HardwareTools
     from .tools import ManagementTools
     from .tools import RetroPieTools
+    from .tools import StateTools
     from .tools import SystemTools
 except ImportError:
     from profile import SystemProfileManager
@@ -43,6 +44,7 @@ except ImportError:
     from tools import HardwareTools
     from tools import ManagementTools
     from tools import RetroPieTools
+    from tools import StateTools
     from tools import SystemTools
 
 # Load environment variables
@@ -166,6 +168,7 @@ class RetroMCPServer:
                 "hardware": HardwareTools(self.container),
                 "management": ManagementTools(self.container),
                 "admin": AdminTools(self.container),
+                "state": StateTools(self.container),
             }
 
             # Collect tools from all modules
@@ -214,6 +217,7 @@ class RetroMCPServer:
                 "hardware": HardwareTools(self.container),
                 "management": ManagementTools(self.container),
                 "admin": AdminTools(self.container),
+                "state": StateTools(self.container),
             }
 
             # Define tool routing - maps tool names to modules
@@ -253,6 +257,8 @@ class RetroMCPServer:
                 # Admin tools
                 "execute_command": "admin",
                 "write_file": "admin",
+                # State tools
+                "manage_state": "state",
             }
 
             # Route tool call to appropriate module

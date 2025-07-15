@@ -1,5 +1,76 @@
 # RetroMCP Specification
 
+## Memory system + Refactoring
+RetroPie System State MCP Tool - Functional Specification
+Core Concept
+An MCP tool that maintains persistent system state by storing/retrieving structured data about the RetroPie configuration, eliminating the need to rediscover system details each session.
+Storage Strategy
+
+Primary: JSON file on the Pi at /home/retro/.retropie-state.json
+Backup: Optional cloud sync (Dropbox/Drive) for redundancy
+Format: Versioned JSON schema with timestamp metadata
+
+Data Structure
+json{
+  "schema_version": "1.0",
+  "last_updated": "2025-07-15T18:48:21Z",
+  "system": {
+    "hardware": "Pi 4B 8GB",
+    "overclocking": "medium",
+    "temperatures": {"normal_range": "45-65°C"}
+  },
+  "emulators": {
+    "installed": ["mupen64plus", "pcsx-rearmed"],
+    "preferred": {"n64": "mupen64plus-gliden64"}
+  },
+  "controllers": [
+    {"type": "xbox", "device": "/dev/input/js0", "configured": true}
+  ],
+  "roms": {
+    "systems": ["nes", "snes", "psx"],
+    "counts": {"nes": 150, "snes": 89}
+  },
+  "custom_configs": ["shaders", "bezels", "themes"],
+  "known_issues": ["occasional audio crackling on HDMI"]
+}
+MCP Functions
+
+retromcp:save_system_state() - Scan and persist current state
+retromcp:load_system_state() - Return cached state data
+retromcp:update_state_field(path, value) - Partial updates
+retromcp:compare_state() - Detect configuration drift
+
+Intelligence Layer
+The tool should auto-detect changes by comparing current system state against cached state, flagging discrepancies for user review before updating.
+Usage Pattern
+
+First session: Full system scan → cache state
+Subsequent sessions: Load cached state → quick diff check
+After changes: Selective state updates
+
+This creates a "memory" layer that bridges sessions while keeping the Pi as the authoritative source.RetryNBshould it be 4 separate functions or would one larger one be smarter ?EditOne function is architecturally superior.
+A single retromcp:manage_state(action, params) function follows better design principles:
+Why unified is better:
+
+Single responsibility: State management is one cohesive concern
+Consistent interface: Same authentication, error handling, file locking
+Atomic operations: State reads/writes happen in controlled transactions
+Future-proof: Easy to add actions like validate, migrate, backup
+
+Function signature:
+javascriptretromcp:manage_state(action, options)
+// action: "load" | "save" | "update" | "compare" 
+// options: { path?, value?, force_scan? }
+Implementation benefits:
+
+Shared state file locking prevents corruption
+Common validation logic across all operations
+Single point for schema versioning/migration
+Easier to maintain transactional consistency
+
+The principle here is that related operations should be grouped when they share core resources and concerns. State management is fundamentally about coordinated access to a single data structure - splitting it creates unnecessary complexity and potential race conditions.
+Four separate functions would duplicate file handling, error cases, and validation logic across multiple entry points.
+
 ## Project Vision
 
 RetroMCP is an MCP (Model Context Protocol) server that enables AI assistants to help users configure, troubleshoot, and manage RetroPie installations on Raspberry Pi. The focus is on system setup and configuration rather than game playing.

@@ -6,6 +6,7 @@ from .emulationstation_tools import EmulationStationTools
 from .hardware_tools import HardwareTools
 from .management_tools import ManagementTools
 from .retropie_tools import RetroPieTools
+from .state_tools import StateTools
 from .system_tools import SystemTools
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "HardwareTools",
     "ManagementTools",
     "RetroPieTools",
+    "StateTools",
     "SystemTools",
 ]

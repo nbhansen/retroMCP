@@ -11,6 +11,7 @@ from .application.use_cases import GetSystemInfoUseCase
 from .application.use_cases import InstallEmulatorUseCase
 from .application.use_cases import InstallPackagesUseCase
 from .application.use_cases import ListRomsUseCase
+from .application.use_cases import ManageStateUseCase
 from .application.use_cases import SetupControllerUseCase
 from .application.use_cases import TestConnectionUseCase
 from .application.use_cases import UpdateSystemUseCase
@@ -20,11 +21,13 @@ from .discovery import RetroPieDiscovery
 from .domain.ports import ControllerRepository
 from .domain.ports import EmulatorRepository
 from .domain.ports import RetroPieClient
+from .domain.ports import StateRepository
 from .domain.ports import SystemRepository
 from .infrastructure import SSHControllerRepository
 from .infrastructure import SSHEmulatorRepository
 from .infrastructure import SSHRetroPieClient
 from .infrastructure import SSHSystemRepository
+from .infrastructure.ssh_state_repository import SSHStateRepository
 from .ssh_handler import RetroPieSSH
 
 logger = logging.getLogger(__name__)
@@ -110,6 +113,15 @@ class Container:
             lambda: SSHEmulatorRepository(self.retropie_client, self.config),
         )
 
+    @property
+    def state_repository(self) -> StateRepository:
+        """Get state repository instance."""
+        self._ensure_discovery()
+        return self._get_or_create(
+            "state_repository",
+            lambda: SSHStateRepository(self.retropie_client, self.config),
+        )
+
     # Use cases
 
     @property
@@ -190,6 +202,19 @@ class Container:
         return self._get_or_create(
             "write_file_use_case",
             lambda: WriteFileUseCase(self.retropie_client),
+        )
+
+    @property
+    def manage_state_use_case(self) -> ManageStateUseCase:
+        """Get manage state use case."""
+        return self._get_or_create(
+            "manage_state_use_case",
+            lambda: ManageStateUseCase(
+                self.state_repository,
+                self.system_repository,
+                self.emulator_repository,
+                self.controller_repository,
+            ),
         )
 
     def connect(self) -> bool:

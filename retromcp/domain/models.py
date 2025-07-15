@@ -1,7 +1,10 @@
 """Domain models for RetroMCP."""
 
+import json
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -196,3 +199,75 @@ class WriteFileRequest:
     mode: Optional[str] = None
     backup: bool = False
     create_directories: bool = False
+
+
+class StateAction(Enum):
+    """State management actions."""
+
+    LOAD = "load"
+    SAVE = "save"
+    UPDATE = "update"
+    COMPARE = "compare"
+
+
+@dataclass(frozen=True)
+class SystemState:
+    """System state model for persistent storage."""
+
+    schema_version: str
+    last_updated: str
+    system: Dict[str, Any]
+    emulators: Dict[str, Any]
+    controllers: List[Dict[str, Any]]
+    roms: Dict[str, Any]
+    custom_configs: List[str]
+    known_issues: List[str]
+
+    def to_json(self) -> str:
+        """Convert state to JSON string."""
+        return json.dumps({
+            "schema_version": self.schema_version,
+            "last_updated": self.last_updated,
+            "system": self.system,
+            "emulators": self.emulators,
+            "controllers": self.controllers,
+            "roms": self.roms,
+            "custom_configs": self.custom_configs,
+            "known_issues": self.known_issues
+        }, indent=2)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "SystemState":
+        """Create SystemState from JSON string."""
+        data = json.loads(json_str)
+        return cls(
+            schema_version=data["schema_version"],
+            last_updated=data["last_updated"],
+            system=data["system"],
+            emulators=data["emulators"],
+            controllers=data["controllers"],
+            roms=data["roms"],
+            custom_configs=data["custom_configs"],
+            known_issues=data["known_issues"]
+        )
+
+
+@dataclass(frozen=True)
+class StateManagementRequest:
+    """State management request model."""
+
+    action: StateAction
+    path: Optional[str] = None
+    value: Optional[Any] = None
+    force_scan: bool = False
+
+
+@dataclass(frozen=True)
+class StateManagementResult:
+    """State management operation result."""
+
+    success: bool
+    action: StateAction
+    message: str
+    state: Optional[SystemState] = None
+    diff: Optional[Dict[str, Any]] = None
