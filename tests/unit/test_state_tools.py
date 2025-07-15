@@ -60,12 +60,12 @@ class TestStateTools:
         tool = tools[0]
         assert tool.name == "manage_state"
         assert "persistent system state" in tool.description
-        
+
         # Check input schema
         assert tool.inputSchema["type"] == "object"
         assert "action" in tool.inputSchema["properties"]
         assert tool.inputSchema["required"] == ["action"]
-        
+
         # Check action enum
         action_enum = tool.inputSchema["properties"]["action"]["enum"]
         assert "load" in action_enum
@@ -73,7 +73,10 @@ class TestStateTools:
         assert "update" in action_enum
         assert "compare" in action_enum
 
-    async def test_handle_load_action(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_load_action(
+        self, state_tools: StateTools, mock_container: Mock
+    ) -> None:
         """Test handling load action."""
         sample_state = SystemState(
             schema_version="1.0",
@@ -83,14 +86,16 @@ class TestStateTools:
             controllers=[],
             roms={"systems": [], "counts": {}},
             custom_configs=[],
-            known_issues=[]
+            known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = StateManagementResult(
-            success=True,
-            action=StateAction.LOAD,
-            message="State loaded successfully",
-            state=sample_state
+        mock_container.manage_state_use_case.execute.return_value = (
+            StateManagementResult(
+                success=True,
+                action=StateAction.LOAD,
+                message="State loaded successfully",
+                state=sample_state,
+            )
         )
 
         result = await state_tools.handle_tool_call("manage_state", {"action": "load"})
@@ -100,12 +105,17 @@ class TestStateTools:
         assert "State loaded successfully" in result[0].text
         assert "retropie" in result[0].text
 
-    async def test_handle_save_action(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_save_action(
+        self, state_tools: StateTools, mock_container: Mock
+    ) -> None:
         """Test handling save action."""
-        mock_container.manage_state_use_case.execute.return_value = StateManagementResult(
-            success=True,
-            action=StateAction.SAVE,
-            message="State saved successfully"
+        mock_container.manage_state_use_case.execute.return_value = (
+            StateManagementResult(
+                success=True,
+                action=StateAction.SAVE,
+                message="State saved successfully",
+            )
         )
 
         result = await state_tools.handle_tool_call("manage_state", {"action": "save"})
@@ -114,66 +124,81 @@ class TestStateTools:
         assert isinstance(result[0], TextContent)
         assert "State saved successfully" in result[0].text
 
-    async def test_handle_save_action_with_force_scan(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_save_action_with_force_scan(
+        self, state_tools: StateTools, mock_container: Mock
+    ) -> None:
         """Test handling save action with force_scan."""
-        mock_container.manage_state_use_case.execute.return_value = StateManagementResult(
-            success=True,
-            action=StateAction.SAVE,
-            message="State saved successfully"
+        mock_container.manage_state_use_case.execute.return_value = (
+            StateManagementResult(
+                success=True,
+                action=StateAction.SAVE,
+                message="State saved successfully",
+            )
         )
 
-        result = await state_tools.handle_tool_call("manage_state", {
-            "action": "save",
-            "force_scan": True
-        })
+        result = await state_tools.handle_tool_call(
+            "manage_state", {"action": "save", "force_scan": True}
+        )
 
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "State saved successfully" in result[0].text
-        
+
         # Verify force_scan was passed to the use case
         call_args = mock_container.manage_state_use_case.execute.call_args[0][0]
         assert call_args.force_scan is True
 
-    async def test_handle_update_action(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_update_action(
+        self, state_tools: StateTools, mock_container: Mock
+    ) -> None:
         """Test handling update action."""
-        mock_container.manage_state_use_case.execute.return_value = StateManagementResult(
-            success=True,
-            action=StateAction.UPDATE,
-            message="Field updated successfully"
+        mock_container.manage_state_use_case.execute.return_value = (
+            StateManagementResult(
+                success=True,
+                action=StateAction.UPDATE,
+                message="Field updated successfully",
+            )
         )
 
-        result = await state_tools.handle_tool_call("manage_state", {
-            "action": "update",
-            "path": "system.hostname",
-            "value": "new-hostname"
-        })
+        result = await state_tools.handle_tool_call(
+            "manage_state",
+            {"action": "update", "path": "system.hostname", "value": "new-hostname"},
+        )
 
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "Field updated successfully" in result[0].text
-        
+
         # Verify path and value were passed to the use case
         call_args = mock_container.manage_state_use_case.execute.call_args[0][0]
         assert call_args.path == "system.hostname"
         assert call_args.value == "new-hostname"
 
-    async def test_handle_compare_action(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_compare_action(
+        self, state_tools: StateTools, mock_container: Mock
+    ) -> None:
         """Test handling compare action."""
         diff = {
             "added": {"system.new_field": "value"},
             "changed": {"system.hostname": {"old": "old-name", "new": "new-name"}},
-            "removed": {}
+            "removed": {},
         }
 
-        mock_container.manage_state_use_case.execute.return_value = StateManagementResult(
-            success=True,
-            action=StateAction.COMPARE,
-            message="Comparison complete",
-            diff=diff
+        mock_container.manage_state_use_case.execute.return_value = (
+            StateManagementResult(
+                success=True,
+                action=StateAction.COMPARE,
+                message="Comparison complete",
+                diff=diff,
+            )
         )
 
-        result = await state_tools.handle_tool_call("manage_state", {"action": "compare"})
+        result = await state_tools.handle_tool_call(
+            "manage_state", {"action": "compare"}
+        )
 
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
@@ -183,36 +208,43 @@ class TestStateTools:
         assert "system.new_field" in result[0].text
         assert "system.hostname" in result[0].text
 
-    async def test_handle_compare_action_no_differences(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_compare_action_no_differences(
+        self, state_tools: StateTools, mock_container: Mock
+    ) -> None:
         """Test handling compare action with no differences."""
-        diff = {
-            "added": {},
-            "changed": {},
-            "removed": {}
-        }
+        diff = {"added": {}, "changed": {}, "removed": {}}
 
-        mock_container.manage_state_use_case.execute.return_value = StateManagementResult(
-            success=True,
-            action=StateAction.COMPARE,
-            message="Comparison complete",
-            diff=diff
+        mock_container.manage_state_use_case.execute.return_value = (
+            StateManagementResult(
+                success=True,
+                action=StateAction.COMPARE,
+                message="Comparison complete",
+                diff=diff,
+            )
         )
 
-        result = await state_tools.handle_tool_call("manage_state", {"action": "compare"})
+        result = await state_tools.handle_tool_call(
+            "manage_state", {"action": "compare"}
+        )
 
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "No differences found" in result[0].text
 
-    async def test_handle_invalid_action(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_invalid_action(self, state_tools: StateTools) -> None:
         """Test handling invalid action."""
-        result = await state_tools.handle_tool_call("manage_state", {"action": "invalid"})
+        result = await state_tools.handle_tool_call(
+            "manage_state", {"action": "invalid"}
+        )
 
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "Invalid action" in result[0].text
 
-    async def test_handle_missing_action(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_missing_action(self, state_tools: StateTools) -> None:
         """Test handling missing action."""
         result = await state_tools.handle_tool_call("manage_state", {})
 
@@ -220,31 +252,37 @@ class TestStateTools:
         assert isinstance(result[0], TextContent)
         assert "Action is required" in result[0].text
 
-    async def test_handle_update_missing_path(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_update_missing_path(self, state_tools: StateTools) -> None:
         """Test handling update action with missing path."""
-        result = await state_tools.handle_tool_call("manage_state", {"action": "update"})
+        result = await state_tools.handle_tool_call(
+            "manage_state", {"action": "update"}
+        )
 
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "Path and value are required" in result[0].text
 
-    async def test_handle_update_missing_value(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_update_missing_value(self, state_tools: StateTools) -> None:
         """Test handling update action with missing value."""
-        result = await state_tools.handle_tool_call("manage_state", {
-            "action": "update",
-            "path": "system.hostname"
-        })
+        result = await state_tools.handle_tool_call(
+            "manage_state", {"action": "update", "path": "system.hostname"}
+        )
 
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "Path and value are required" in result[0].text
 
-    async def test_handle_error_from_use_case(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_error_from_use_case(
+        self, state_tools: StateTools, mock_container: Mock
+    ) -> None:
         """Test handling error from use case."""
-        mock_container.manage_state_use_case.execute.return_value = StateManagementResult(
-            success=False,
-            action=StateAction.LOAD,
-            message="File not found"
+        mock_container.manage_state_use_case.execute.return_value = (
+            StateManagementResult(
+                success=False, action=StateAction.LOAD, message="File not found"
+            )
         )
 
         result = await state_tools.handle_tool_call("manage_state", {"action": "load"})
@@ -253,9 +291,14 @@ class TestStateTools:
         assert isinstance(result[0], TextContent)
         assert "File not found" in result[0].text
 
-    async def test_handle_exception(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_exception(
+        self, state_tools: StateTools, mock_container: Mock
+    ) -> None:
         """Test handling exception from use case."""
-        mock_container.manage_state_use_case.execute.side_effect = Exception("Database error")
+        mock_container.manage_state_use_case.execute.side_effect = Exception(
+            "Database error"
+        )
 
         result = await state_tools.handle_tool_call("manage_state", {"action": "load"})
 
@@ -264,7 +307,8 @@ class TestStateTools:
         assert "Error" in result[0].text
         assert "Database error" in result[0].text
 
-    async def test_handle_unknown_tool(self, state_tools: StateTools, mock_container: Mock) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_unknown_tool(self, state_tools: StateTools) -> None:
         """Test handling unknown tool call."""
         result = await state_tools.handle_tool_call("unknown_tool", {})
 
