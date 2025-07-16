@@ -264,7 +264,9 @@ class GamingSystemTools(BaseTool):
 
     # RetroPie component methods
 
-    async def _retropie_setup(self, target: str) -> List[TextContent]:
+    async def _retropie_setup(
+        self, target: str, options: Dict[str, Any]
+    ) -> List[TextContent]:
         """Handle RetroPie setup operations."""
         try:
             if target == "update":

@@ -113,7 +113,7 @@ class StateTools(BaseTool):
         else:
             return self.format_error(result.message)
 
-    def _format_success_response(self, result) -> List[TextContent]:
+    def _format_success_response(self, result: "StateResult") -> List[TextContent]:
         """Format successful state management response."""
         response_text = f"✅ {result.message}\n\n"
 
@@ -195,7 +195,7 @@ class StateTools(BaseTool):
 
                 # Added fields
                 if diff.get("added"):
-                    response_text += "➕ Added fields:\n"
+                    response_text += "+ Added fields:\n"
                     for path, value in diff["added"].items():
                         response_text += f"  • {path}: {value}\n"
                     response_text += "\n"
@@ -211,7 +211,7 @@ class StateTools(BaseTool):
 
                 # Removed fields
                 if diff.get("removed"):
-                    response_text += "➖ Removed fields:\n"
+                    response_text += "- Removed fields:\n"
                     for path, value in diff["removed"].items():
                         response_text += f"  • {path}: {value}\n"
                     response_text += "\n"
