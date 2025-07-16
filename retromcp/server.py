@@ -148,34 +148,19 @@ class RetroMCPServer:
         """List available tools from all modules."""
         tools = []
 
-        try:
-            # Ensure connection is established
-            if not self.container.connect():
-                raise ConnectionError("Failed to connect to RetroPie")
+        # Get tool instances from container (don't require connection for listing)
+        tool_instances = {
+            "system_management": SystemManagementTools(self.container),
+            "hardware_monitoring": HardwareMonitoringTools(self.container),
+            "gaming_system": GamingSystemTools(self.container),
+            "state": StateTools(self.container),
+            "docker": DockerTools(self.container),
+        }
 
-            # Get tool instances from container
-            tool_instances = {
-                "system_management": SystemManagementTools(self.container),
-                "hardware_monitoring": HardwareMonitoringTools(self.container),
-                "gaming_system": GamingSystemTools(self.container),
-                "state": StateTools(self.container),
-                "docker": DockerTools(self.container),
-            }
-
-            # Collect tools from all modules
-            for _, tool_instance in tool_instances.items():
-                module_tools = tool_instance.get_tools()
-                tools.extend(module_tools)
-
-        except Exception as e:
-            # Return a basic error tool if we can't connect
-            tools = [
-                Tool(
-                    name="connection_error",
-                    description=f"Error connecting to RetroPie: {e!s}",
-                    inputSchema={"type": "object", "properties": {}, "required": []},
-                )
-            ]
+        # Collect tools from all modules
+        for _, tool_instance in tool_instances.items():
+            module_tools = tool_instance.get_tools()
+            tools.extend(module_tools)
 
         return tools
 
@@ -185,28 +170,25 @@ class RetroMCPServer:
         """Handle tool calls by routing to appropriate module."""
         logging.debug(f"Tool call received: {name} with arguments: {arguments}")
 
-        if name == "connection_error":
-            return [
-                TextContent(
-                    type="text",
-                    text="❌ Connection failed. Please check your .env configuration:\n- RETROPIE_HOST\n- RETROPIE_USERNAME\n- RETROPIE_PASSWORD or RETROPIE_SSH_KEY_PATH",
-                )
-            ]
+        # Get tool instances from container (created without connection requirement)
+        tool_instances = {
+            "system_management": SystemManagementTools(self.container),
+            "hardware_monitoring": HardwareMonitoringTools(self.container),
+            "gaming_system": GamingSystemTools(self.container),
+            "state": StateTools(self.container),
+            "docker": DockerTools(self.container),
+        }
 
         try:
-            # Ensure connection is established
+            # Ensure connection is established for tool execution
             logging.debug("Attempting to establish connection to RetroPie")
             if not self.container.connect():
-                raise ConnectionError("Failed to connect to RetroPie")
-
-            # Get tool instances from container
-            tool_instances = {
-                "system_management": SystemManagementTools(self.container),
-                "hardware_monitoring": HardwareMonitoringTools(self.container),
-                "gaming_system": GamingSystemTools(self.container),
-                "state": StateTools(self.container),
-                "docker": DockerTools(self.container),
-            }
+                return [
+                    TextContent(
+                        type="text",
+                        text="❌ Connection failed. Please check your .env configuration:\n- RETROPIE_HOST\n- RETROPIE_USERNAME\n- RETROPIE_PASSWORD or RETROPIE_SSH_KEY_PATH",
+                    )
+                ]
 
             # Define tool routing - maps tool names to modules
             tool_routing = {
