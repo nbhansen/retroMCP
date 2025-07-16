@@ -2,7 +2,7 @@
 
 An MCP server that connects AI assistants to RetroPie systems for configuration and troubleshooting.
 
-RetroMCP enables AI assistants like Claude to help configure and manage RetroPie installations on Raspberry Pi through secure SSH connections. Ask questions in natural language instead of learning Linux commands.
+RetroMCP enables AI assistants like Claude to help configure and manage RetroPie installations on Raspberry Pi through SSH connections. Ask questions in natural language instead of learning Linux commands.
 
 ## Claude Talking to Your RetroPie Setup
 
@@ -37,7 +37,7 @@ graph LR
     B --> A
 ```
 
-**Simple Flow:** Natural Language ➜ AI Understanding ➜ Secure Commands ➜ RetroPie Configuration
+**Simple Flow:** Natural Language -> AI Understanding -> SSH Commands -> RetroPie Configuration
 
 **Examples:**
 - "Set up my Xbox controller" - Installs drivers and configures button mappings
@@ -63,10 +63,10 @@ graph LR
 ## The RetroMCP Solution
 
 RetroMCP turns your AI assistant into a knowledgeable helper that:
-- **Connects securely to your Pi** - Enterprise-grade SSH security with proper host verification
+- **Connects to your Pi** - SSH security with host verification
 - **Learns your specific setup** - Remembers your username, paths, and successful configurations
 - **Speaks your language** - Ask questions like "Why won't my Xbox controller work?" or "Help me get N64 games running smoothly"
-- **Provides expert guidance** - The AI gets full context about your system and can troubleshoot effectively
+- **Provides contextual guidance** - The AI gets full context about your system and can troubleshoot effectively
 - **Adapts automatically** - Works with standard setups and custom configurations alike
 
 ## Key Features
@@ -97,7 +97,7 @@ RetroMCP turns your AI assistant into a knowledgeable helper that:
 
 ## Project Status
 
-**Current Phase**: Ready for use  
+**Current Phase**: Functional implementation  
 **Security Status**: Security validation implemented  
 **Test Coverage**: 84% (434 tests passing)  
 
@@ -190,54 +190,42 @@ Restart Claude Desktop to load the server.
 
 ## Available Tools
 
-### System Tools
-- **test_connection** - Test SSH connection to RetroPie
-- **system_info** - Get system information (CPU, memory, disk, temperature)
-- **install_packages** - Install system packages via apt
-- **update_system** - Update system packages
-- **check_bios** - Check for required BIOS files
+### System Management
+- **manage_system** - System operations (connection test, info, packages, updates)
+  - `connection` - Test SSH connection to RetroPie
+  - `info` - Get system information (CPU, memory, disk, temperature)
+  - `package` - Install system packages via apt
+  - `update` - Update system packages
 
-### Controller Tools
-- **detect_controllers** - Detect connected game controllers
-- **setup_controller** - Install drivers and configure controller
-- **test_controller** - Test controller functionality
-- **configure_controller_mapping** - Configure button mappings
+### Gaming System
+- **manage_gaming** - Gaming operations (retropie, emulationstation, controllers, roms, emulators, audio, video)
+  - `retropie` - RetroPie setup and configuration
+  - `emulationstation` - EmulationStation configuration and management
+  - `controller` - Detect, setup, test, and configure controllers
+  - `roms` - Scan, list, and configure ROM files
+  - `emulator` - Install, configure, and test emulators
+  - `audio` - Configure audio settings
+  - `video` - Configure video settings
 
-### State Management Tools
+### Hardware Monitoring
+- **manage_hardware** - Hardware operations (temperature, fan, power, gpio)
+  - `temperature` - Monitor CPU/GPU temperatures and thermal throttling
+  - `fan` - Check fan operation and cooling system
+  - `power` - Monitor power health and under-voltage warnings
+  - `gpio` - GPIO pin status and configuration
+
+### Docker Management
+- **manage_docker** - Docker operations (containers, images, services)
+  - `container` - Container lifecycle management
+  - `image` - Image management and cleanup
+  - `service` - Docker service operations
+
+### State Management
 - **manage_state** - Load, save, update, and compare system state
   - `load` - Retrieve cached system configuration
   - `save` - Scan and persist current state
   - `update` - Modify specific configuration field
   - `compare` - Detect configuration drift
-
-### RetroPie Tools
-- **run_retropie_setup** - Launch RetroPie-Setup
-- **install_emulator** - Install emulators
-- **manage_roms** - Browse and manage ROM files
-- **configure_overclock** - Adjust performance settings
-- **configure_audio** - Configure audio settings
-
-### Hardware Tools
-- **check_temperatures** - Monitor CPU/GPU temperatures and thermal throttling
-- **monitor_fan_control** - Check fan operation and cooling system
-- **check_power_supply** - Monitor power health and under-voltage warnings
-- **inspect_hardware_errors** - Analyze system logs for hardware issues
-- **check_gpio_status** - GPIO pin status and configuration
-
-### Management Tools
-- **manage_services** - Control systemd services
-- **manage_packages** - Install/remove/update system packages
-- **manage_files** - File operations with security validation
-
-### EmulationStation Tools
-- **restart_emulationstation** - Restart EmulationStation
-- **configure_themes** - Manage themes
-- **manage_gamelists** - Manage game lists
-- **configure_es_settings** - Configure EmulationStation settings
-
-### Admin Tools
-- **execute_command** - Direct command execution with security validation
-- **write_file** - File writing with path traversal protection
 
 ## Security Features
 
@@ -248,12 +236,12 @@ Restart Claude Desktop to load the server.
 
 ### Command Injection Prevention
 - **Input Escaping**: All user inputs escaped with `shlex.quote()`
-- **Input Validation**: Comprehensive validation for all parameters
+- **Input Validation**: Validation for all parameters
 - **Path Traversal Prevention**: Blocks directory traversal attempts
 
 ### Error Handling
 - **Information Sanitization**: Removes sensitive data from error messages
-- **Graceful Degradation**: Proper error recovery and user feedback
+- **Error Recovery**: Proper error handling and user feedback
 
 ## Testing
 
