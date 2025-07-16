@@ -184,16 +184,12 @@ class TestRetroMCPServer:
         ]
 
         with patch(
-            "retromcp.server.SystemTools", return_value=mock_system_tools
+            "retromcp.server.SystemManagementTools", return_value=mock_system_tools
         ) as mock_system_class, patch(
-            "retromcp.server.ControllerTools", return_value=mock_controller_tools
-        ) as mock_controller_class, patch(
-            "retromcp.server.RetroPieTools"
-        ) as mock_retropie_class, patch(
-            "retromcp.server.EmulationStationTools"
-        ) as mock_es_class, patch("retromcp.server.HardwareTools") as mock_hw_class:
-            mock_retropie_class.return_value.get_tools.return_value = []
-            mock_es_class.return_value.get_tools.return_value = []
+            "retromcp.server.GamingSystemTools", return_value=mock_controller_tools
+        ) as mock_gaming_class, patch(
+            "retromcp.server.HardwareMonitoringTools"
+        ) as mock_hw_class:
             mock_hw_class.return_value.get_tools.return_value = []
 
             server.container.connect.return_value = True
@@ -207,9 +203,7 @@ class TestRetroMCPServer:
 
             # Verify tools are instantiated with container
             mock_system_class.assert_called_once_with(server.container)
-            mock_controller_class.assert_called_once_with(server.container)
-            mock_retropie_class.assert_called_once_with(server.container)
-            mock_es_class.assert_called_once_with(server.container)
+            mock_gaming_class.assert_called_once_with(server.container)
             mock_hw_class.assert_called_once_with(server.container)
 
     @pytest.mark.asyncio
@@ -254,18 +248,14 @@ class TestRetroMCPServer:
         mock_system_tools.handle_tool_call = AsyncMock(return_value=mock_tool_result)
 
         with patch(
-            "retromcp.server.SystemTools", return_value=mock_system_tools
+            "retromcp.server.SystemManagementTools", return_value=mock_system_tools
         ) as mock_system_class, patch(
-            "retromcp.server.ControllerTools"
-        ) as mock_controller_class, patch(
-            "retromcp.server.RetroPieTools"
-        ) as mock_retropie_class, patch(
-            "retromcp.server.EmulationStationTools"
-        ) as mock_es_class, patch("retromcp.server.HardwareTools") as mock_hw_class:
+            "retromcp.server.GamingSystemTools"
+        ) as mock_gaming_class, patch(
+            "retromcp.server.HardwareMonitoringTools"
+        ) as mock_hw_class:
             # Mock other tool classes to avoid instantiation issues
-            mock_controller_class.return_value = Mock()
-            mock_retropie_class.return_value = Mock()
-            mock_es_class.return_value = Mock()
+            mock_gaming_class.return_value = Mock()
             mock_hw_class.return_value = Mock()
 
             server.container.connect.return_value = True
@@ -282,9 +272,7 @@ class TestRetroMCPServer:
 
             # Verify tools are instantiated with container
             mock_system_class.assert_called_once_with(server.container)
-            mock_controller_class.assert_called_once_with(server.container)
-            mock_retropie_class.assert_called_once_with(server.container)
-            mock_es_class.assert_called_once_with(server.container)
+            mock_gaming_class.assert_called_once_with(server.container)
             mock_hw_class.assert_called_once_with(server.container)
 
     @pytest.mark.asyncio
@@ -457,15 +445,11 @@ class TestRetroMCPServer:
         # We'll need to check this during a tool call
         server.container.connect.return_value = True
 
-        with patch("retromcp.server.SystemTools") as mock_system, patch(
-            "retromcp.server.ControllerTools"
-        ) as mock_controller, patch(
-            "retromcp.server.RetroPieTools"
-        ) as mock_retropie, patch(
-            "retromcp.server.EmulationStationTools"
-        ) as mock_es, patch("retromcp.server.HardwareTools") as mock_hw:
+        with patch("retromcp.server.SystemManagementTools") as mock_system, patch(
+            "retromcp.server.GamingSystemTools"
+        ) as mock_gaming, patch("retromcp.server.HardwareMonitoringTools") as mock_hw:
             # Setup mocks
-            for mock in [mock_system, mock_controller, mock_retropie, mock_es, mock_hw]:
+            for mock in [mock_system, mock_gaming, mock_hw]:
                 mock.return_value.handle_tool_call = AsyncMock(
                     return_value=[TextContent(type="text", text="success")]
                 )
@@ -480,9 +464,7 @@ class TestRetroMCPServer:
             # Verify tools are instantiated with container (each call creates instances)
             # Since we call tools multiple times, each class should be called with container
             mock_system.assert_called_with(server.container)
-            mock_controller.assert_called_with(server.container)
-            mock_retropie.assert_called_with(server.container)
-            mock_es.assert_called_with(server.container)
+            mock_gaming.assert_called_with(server.container)
             mock_hw.assert_called_with(server.container)
 
 

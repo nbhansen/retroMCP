@@ -29,18 +29,18 @@ class TestStateModels:
             system={
                 "hardware": "Pi 4B",
                 "overclocking": "medium",
-                "temperatures": {"normal_range": "45-65°C"}
+                "temperatures": {"normal_range": "45-65°C"},
             },
             emulators={
                 "installed": ["mupen64plus"],
-                "preferred": {"n64": "mupen64plus"}
+                "preferred": {"n64": "mupen64plus"},
             },
             controllers=[],
             roms={"systems": ["nes"], "counts": {"nes": 10}},
             custom_configs=["shaders"],
-            known_issues=[]
+            known_issues=[],
         )
-        
+
         # Test that state is frozen
         with pytest.raises(AttributeError):
             state.schema_version = "2.0"  # type: ignore
@@ -53,27 +53,24 @@ class TestStateModels:
             system={
                 "hardware": "Pi 4B",
                 "overclocking": "medium",
-                "temperatures": {"normal_range": "45-65°C"}
+                "temperatures": {"normal_range": "45-65°C"},
             },
             emulators={
                 "installed": ["mupen64plus", "pcsx-rearmed"],
-                "preferred": {"n64": "mupen64plus-gliden64"}
+                "preferred": {"n64": "mupen64plus-gliden64"},
             },
             controllers=[
                 {"type": "xbox", "device": "/dev/input/js0", "configured": True}
             ],
-            roms={
-                "systems": ["nes", "snes"],
-                "counts": {"nes": 150, "snes": 89}
-            },
+            roms={"systems": ["nes", "snes"], "counts": {"nes": 150, "snes": 89}},
             custom_configs=["shaders", "bezels"],
-            known_issues=["audio crackling"]
+            known_issues=["audio crackling"],
         )
-        
+
         # Convert to JSON and back
         json_str = state.to_json()
         data = json.loads(json_str)
-        
+
         assert data["schema_version"] == "1.0"
         assert data["last_updated"] == "2025-07-15T12:00:00Z"
         assert data["system"]["hardware"] == "Pi 4B"
@@ -89,20 +86,20 @@ class TestStateModels:
             "system": {
                 "hardware": "Pi 4B",
                 "overclocking": "medium",
-                "temperatures": {"normal_range": "45-65°C"}
+                "temperatures": {"normal_range": "45-65°C"},
             },
             "emulators": {
                 "installed": ["mupen64plus"],
-                "preferred": {"n64": "mupen64plus"}
+                "preferred": {"n64": "mupen64plus"},
             },
             "controllers": [],
             "roms": {"systems": ["nes"], "counts": {"nes": 10}},
             "custom_configs": ["shaders"],
-            "known_issues": []
+            "known_issues": [],
         }
-        
+
         state = SystemState.from_json(json.dumps(json_data))
-        
+
         assert state.schema_version == "1.0"
         assert state.system["hardware"] == "Pi 4B"
         assert len(state.emulators["installed"]) == 1
@@ -111,11 +108,9 @@ class TestStateModels:
     def test_state_management_request_immutability(self) -> None:
         """Test StateManagementRequest is immutable."""
         request = StateManagementRequest(
-            action=StateAction.UPDATE,
-            path="system.hardware",
-            value="Pi 5"
+            action=StateAction.UPDATE, path="system.hardware", value="Pi 5"
         )
-        
+
         with pytest.raises(AttributeError):
             request.action = StateAction.LOAD  # type: ignore
 
@@ -126,13 +121,13 @@ class TestStateModels:
         assert load_request.path is None
         assert load_request.value is None
         assert load_request.force_scan is False
-        
+
         # Update action needs path and value
         update_request = StateManagementRequest(
             action=StateAction.UPDATE,
             path="system.hardware",
             value="Pi 5",
-            force_scan=True
+            force_scan=True,
         )
         assert update_request.path == "system.hardware"
         assert update_request.value == "Pi 5"
@@ -144,9 +139,9 @@ class TestStateModels:
             success=True,
             action=StateAction.SAVE,
             message="State saved successfully",
-            state=None
+            state=None,
         )
-        
+
         with pytest.raises(AttributeError):
             result.success = False  # type: ignore
 
@@ -160,16 +155,16 @@ class TestStateModels:
             controllers=[],
             roms={"systems": [], "counts": {}},
             custom_configs=[],
-            known_issues=[]
+            known_issues=[],
         )
-        
+
         result = StateManagementResult(
             success=True,
             action=StateAction.LOAD,
             message="State loaded successfully",
-            state=state
+            state=state,
         )
-        
+
         assert result.state is not None
         assert result.state.schema_version == "1.0"
 
@@ -178,16 +173,16 @@ class TestStateModels:
         diff = {
             "added": {"system.new_field": "value"},
             "changed": {"system.hardware": {"old": "Pi 4B", "new": "Pi 5"}},
-            "removed": {"system.old_field": "old_value"}
+            "removed": {"system.old_field": "old_value"},
         }
-        
+
         result = StateManagementResult(
             success=True,
             action=StateAction.COMPARE,
             message="Comparison complete",
-            diff=diff
+            diff=diff,
         )
-        
+
         assert result.diff is not None
         assert "added" in result.diff
         assert result.diff["changed"]["system.hardware"]["new"] == "Pi 5"

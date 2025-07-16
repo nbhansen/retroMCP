@@ -10,7 +10,6 @@ import pytest
 from retromcp.config import RetroPieConfig
 from retromcp.domain.models import CommandResult
 from retromcp.domain.models import StateAction
-from retromcp.domain.models import StateManagementResult
 from retromcp.domain.models import SystemState
 from retromcp.infrastructure.ssh_state_repository import SSHStateRepository
 
@@ -75,7 +74,9 @@ class TestSSHStateRepository:
         )
 
     @pytest.fixture
-    def repository(self, mock_client: Mock, test_config: RetroPieConfig) -> SSHStateRepository:
+    def repository(
+        self, mock_client: Mock, test_config: RetroPieConfig
+    ) -> SSHStateRepository:
         """Provide SSHStateRepository instance."""
         return SSHStateRepository(mock_client, test_config)
 
@@ -85,7 +86,10 @@ class TestSSHStateRepository:
         assert repository._state_file_path == expected_path
 
     def test_load_state_success(
-        self, repository: SSHStateRepository, mock_client: Mock, sample_state: SystemState
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
     ) -> None:
         """Test successful state loading."""
         # Mock successful file read
@@ -142,7 +146,10 @@ class TestSSHStateRepository:
             repository.load_state()
 
     def test_save_state_success(
-        self, repository: SSHStateRepository, mock_client: Mock, sample_state: SystemState
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
     ) -> None:
         """Test successful state saving."""
         # Mock successful file write
@@ -163,22 +170,25 @@ class TestSSHStateRepository:
 
         # Verify the commands were called properly (mkdir, tee, chmod)
         assert mock_client.execute_command.call_count == 3
-        
+
         # Check that the mkdir command was called first
         mkdir_call = mock_client.execute_command.call_args_list[0][0][0]
         assert "mkdir -p /home/retro" in mkdir_call
-        
+
         # Check that the tee command was called second
         tee_call = mock_client.execute_command.call_args_list[1][0][0]
         assert "/home/retro/.retropie-state.json" in tee_call
         assert "tee" in tee_call
-        
+
         # Check that chmod was called third
         chmod_call = mock_client.execute_command.call_args_list[2][0][0]
         assert "chmod 600" in chmod_call
 
     def test_save_state_failure(
-        self, repository: SSHStateRepository, mock_client: Mock, sample_state: SystemState
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
     ) -> None:
         """Test state saving failure."""
         # Mock failed file write
@@ -198,7 +208,10 @@ class TestSSHStateRepository:
         assert "Permission denied" in result.message
 
     def test_update_state_field_success(
-        self, repository: SSHStateRepository, mock_client: Mock, sample_state: SystemState
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
     ) -> None:
         """Test successful field update."""
         # Mock successful file read and write operations
@@ -248,7 +261,10 @@ class TestSSHStateRepository:
         assert "updated successfully" in result.message
 
     def test_update_state_field_invalid_path(
-        self, repository: SSHStateRepository, mock_client: Mock, sample_state: SystemState
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
     ) -> None:
         """Test field update with invalid path."""
         # Mock successful file read
@@ -268,7 +284,10 @@ class TestSSHStateRepository:
         assert "Invalid path" in result.message
 
     def test_compare_state_with_differences(
-        self, repository: SSHStateRepository, mock_client: Mock, sample_state: SystemState
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
     ) -> None:
         """Test state comparison with differences."""
         # Create a slightly different stored state
@@ -320,7 +339,10 @@ class TestSSHStateRepository:
         assert changes["system.hostname"]["new"] == "retropie"
 
     def test_compare_state_no_differences(
-        self, repository: SSHStateRepository, mock_client: Mock, sample_state: SystemState
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
     ) -> None:
         """Test state comparison with no differences."""
         # Mock successful file read with identical state
@@ -341,7 +363,11 @@ class TestSSHStateRepository:
 
     @patch("fcntl.flock")
     def test_file_locking(
-        self, mock_flock: Mock, repository: SSHStateRepository, mock_client: Mock, sample_state: SystemState
+        self,
+        mock_flock: Mock,  # noqa: ARG002
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
     ) -> None:
         """Test file locking during operations."""
         # Mock successful file read with valid JSON
@@ -374,9 +400,9 @@ class TestSSHStateRepository:
         # Test with potentially dangerous content
         content = '{"key": "value with $(dangerous command)"}'
         sanitized = repository._sanitize_json_content(content)
-        
+
         # Should not contain shell command injection
         assert "$(dangerous command)" not in sanitized or sanitized == content
-        
+
         # Should still be valid JSON
         json.loads(sanitized)

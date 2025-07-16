@@ -50,7 +50,9 @@ class TestEndToEndArchitecture:
                 )
 
                 # Execute tool call through server (simulates MCP request)
-                result = await server.call_tool("test_connection", {})
+                result = await server.call_tool(
+                    "manage_system", {"resource": "connection", "action": "test"}
+                )
 
                 # Verify complete chain executed
                 assert len(result) == 1
@@ -96,12 +98,16 @@ class TestEndToEndArchitecture:
                 ]
 
                 # Test system tool
-                system_result = await server.call_tool("test_connection", {})
+                system_result = await server.call_tool(
+                    "manage_system", {"resource": "connection", "action": "test"}
+                )
                 assert len(system_result) == 1
                 assert "integration-test" in system_result[0].text
 
                 # Test controller tool
-                controller_result = await server.call_tool("detect_controllers", {})
+                controller_result = await server.call_tool(
+                    "manage_gaming", {"component": "controller", "action": "detect"}
+                )
                 assert len(controller_result) == 1
                 assert "Test Controller" in controller_result[0].text
 
@@ -126,7 +132,9 @@ class TestEndToEndArchitecture:
                 )
 
                 # Error should be caught and returned as proper MCP response
-                result = await server.call_tool("test_connection", {})
+                result = await server.call_tool(
+                    "manage_system", {"resource": "connection", "action": "test"}
+                )
 
                 assert len(result) == 1
                 assert isinstance(result[0], TextContent)
@@ -154,8 +162,12 @@ class TestEndToEndArchitecture:
                 )
 
                 # Call multiple tools - they should share the same container instance
-                await server.call_tool("test_connection", {})
-                await server.call_tool("system_info", {})
+                await server.call_tool(
+                    "manage_system", {"resource": "connection", "action": "test"}
+                )
+                await server.call_tool(
+                    "manage_system", {"resource": "info", "action": "get"}
+                )
 
                 # Tools should have used same SSH client instance
                 assert mock_ssh.call_count >= 1
@@ -224,9 +236,9 @@ class TestEndToEndArchitecture:
             # Verify expected tool categories exist
             tool_names = [tool.name for tool in tools]
             expected_categories = [
-                "test_connection",
-                "system_info",
-                "detect_controllers",
+                "manage_system",
+                "manage_gaming",
+                "manage_hardware",
             ]
 
             for expected in expected_categories:
@@ -258,7 +270,9 @@ class TestEndToEndArchitecture:
                 )
 
                 # Execute tool that uses configuration
-                result = await server.call_tool("test_connection", {})
+                result = await server.call_tool(
+                    "manage_system", {"resource": "connection", "action": "test"}
+                )
 
                 # Result should reflect the configuration
                 assert len(result) == 1
@@ -285,11 +299,15 @@ class TestEndToEndArchitecture:
                 )
 
                 # First request
-                result1 = await server.call_tool("test_connection", {})
+                result1 = await server.call_tool(
+                    "manage_system", {"resource": "connection", "action": "test"}
+                )
                 assert len(result1) == 1
 
                 # Second request - should reuse same container state
-                result2 = await server.call_tool("system_info", {})
+                result2 = await server.call_tool(
+                    "manage_system", {"resource": "info", "action": "get"}
+                )
                 assert len(result2) == 1
 
                 # Container should maintain singleton behavior
@@ -339,7 +357,9 @@ class TestEndToEndArchitecture:
 
                 # Multiple calls should reuse resources appropriately
                 for _i in range(3):
-                    result = await server.call_tool("test_connection", {})
+                    result = await server.call_tool(
+                        "manage_system", {"resource": "connection", "action": "test"}
+                    )
                     assert len(result) == 1
 
                 # Should not create new instances for each call (singleton behavior)
@@ -365,34 +385,33 @@ class TestArchitecturalConstraints:
         # without circular import or instantiation issues
 
         system_tools = None
-        controller_tools = None
 
         try:
-            from retromcp.tools.controller_tools import ControllerTools
-            from retromcp.tools.system_tools import SystemTools
+            from retromcp.tools.gaming_system_tools import GamingSystemTools
+            from retromcp.tools.system_management_tools import SystemManagementTools
 
-            system_tools = SystemTools(container)
-            controller_tools = ControllerTools(container)
+            system_tools = SystemManagementTools(container)
+            gaming_tools = GamingSystemTools(container)
 
         except ImportError as e:
             pytest.fail(f"Circular dependency detected: {e}")
 
         # Both tools should be created successfully
         assert system_tools is not None
-        assert controller_tools is not None
+        assert gaming_tools is not None
 
         # Tools should not have references to each other
-        assert not hasattr(system_tools, "controller_tools")
-        assert not hasattr(controller_tools, "system_tools")
+        assert not hasattr(system_tools, "gaming_tools")
+        assert not hasattr(gaming_tools, "system_tools")
 
     def test_abstraction_layer_compliance(self, test_config: RetroPieConfig) -> None:
         """Test that abstraction layers are properly maintained."""
         container = Container(test_config)
 
         # Tools should only see abstractions (container), not implementations
-        from retromcp.tools.system_tools import SystemTools
+        from retromcp.tools.system_management_tools import SystemManagementTools
 
-        system_tools = SystemTools(container)
+        system_tools = SystemManagementTools(container)
 
         # Tool should not have direct access to SSH implementation
         assert not hasattr(system_tools, "ssh")
@@ -459,9 +478,9 @@ class TestArchitecturalConstraints:
                 )
 
         # Tools should not directly manage infrastructure
-        from retromcp.tools.system_tools import SystemTools
+        from retromcp.tools.system_management_tools import SystemManagementTools
 
-        system_tools = SystemTools(container)
+        system_tools = SystemManagementTools(container)
 
         tool_attrs = [name for name in dir(system_tools) if not name.startswith("_")]
         infrastructure_indicators = ["ssh", "socket", "connection", "client"]

@@ -11,6 +11,8 @@ from .models import CommandResult
 from .models import ConfigFile
 from .models import ConnectionInfo
 from .models import Controller
+from .models import DockerManagementRequest
+from .models import DockerManagementResult
 from .models import Emulator
 from .models import Package
 from .models import RomDirectory
@@ -143,9 +145,35 @@ class StateRepository(ABC):
         """Save state to storage."""
 
     @abstractmethod
-    def update_state_field(self, path: str, value: Any) -> StateManagementResult:
+    def update_state_field(self, path: str, value: Any) -> StateManagementResult:  # noqa: ANN401
         """Update specific field in state."""
 
     @abstractmethod
     def compare_state(self, current_state: SystemState) -> Dict[str, Any]:
         """Compare current state with stored state."""
+
+
+class DockerRepository(ABC):
+    """Interface for Docker management."""
+
+    @abstractmethod
+    def manage_containers(
+        self, request: DockerManagementRequest
+    ) -> DockerManagementResult:
+        """Manage Docker containers."""
+
+    @abstractmethod
+    def manage_compose(
+        self, request: DockerManagementRequest
+    ) -> DockerManagementResult:
+        """Manage Docker Compose services."""
+
+    @abstractmethod
+    def manage_volumes(
+        self, request: DockerManagementRequest
+    ) -> DockerManagementResult:
+        """Manage Docker volumes."""
+
+    @abstractmethod
+    def is_docker_available(self) -> bool:
+        """Check if Docker is available on the system."""

@@ -37,6 +37,7 @@ graph TB
         ESTools[EmulationStationTools<br/>• restart_emulationstation<br/>• configure_themes<br/>• manage_gamelists<br/>• configure_es_settings]
         HardwareTools[HardwareTools<br/>• check_temperatures<br/>• monitor_fan_control<br/>• check_power_supply<br/>• inspect_hardware_errors<br/>• check_gpio_status]
         RetroPieTools[RetroPieTools<br/>• run_retropie_setup<br/>• install_emulator<br/>• manage_roms<br/>• configure_overclock<br/>• configure_audio]
+        StateTools[StateTools<br/>• manage_state<br/>  - load/save/update/compare<br/>  - configuration drift detection<br/>  - persistent system memory]
     end
     
     %% Application Layer (Use Cases)
@@ -51,12 +52,13 @@ graph TB
         ListRomsUC[ListRomsUseCase<br/>• system_filter<br/>• min_rom_count]
         ExecuteCommandUC[ExecuteCommandUseCase<br/>🔒 Dangerous Pattern Detection<br/>🔒 Command Escaping]
         WriteFileUC[WriteFileUseCase<br/>🔒 Path Traversal Prevention<br/>🔒 System File Protection]
+        ManageStateUC[ManageStateUseCase<br/>• State scanning and persistence<br/>• Configuration drift detection<br/>• Field-level updates]
     end
     
     %% Domain Layer
     subgraph "Domain Layer (domain/)"
-        DomainModels[Domain Models<br/>@dataclass(frozen=True)<br/>• SystemInfo, Controller<br/>• Emulator, BiosFile<br/>• CommandResult<br/>• ExecuteCommandRequest<br/>• WriteFileRequest]
-        DomainPorts[Ports (Interfaces)<br/>• RetroPieClient<br/>• SystemRepository<br/>• ControllerRepository<br/>• EmulatorRepository]
+        DomainModels[Domain Models<br/>@dataclass(frozen=True)<br/>• SystemInfo, Controller<br/>• Emulator, BiosFile<br/>• CommandResult<br/>• ExecuteCommandRequest<br/>• WriteFileRequest<br/>• SystemState, StateAction<br/>• StateManagementRequest/Result]
+        DomainPorts[Ports (Interfaces)<br/>• RetroPieClient<br/>• SystemRepository<br/>• ControllerRepository<br/>• EmulatorRepository<br/>• StateRepository]
         DomainEnums[Enums<br/>• ControllerType<br/>• EmulatorStatus<br/>• ServiceStatus]
     end
     
@@ -66,12 +68,13 @@ graph TB
         SSHSystemRepo[SSHSystemRepository<br/>• get_system_info()<br/>• install_packages()<br/>• get_services()]
         SSHControllerRepo[SSHControllerRepository<br/>• detect_controllers()<br/>• setup_controller()<br/>• test_controller()]
         SSHEmulatorRepo[SSHEmulatorRepository<br/>• get_emulators()<br/>• install_emulator()<br/>• get_rom_directories()]
+        SSHStateRepo[SSHStateRepository<br/>• load_state()<br/>• save_state()<br/>• update_state_field()<br/>• compare_state()<br/>🔒 File locking & validation]
     end
     
     %% RetroPie System
     subgraph "RetroPie System (Raspberry Pi)"
         SSHConnection[SSH Connection<br/>🔒 Host Key Verification<br/>🔒 Timeout Controls]
-        FileSystem[File System<br/>/home/pi/RetroPie<br/>/opt/retropie/configs<br/>/etc, /boot (protected)]
+        FileSystem[File System<br/>/home/pi/RetroPie<br/>/opt/retropie/configs<br/>/etc, /boot (protected)<br/>📄 ~/.retropie-state.json]
         SystemServices[System Services<br/>ssh, emulationstation<br/>systemd units]
         Hardware[Hardware<br/>GPIO pins, Temperature<br/>Power supply, Fan control]
         RetroPieSetup[RetroPie-Setup<br/>Emulator installation<br/>Configuration management]
@@ -106,6 +109,7 @@ graph TB
     Container --> ESTools
     Container --> HardwareTools
     Container --> RetroPieTools
+    Container --> StateTools
     
     %% Tools to Use Cases
     SystemTools --> TestConnectionUC
@@ -118,6 +122,7 @@ graph TB
     AdminTools --> WriteFileUC
     RetroPieTools --> InstallEmulatorUC
     RetroPieTools --> ListRomsUC
+    StateTools --> ManageStateUC
     
     %% Use Cases to Domain
     TestConnectionUC --> DomainPorts
@@ -129,18 +134,21 @@ graph TB
     ListRomsUC --> DomainPorts
     ExecuteCommandUC --> DomainModels
     WriteFileUC --> DomainModels
+    ManageStateUC --> DomainPorts
     
     %% Domain to Infrastructure
     DomainPorts --> SSHRetroPieClient
     DomainPorts --> SSHSystemRepo
     DomainPorts --> SSHControllerRepo
     DomainPorts --> SSHEmulatorRepo
+    DomainPorts --> SSHStateRepo
     
     %% Infrastructure to RetroPie
     SSHRetroPieClient --> SSH
     SSHSystemRepo --> SSH
     SSHControllerRepo --> SSH
     SSHEmulatorRepo --> SSH
+    SSHStateRepo --> SSH
     SSH --> SSHConnection
     
     %% RetroPie Internal
@@ -552,6 +560,202 @@ tools = {
 
 # 4. Server startup with tool registration
 server = RetroMCPServer(config, tools)
+```
+
+## Memory/State Management System
+
+### 1. Persistent System State
+
+**Purpose**: Maintains system state across sessions to eliminate rediscovery overhead
+
+**State File Location**: `/home/{username}/.retropie-state.json`
+
+**Schema Structure**:
+```json
+{
+  "schema_version": "1.0",
+  "last_updated": "2025-07-15T18:48:21Z",
+  "system": {
+    "hostname": "retropie",
+    "hardware": "Pi 4B 8GB",
+    "cpu_temperature": 65.2,
+    "memory_total": 8589934592,
+    "disk_total": 32212254720
+  },
+  "emulators": {
+    "installed": ["mupen64plus", "pcsx-rearmed"],
+    "preferred": {"n64": "mupen64plus-gliden64"}
+  },
+  "controllers": [
+    {
+      "type": "xbox",
+      "device": "/dev/input/js0",
+      "configured": true
+    }
+  ],
+  "roms": {
+    "systems": ["nes", "snes", "psx"],
+    "counts": {"nes": 150, "snes": 89}
+  },
+  "custom_configs": ["shaders", "bezels", "themes"],
+  "known_issues": ["occasional audio crackling on HDMI"]
+}
+```
+
+### 2. State Management Operations
+
+**StateAction Enum**:
+- `LOAD` - Retrieve cached system configuration
+- `SAVE` - Scan and persist current state
+- `UPDATE` - Modify specific configuration field
+- `COMPARE` - Detect configuration drift
+
+**ManageStateUseCase Flow**:
+```python
+def execute(self, request: StateManagementRequest) -> StateManagementResult:
+    if request.action == StateAction.LOAD:
+        return self._load_state()
+    elif request.action == StateAction.SAVE:
+        return self._save_state(request.force_scan)
+    elif request.action == StateAction.UPDATE:
+        return self._update_state(request.path, request.value)
+    elif request.action == StateAction.COMPARE:
+        return self._compare_state()
+```
+
+### 3. State Persistence Security
+
+**File Security**:
+- State file permissions: 600 (user-only read/write)
+- Path validation prevents directory traversal
+- JSON content sanitization before storage
+- Atomic file operations with proper locking
+
+**Input Validation**:
+```python
+def _validate_path(self, path: str) -> None:
+    if not path or not isinstance(path, str):
+        raise ValueError("Path must be a non-empty string")
+    
+    if ".." in path or "/" in path:
+        raise ValueError("Invalid path characters detected")
+    
+    dangerous_chars = [";", "&", "|", "`", "$"]
+    if any(char in path for char in dangerous_chars):
+        raise ValueError("Path contains dangerous characters")
+```
+
+### 4. Configuration Drift Detection
+
+**Comparison Logic**:
+- Compares current system state with cached state
+- Identifies added, changed, and removed fields
+- Provides detailed diff reporting
+- Enables automated configuration validation
+
+**Diff Structure**:
+```python
+{
+  "added": {"new_field": "value"},
+  "changed": {"field": {"old": "value1", "new": "value2"}},
+  "removed": {"removed_field": "old_value"}
+}
+```
+
+### 5. MCP State Tool Integration
+
+**Tool Interface**:
+```python
+# Load cached state
+await tools.manage_state({"action": "load"})
+
+# Save current state
+await tools.manage_state({"action": "save", "force_scan": True})
+
+# Update specific field
+await tools.manage_state({
+    "action": "update",
+    "path": "system.hostname",
+    "value": "new-hostname"
+})
+
+# Compare states
+await tools.manage_state({"action": "compare"})
+```
+
+## Data Flow Examples
+
+### Example 1: "Set up my Xbox controller"
+```mermaid
+sequenceDiagram
+    participant U as 👤 User
+    participant C as 🖥️ Claude Desktop
+    participant R as 🎮 RetroMCP
+    participant P as 🍓 RetroPie
+
+    U->>C: "Set up my Xbox controller"
+    C->>R: detect_controllers()
+    R->>P: SSH: lsusb, /dev/input/js*
+    P-->>R: Controller detected at /dev/input/js0
+    R-->>C: Xbox controller found, not configured
+    C->>R: setup_controller("xbox")
+    R->>P: SSH: sudo apt install xpad
+    R->>P: SSH: Configure controller mapping
+    P-->>R: Installation complete
+    R-->>C: Controller configured successfully
+    C-->>U: "Xbox controller is now set up and ready to use!"
+```
+
+### Example 2: "Why are my N64 games slow?"
+```mermaid
+sequenceDiagram
+    participant U as 👤 User
+    participant C as 🖥️ Claude Desktop
+    participant R as 🎮 RetroMCP
+    participant P as 🍓 RetroPie
+
+    U->>C: "Why are my N64 games slow?"
+    C->>R: system_info()
+    R->>P: SSH: Get CPU, memory, temperature
+    P-->>R: Pi 5, 8GB RAM, 75°C
+    R-->>C: System specs retrieved
+    C->>R: check_temperatures()
+    R->>P: SSH: vcgencmd measure_temp
+    P-->>R: Thermal throttling detected
+    R-->>C: High temperature causing slowdown
+    C->>R: configure_overclock("conservative")
+    R->>P: SSH: Update config.txt cooling settings
+    P-->>R: Configuration updated
+    R-->>C: Cooling optimized
+    C-->>U: "Your Pi was overheating. I've adjusted the cooling settings - try your N64 games now!"
+```
+
+### Example 3: "Remember my system configuration"
+```mermaid
+sequenceDiagram
+    participant U as 👤 User
+    participant C as 🖥️ Claude Desktop
+    participant R as 🎮 RetroMCP
+    participant P as 🍓 RetroPie
+    participant S as 📄 State File
+
+    U->>C: "Save my current system configuration"
+    C->>R: manage_state(action="save")
+    R->>P: SSH: Scan system state
+    P-->>R: Current configuration
+    R->>S: Write ~/.retropie-state.json
+    S-->>R: State persisted
+    R-->>C: Configuration saved
+    C-->>U: "System state saved for future sessions"
+    
+    Note over U,S: Later session...
+    
+    U->>C: "What's my current setup?"
+    C->>R: manage_state(action="load")
+    R->>S: Read ~/.retropie-state.json
+    S-->>R: Cached state
+    R-->>C: System configuration
+    C-->>U: "You have Pi 4B with Xbox controller, N64 emulator configured..."
 ```
 
 ## Discovery and Profiles

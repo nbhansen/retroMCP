@@ -25,7 +25,7 @@ class TestSSHSecurity:
             handler = SSHHandler(
                 host="example.com",
                 username="pi",
-                password="password",
+                password="password",  # noqa: S106
                 port=22,
                 known_hosts_path=str(known_hosts_path),
             )
@@ -56,7 +56,7 @@ class TestSSHSecurity:
             handler = SSHHandler(
                 host="example.com",
                 username="pi",
-                password="password",
+                password="password",  # noqa: S106
                 port=22,
                 known_hosts_path=str(known_hosts_path),
             )
@@ -96,7 +96,7 @@ class TestSSHSecurity:
 
     def test_ssh_handler_cleans_up_credentials_after_use(self) -> None:
         """Test that credentials are cleaned up after connection."""
-        password = "secret_password"
+        password = "secret_password"  # noqa: S105
         handler = SSHHandler(
             host="example.com", username="pi", password=password, port=22
         )
@@ -159,7 +159,7 @@ class TestSSHSecurity:
                 SSHHandler(
                     host="example.com",
                     username="pi",
-                    password="password",
+                    password="password",  # noqa: S106
                     port=invalid_port,
                 )
 
@@ -174,9 +174,10 @@ class TestSSHSecurity:
             "Authentication failed for user pi with password secret_password"
         )
 
-        with patch("paramiko.SSHClient", return_value=mock_client):
-            with patch("logging.Logger.error") as mock_logger:
-                result = handler.connect()
+        with patch("paramiko.SSHClient", return_value=mock_client), patch(
+            "logging.Logger.error"
+        ) as mock_logger:
+            result = handler.connect()
 
         assert result is False
         # Check that password is not in logged error message
@@ -211,7 +212,9 @@ class TestSSHSecurity:
     def test_ssh_handler_uses_strict_host_key_checking(self) -> None:
         """Test that strict host key checking is enabled by default."""
         handler = SSHHandler(
-            host="example.com", username="pi", password="password", port=22
+            host="example.com",
+            username="pi",
+            password="password",  # noqa: S106, port=22
         )
 
         mock_client = MagicMock(spec=paramiko.SSHClient)

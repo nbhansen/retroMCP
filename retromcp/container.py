@@ -11,6 +11,7 @@ from .application.use_cases import GetSystemInfoUseCase
 from .application.use_cases import InstallEmulatorUseCase
 from .application.use_cases import InstallPackagesUseCase
 from .application.use_cases import ListRomsUseCase
+from .application.use_cases import ManageDockerUseCase
 from .application.use_cases import ManageStateUseCase
 from .application.use_cases import SetupControllerUseCase
 from .application.use_cases import TestConnectionUseCase
@@ -19,6 +20,7 @@ from .application.use_cases import WriteFileUseCase
 from .config import RetroPieConfig
 from .discovery import RetroPieDiscovery
 from .domain.ports import ControllerRepository
+from .domain.ports import DockerRepository
 from .domain.ports import EmulatorRepository
 from .domain.ports import RetroPieClient
 from .domain.ports import StateRepository
@@ -27,6 +29,7 @@ from .infrastructure import SSHControllerRepository
 from .infrastructure import SSHEmulatorRepository
 from .infrastructure import SSHRetroPieClient
 from .infrastructure import SSHSystemRepository
+from .infrastructure.ssh_docker_repository import SSHDockerRepository
 from .infrastructure.ssh_state_repository import SSHStateRepository
 from .ssh_handler import RetroPieSSH
 
@@ -122,6 +125,14 @@ class Container:
             lambda: SSHStateRepository(self.retropie_client, self.config),
         )
 
+    @property
+    def docker_repository(self) -> DockerRepository:
+        """Get Docker repository instance."""
+        return self._get_or_create(
+            "docker_repository",
+            lambda: SSHDockerRepository(self.retropie_client),
+        )
+
     # Use cases
 
     @property
@@ -215,6 +226,14 @@ class Container:
                 self.emulator_repository,
                 self.controller_repository,
             ),
+        )
+
+    @property
+    def manage_docker_use_case(self) -> ManageDockerUseCase:
+        """Get manage Docker use case."""
+        return self._get_or_create(
+            "manage_docker_use_case",
+            lambda: ManageDockerUseCase(self.docker_repository),
         )
 
     def connect(self) -> bool:

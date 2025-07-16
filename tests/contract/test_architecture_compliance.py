@@ -25,11 +25,9 @@ from retromcp.domain.models import SystemInfo
 from retromcp.profile import SystemProfile
 from retromcp.profile import SystemProfileManager
 from retromcp.ssh_handler import SSHHandler
-from retromcp.tools.controller_tools import ControllerTools
-from retromcp.tools.emulationstation_tools import EmulationStationTools
-from retromcp.tools.hardware_tools import HardwareTools
-from retromcp.tools.retropie_tools import RetroPieTools
-from retromcp.tools.system_tools import SystemTools
+from retromcp.tools.gaming_system_tools import GamingSystemTools
+from retromcp.tools.hardware_monitoring_tools import HardwareMonitoringTools
+from retromcp.tools.system_management_tools import SystemManagementTools
 
 
 class TestImmutabilityCompliance:
@@ -106,11 +104,9 @@ class TestDependencyInjectionCompliance:
     def test_tools_use_dependency_injection(self) -> None:
         """Test that all tool classes use dependency injection."""
         tool_classes = [
-            SystemTools,
-            HardwareTools,
-            RetroPieTools,
-            ControllerTools,
-            EmulationStationTools,
+            SystemManagementTools,
+            HardwareMonitoringTools,
+            GamingSystemTools,
         ]
 
         for tool_class in tool_classes:
@@ -178,11 +174,9 @@ class TestTypeHintCompliance:
     def test_tool_methods_have_type_hints(self) -> None:
         """Test that all tool methods have proper type hints."""
         tool_classes = [
-            SystemTools,
-            HardwareTools,
-            RetroPieTools,
-            ControllerTools,
-            EmulationStationTools,
+            SystemManagementTools,
+            HardwareMonitoringTools,
+            GamingSystemTools,
         ]
 
         for tool_class in tool_classes:
@@ -278,7 +272,7 @@ class TestMeaningfulNamingCompliance:
     def test_class_names_are_descriptive(self) -> None:
         """Test that class names are descriptive."""
         classes_to_check = [
-            (SystemTools, "SystemTools"),
+            (SystemManagementTools, "SystemManagementTools"),
             (RetroPieConfig, "RetroPieConfig"),
             (SystemProfile, "SystemProfile"),
             (CommandResult, "CommandResult"),
@@ -304,7 +298,7 @@ class TestMeaningfulNamingCompliance:
         """Test that method names are descriptive and follow conventions."""
         # Check a sample of key methods
         method_checks = [
-            (SystemTools, "get_tools"),
+            (SystemManagementTools, "get_tools"),
             (RetroPieConfig, "from_env"),
             (SystemProfileManager, "get_or_create_profile"),
             (SSHHandler, "execute_command"),
@@ -348,8 +342,8 @@ class TestSeparationOfConcernsCompliance:
 
     def test_tools_separate_domain_from_infrastructure(self) -> None:
         """Test that tools separate domain logic from infrastructure."""
-        # SystemTools should use injected SSH handler, not create it directly
-        system_tools_module = inspect.getmodule(SystemTools)
+        # SystemManagementTools should use injected SSH handler, not create it directly
+        system_tools_module = inspect.getmodule(SystemManagementTools)
         source_file = Path(system_tools_module.__file__)
 
         with open(source_file) as f:
@@ -418,18 +412,18 @@ class TestHexagonalArchitectureCompliance:
 
     def test_tools_depend_on_abstractions(self) -> None:
         """Test that tools depend on abstractions, not concretions."""
-        # Check SystemTools constructor
-        init_signature = inspect.signature(SystemTools.__init__)
+        # Check SystemManagementTools constructor
+        init_signature = inspect.signature(SystemManagementTools.__init__)
         params = list(init_signature.parameters.values())[1:]  # Skip 'self'
 
         # Should accept Container (dependency injection) instead of direct SSH handlers
         assert len(params) == 1, (
-            "SystemTools should have exactly one parameter (Container)"
+            "SystemManagementTools should have exactly one parameter (Container)"
         )
 
         container_param = params[0]
         assert "container" in container_param.name.lower(), (
-            "SystemTools should accept Container parameter for dependency injection"
+            "SystemManagementTools should accept Container parameter for dependency injection"
         )
 
         # The container parameter should be properly typed
@@ -446,11 +440,9 @@ class TestGlobalStateCompliance:
     def test_no_module_level_variables_in_tools(self) -> None:
         """Test that tool modules don't create global state."""
         tool_modules = [
-            "retromcp.tools.system_tools",
-            "retromcp.tools.controller_tools",
-            "retromcp.tools.retropie_tools",
-            "retromcp.tools.emulationstation_tools",
-            "retromcp.tools.hardware_tools",
+            "retromcp.tools.system_management_tools",
+            "retromcp.tools.gaming_system_tools",
+            "retromcp.tools.hardware_monitoring_tools",
         ]
 
         for module_name in tool_modules:
@@ -489,11 +481,9 @@ class TestGlobalStateCompliance:
     def test_no_class_level_state_in_tools(self) -> None:
         """Test that tool classes don't maintain class-level state."""
         tool_classes = [
-            SystemTools,
-            HardwareTools,
-            RetroPieTools,
-            ControllerTools,
-            EmulationStationTools,
+            SystemManagementTools,
+            HardwareMonitoringTools,
+            GamingSystemTools,
         ]
 
         for tool_class in tool_classes:
@@ -521,8 +511,8 @@ class TestGlobalStateCompliance:
     def test_no_singleton_patterns_outside_container(self) -> None:
         """Test that singleton patterns are only used in the container."""
         modules_to_check = [
-            "retromcp.tools.system_tools",
-            "retromcp.tools.controller_tools",
+            "retromcp.tools.system_management_tools",
+            "retromcp.tools.gaming_system_tools",
             "retromcp.profile",
             "retromcp.ssh_handler",
         ]
@@ -570,11 +560,9 @@ class TestInfrastructureImportCompliance:
     def test_tools_only_import_domain_abstractions(self) -> None:
         """Test that tool classes only import domain and abstraction modules."""
         tool_modules = [
-            "retromcp.tools.system_tools",
-            "retromcp.tools.controller_tools",
-            "retromcp.tools.retropie_tools",
-            "retromcp.tools.emulationstation_tools",
-            "retromcp.tools.hardware_tools",
+            "retromcp.tools.system_management_tools",
+            "retromcp.tools.gaming_system_tools",
+            "retromcp.tools.hardware_monitoring_tools",
         ]
 
         forbidden_infrastructure_imports = [
@@ -718,11 +706,9 @@ class TestInterfaceImplementationCompliance:
     def test_constructor_parameters_are_abstractions(self) -> None:
         """Test that all constructor parameters are abstractions, not concrete types."""
         classes_to_check = [
-            SystemTools,
-            ControllerTools,
-            RetroPieTools,
-            EmulationStationTools,
-            HardwareTools,
+            SystemManagementTools,
+            GamingSystemTools,
+            HardwareMonitoringTools,
         ]
 
         for tool_class in classes_to_check:

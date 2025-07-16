@@ -61,10 +61,11 @@ class Controller:
 
     name: str
     device_path: str
-    vendor_id: str
-    product_id: str
     controller_type: ControllerType
-    is_configured: bool
+    connected: bool
+    vendor_id: str = ""
+    product_id: str = ""
+    is_configured: bool = False
     driver_required: Optional[str] = None
 
 
@@ -225,16 +226,19 @@ class SystemState:
 
     def to_json(self) -> str:
         """Convert state to JSON string."""
-        return json.dumps({
-            "schema_version": self.schema_version,
-            "last_updated": self.last_updated,
-            "system": self.system,
-            "emulators": self.emulators,
-            "controllers": self.controllers,
-            "roms": self.roms,
-            "custom_configs": self.custom_configs,
-            "known_issues": self.known_issues
-        }, indent=2)
+        return json.dumps(
+            {
+                "schema_version": self.schema_version,
+                "last_updated": self.last_updated,
+                "system": self.system,
+                "emulators": self.emulators,
+                "controllers": self.controllers,
+                "roms": self.roms,
+                "custom_configs": self.custom_configs,
+                "known_issues": self.known_issues,
+            },
+            indent=2,
+        )
 
     @classmethod
     def from_json(cls, json_str: str) -> "SystemState":
@@ -248,7 +252,7 @@ class SystemState:
             controllers=data["controllers"],
             roms=data["roms"],
             custom_configs=data["custom_configs"],
-            known_issues=data["known_issues"]
+            known_issues=data["known_issues"],
         )
 
 
@@ -271,3 +275,90 @@ class StateManagementResult:
     message: str
     state: Optional[SystemState] = None
     diff: Optional[Dict[str, Any]] = None
+
+
+class DockerResource(Enum):
+    """Docker resource types."""
+
+    CONTAINER = "container"
+    COMPOSE = "compose"
+    VOLUME = "volume"
+
+
+class DockerAction(Enum):
+    """Docker management actions."""
+
+    # Container actions
+    PULL = "pull"
+    RUN = "run"
+    PS = "ps"
+    STOP = "stop"
+    START = "start"
+    RESTART = "restart"
+    REMOVE = "remove"
+    LOGS = "logs"
+    INSPECT = "inspect"
+    # Compose actions
+    UP = "up"
+    DOWN = "down"
+    # Volume actions
+    CREATE = "create"
+    LIST = "list"
+
+
+@dataclass(frozen=True)
+class DockerContainer:
+    """Docker container model."""
+
+    container_id: str
+    name: str
+    image: str
+    status: str
+    created: str
+    ports: Dict[str, str]
+    command: str
+
+
+@dataclass(frozen=True)
+class DockerVolume:
+    """Docker volume model."""
+
+    name: str
+    driver: str
+    mountpoint: str
+    created: str
+    labels: Dict[str, str]
+
+
+@dataclass(frozen=True)
+class DockerManagementRequest:
+    """Docker management request model."""
+
+    resource: DockerResource
+    action: DockerAction
+    name: Optional[str] = None
+    image: Optional[str] = None
+    command: Optional[str] = None
+    ports: Optional[Dict[str, str]] = None
+    environment: Optional[Dict[str, str]] = None
+    volumes: Optional[Dict[str, str]] = None
+    detach: bool = True
+    remove_on_exit: bool = False
+    compose_file: Optional[str] = None
+    service: Optional[str] = None
+    follow_logs: bool = False
+    tail_lines: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class DockerManagementResult:
+    """Docker management operation result."""
+
+    success: bool
+    resource: DockerResource
+    action: DockerAction
+    message: str
+    containers: Optional[List[DockerContainer]] = None
+    volumes: Optional[List[DockerVolume]] = None
+    output: Optional[str] = None
+    inspect_data: Optional[Dict[str, Any]] = None

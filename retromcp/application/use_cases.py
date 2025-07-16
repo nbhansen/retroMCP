@@ -4,13 +4,15 @@ import re
 import shlex
 from datetime import datetime
 from typing import Any
-from typing import Dict
 from typing import List
 from typing import Optional
 
 from ..domain.models import CommandResult
 from ..domain.models import ConnectionInfo
 from ..domain.models import Controller
+from ..domain.models import DockerManagementRequest
+from ..domain.models import DockerManagementResult
+from ..domain.models import DockerResource
 from ..domain.models import EmulatorStatus
 from ..domain.models import ExecuteCommandRequest
 from ..domain.models import RomDirectory
@@ -21,6 +23,7 @@ from ..domain.models import SystemInfo
 from ..domain.models import SystemState
 from ..domain.models import WriteFileRequest
 from ..domain.ports import ControllerRepository
+from ..domain.ports import DockerRepository
 from ..domain.ports import EmulatorRepository
 from ..domain.ports import RetroPieClient
 from ..domain.ports import StateRepository
@@ -466,9 +469,9 @@ class WriteFileUseCase:
         # Ensure path is within allowed directories
         allowed_prefixes = [
             "/home/",
-            "/tmp/",
+            "/tmp/",  # noqa: S108
             "/opt/retropie/configs/",
-            "/var/tmp/",
+            "/var/tmp/",  # noqa: S108
         ]
 
         if not any(path.startswith(prefix) for prefix in allowed_prefixes):
@@ -577,7 +580,7 @@ class ManageStateUseCase:
             return StateManagementResult(
                 success=False,
                 action=request.action,
-                message=f"Error: {str(e)}",
+                message=f"Error: {e!s}",
             )
 
     def _load_state(self) -> StateManagementResult:
@@ -597,11 +600,11 @@ class ManageStateUseCase:
                 message="State file not found - run save first",
             )
 
-    def _save_state(self, force_scan: bool = True) -> StateManagementResult:
+    def _save_state(self, force_scan: bool = True) -> StateManagementResult:  # noqa: ARG002
         """Save current system state."""
         # Build current state from system
         state = self._build_current_state()
-        
+
         # Save to repository
         return self._state_repository.save_state(state)
 
@@ -609,19 +612,23 @@ class ManageStateUseCase:
         """Build current system state by scanning the system."""
         # Get system info
         system_info = self._system_repository.get_system_info()
-        
+
         # Get emulators
         emulators = self._emulator_repository.get_emulators()
-        installed_emulators = [e.name for e in emulators if e.status == EmulatorStatus.INSTALLED]
-        
+        installed_emulators = [
+            e.name for e in emulators if e.status == EmulatorStatus.INSTALLED
+        ]
+
         # Build preferred emulators map
         preferred = {}
         for emulator in emulators:
-            if emulator.status == EmulatorStatus.INSTALLED:
+            if (
+                emulator.status == EmulatorStatus.INSTALLED
+                and emulator.system not in preferred
+            ):
                 # Simple heuristic: first installed emulator for a system is preferred
-                if emulator.system not in preferred:
-                    preferred[emulator.system] = emulator.name
-        
+                preferred[emulator.system] = emulator.name
+
         # Get controllers
         controllers = self._controller_repository.detect_controllers()
         controller_data = [
@@ -632,12 +639,12 @@ class ManageStateUseCase:
             }
             for c in controllers
         ]
-        
+
         # Get ROM directories
         rom_dirs = self._emulator_repository.get_rom_directories()
         rom_systems = [d.system for d in rom_dirs]
         rom_counts = {d.system: d.rom_count for d in rom_dirs}
-        
+
         # Build state
         return SystemState(
             schema_version="1.0",
@@ -658,10 +665,10 @@ class ManageStateUseCase:
                 "counts": rom_counts,
             },
             custom_configs=[],  # TODO: Detect custom configs
-            known_issues=[],    # TODO: Detect known issues
+            known_issues=[],  # TODO: Detect known issues
         )
 
-    def _update_state(self, path: Optional[str], value: Any) -> StateManagementResult:
+    def _update_state(self, path: Optional[str], value: Any) -> StateManagementResult:  # noqa: ANN401
         """Update specific field in state."""
         if not path or value is None:
             return StateManagementResult(
@@ -669,21 +676,21 @@ class ManageStateUseCase:
                 action=StateAction.UPDATE,
                 message="Path and value required for update",
             )
-        
+
         return self._state_repository.update_state_field(path, value)
 
     def _compare_state(self) -> StateManagementResult:
         """Compare current state with stored state."""
         try:
             # Load stored state
-            stored_state = self._state_repository.load_state()
-            
+            self._state_repository.load_state()
+
             # Get current state
             current_state = self._build_current_state()
-            
+
             # Compare states
             diff = self._state_repository.compare_state(current_state)
-            
+
             return StateManagementResult(
                 success=True,
                 action=StateAction.COMPARE,
@@ -695,4 +702,38 @@ class ManageStateUseCase:
                 success=False,
                 action=StateAction.COMPARE,
                 message="No stored state to compare against",
+            )
+
+
+class ManageDockerUseCase:
+    """Use case for managing Docker containers, compose services, and volumes."""
+
+    def __init__(self, docker_repo: DockerRepository) -> None:
+        """Initialize with Docker repository."""
+        self._docker_repo = docker_repo
+
+    def execute(self, request: DockerManagementRequest) -> DockerManagementResult:
+        """Execute Docker management request."""
+        # Check if Docker is available
+        if not self._docker_repo.is_docker_available():
+            return DockerManagementResult(
+                success=False,
+                resource=request.resource,
+                action=request.action,
+                message="Docker is not available on this system. Please install Docker first.",
+            )
+
+        # Route to appropriate handler based on resource type
+        if request.resource == DockerResource.CONTAINER:
+            return self._docker_repo.manage_containers(request)
+        elif request.resource == DockerResource.COMPOSE:
+            return self._docker_repo.manage_compose(request)
+        elif request.resource == DockerResource.VOLUME:
+            return self._docker_repo.manage_volumes(request)
+        else:
+            return DockerManagementResult(
+                success=False,
+                resource=request.resource,
+                action=request.action,
+                message=f"Unsupported resource type: {request.resource.value}",
             )

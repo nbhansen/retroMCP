@@ -13,13 +13,13 @@ import pytest
 from retromcp.config import RetroPieConfig
 from retromcp.discovery import RetroPiePaths
 from retromcp.ssh_handler import RetroPieSSH
-from retromcp.tools.hardware_tools import HardwareTools
-from retromcp.tools.retropie_tools import RetroPieTools
-from retromcp.tools.system_tools import SystemTools
+from retromcp.tools.gaming_system_tools import GamingSystemTools
+from retromcp.tools.hardware_monitoring_tools import HardwareMonitoringTools
+from retromcp.tools.system_management_tools import SystemManagementTools
 
 
-class TestSystemToolsWorkflow:
-    """Test complete system tools workflows with CLAUDE.md compliance."""
+class TestSystemManagementToolsWorkflow:
+    """Test complete system management tools workflows with CLAUDE.md compliance."""
 
     @pytest.fixture
     def test_config(self) -> RetroPieConfig:
@@ -51,9 +51,14 @@ class TestSystemToolsWorkflow:
     @pytest.fixture
     def system_tools(
         self, mock_ssh_handler: Mock, test_config: RetroPieConfig
-    ) -> SystemTools:
-        """Create SystemTools instance with mocked dependencies."""
-        return SystemTools(mock_ssh_handler, test_config)
+    ) -> SystemManagementTools:
+        """Create SystemManagementTools instance with mocked dependencies."""
+        from retromcp.container import Container
+
+        mock_container = Mock(spec=Container)
+        mock_container.retropie_client = mock_ssh_handler
+        mock_container.config = test_config
+        return SystemManagementTools(mock_container)
 
     def _verify_claude_md_compliance(self, obj: object) -> None:
         """Verify that an object follows CLAUDE.md principles."""
@@ -77,7 +82,7 @@ class TestSystemToolsWorkflow:
     @pytest.mark.asyncio
     async def test_get_system_info_workflow(
         self,
-        system_tools: SystemTools,
+        system_tools: SystemManagementTools,
         mock_ssh_handler: Mock,
         test_config: RetroPieConfig,
     ) -> None:
@@ -94,7 +99,9 @@ class TestSystemToolsWorkflow:
         }
 
         # Execute the tool workflow
-        result = await system_tools.handle_tool_call("system_info", {})
+        result = await system_tools.handle_tool_call(
+            "manage_system", {"resource": "info", "action": "get"}
+        )
 
         # Verify the workflow completed successfully and follows MCP protocol
         assert isinstance(result, list), "Tool should return list for MCP compliance"
@@ -117,7 +124,7 @@ class TestSystemToolsWorkflow:
     @pytest.mark.asyncio
     async def test_install_packages_workflow(
         self,
-        system_tools: SystemTools,
+        system_tools: SystemManagementTools,
         mock_ssh_handler: Mock,
         test_config: RetroPieConfig,
     ) -> None:
@@ -133,7 +140,8 @@ class TestSystemToolsWorkflow:
 
         # Execute the tool workflow
         result = await system_tools.handle_tool_call(
-            "install_packages", {"packages": ["htop", "vim"]}
+            "manage_system",
+            {"resource": "package", "action": "install", "packages": ["htop", "vim"]},
         )
 
         # Verify MCP compliance
@@ -154,7 +162,7 @@ class TestSystemToolsWorkflow:
     @pytest.mark.asyncio
     async def test_error_propagation_workflow(
         self,
-        system_tools: SystemTools,
+        system_tools: SystemManagementTools,
         mock_ssh_handler: Mock,
         test_config: RetroPieConfig,
     ) -> None:
@@ -166,7 +174,9 @@ class TestSystemToolsWorkflow:
         mock_ssh_handler.execute_command.return_value = (1, "", "Command failed")
 
         # Execute tool that will fail
-        result = await system_tools.handle_tool_call("system_info", {})
+        result = await system_tools.handle_tool_call(
+            "manage_system", {"resource": "info", "action": "get"}
+        )
 
         # Verify error handling follows MCP protocol
         assert isinstance(result, list), (
@@ -184,7 +194,7 @@ class TestSystemToolsWorkflow:
         )
 
 
-class TestHardwareToolsWorkflow:
+class TestHardwareMonitoringToolsWorkflow:
     """Test hardware tools workflows with CLAUDE.md compliance."""
 
     @pytest.fixture
@@ -208,9 +218,9 @@ class TestHardwareToolsWorkflow:
     @pytest.fixture
     def hardware_tools(
         self, mock_ssh_handler: Mock, test_config: RetroPieConfig
-    ) -> HardwareTools:
-        """Create HardwareTools instance."""
-        return HardwareTools(mock_ssh_handler, test_config)
+    ) -> HardwareMonitoringTools:
+        """Create HardwareMonitoringTools instance."""
+        return HardwareMonitoringTools(mock_ssh_handler)
 
     def _verify_claude_md_compliance(self, obj: object) -> None:
         """Verify CLAUDE.md compliance."""
@@ -225,7 +235,7 @@ class TestHardwareToolsWorkflow:
     @pytest.mark.asyncio
     async def test_check_temperature_workflow(
         self,
-        hardware_tools: HardwareTools,
+        hardware_tools: HardwareMonitoringTools,
         mock_ssh_handler: Mock,
         test_config: RetroPieConfig,
     ) -> None:
@@ -254,8 +264,8 @@ class TestHardwareToolsWorkflow:
         assert "55" in response_text or "temperature" in response_text.lower()
 
 
-class TestRetroPieToolsWorkflow:
-    """Test RetroPie-specific tools workflows with CLAUDE.md compliance."""
+class TestGamingSystemToolsWorkflow:
+    """Test gaming system tools workflows with CLAUDE.md compliance."""
 
     @pytest.fixture
     def test_config(self) -> RetroPieConfig:
@@ -285,9 +295,14 @@ class TestRetroPieToolsWorkflow:
     @pytest.fixture
     def retropie_tools(
         self, mock_ssh_handler: Mock, test_config: RetroPieConfig
-    ) -> RetroPieTools:
-        """Create RetroPieTools instance."""
-        return RetroPieTools(mock_ssh_handler, test_config)
+    ) -> GamingSystemTools:
+        """Create GamingSystemTools instance."""
+        from retromcp.container import Container
+
+        mock_container = Mock(spec=Container)
+        mock_container.retropie_client = mock_ssh_handler
+        mock_container.config = test_config
+        return GamingSystemTools(mock_container)
 
     def _verify_claude_md_compliance(self, obj: object) -> None:
         """Verify CLAUDE.md compliance."""
@@ -302,7 +317,7 @@ class TestRetroPieToolsWorkflow:
     @pytest.mark.asyncio
     async def test_check_bios_workflow(
         self,
-        retropie_tools: RetroPieTools,
+        gaming_tools: GamingSystemTools,
         mock_ssh_handler: Mock,
         test_config: RetroPieConfig,
     ) -> None:
@@ -318,7 +333,10 @@ class TestRetroPieToolsWorkflow:
         )
 
         # Execute the tool workflow
-        result = await retropie_tools.handle_tool_call("check_bios", {})
+        result = await gaming_tools.handle_tool_call(
+            "manage_gaming",
+            {"component": "emulator", "action": "configure", "target": "bios"},
+        )
 
         # Verify MCP compliance
         assert isinstance(result, list), "Tool should return list for MCP compliance"
@@ -376,13 +394,20 @@ class TestCrossComponentWorkflow:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools with mocked SSH
-            system_tools = SystemTools(mock_ssh, test_config)
+            from retromcp.container import Container
+
+            mock_container = Mock(spec=Container)
+            mock_container.retropie_client = mock_ssh
+            mock_container.config = test_config
+            system_tools = SystemManagementTools(mock_container)
 
             # CLAUDE.md compliance check for tools
             self._verify_claude_md_compliance(test_config)
 
             # Test a simple tool execution to verify the workflow
-            result = await system_tools.handle_tool_call("test_connection", {})
+            result = await system_tools.handle_tool_call(
+                "manage_system", {"resource": "connection", "action": "test"}
+            )
 
             # Verify MCP compliance
             assert isinstance(result, list), "Workflow should return MCP-compliant list"
@@ -410,17 +435,26 @@ class TestCrossComponentWorkflow:
             )
             mock_ssh_class.return_value = mock_ssh
 
-            system_tools = SystemTools(mock_ssh, test_config)
+            from retromcp.container import Container
+
+            mock_container = Mock(spec=Container)
+            mock_container.retropie_client = mock_ssh
+            mock_container.config = test_config
+            system_tools = SystemManagementTools(mock_container)
 
             # First tool call should handle error gracefully
-            result1 = await system_tools.handle_tool_call("test_connection", {})
+            result1 = await system_tools.handle_tool_call(
+                "manage_system", {"resource": "connection", "action": "test"}
+            )
             assert isinstance(result1, list), (
                 "Error handling should return MCP-compliant list"
             )
             assert len(result1) > 0, "Error handling should return content"
 
             # Second tool call should succeed
-            result2 = await system_tools.handle_tool_call("test_connection", {})
+            result2 = await system_tools.handle_tool_call(
+                "manage_system", {"resource": "connection", "action": "test"}
+            )
             assert isinstance(result2, list), (
                 "Recovery should return MCP-compliant list"
             )

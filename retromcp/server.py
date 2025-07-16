@@ -24,28 +24,22 @@ try:
     from .config import ServerConfig
     from .container import Container
     from .profile import SystemProfileManager
-    from .tools import AdminTools
-    from .tools import ControllerTools
-    from .tools import EmulationStationTools
-    from .tools import HardwareTools
-    from .tools import ManagementTools
-    from .tools import RetroPieTools
+    from .tools import DockerTools
+    from .tools import GamingSystemTools
+    from .tools import HardwareMonitoringTools
     from .tools import StateTools
-    from .tools import SystemTools
+    from .tools import SystemManagementTools
 except ImportError:
     from profile import SystemProfileManager
 
     from config import RetroPieConfig
     from config import ServerConfig
     from container import Container
-    from tools import AdminTools
-    from tools import ControllerTools
-    from tools import EmulationStationTools
-    from tools import HardwareTools
-    from tools import ManagementTools
-    from tools import RetroPieTools
+    from tools import DockerTools
+    from tools import GamingSystemTools
+    from tools import HardwareMonitoringTools
     from tools import StateTools
-    from tools import SystemTools
+    from tools import SystemManagementTools
 
 # Load environment variables
 load_dotenv()
@@ -161,14 +155,11 @@ class RetroMCPServer:
 
             # Get tool instances from container
             tool_instances = {
-                "system": SystemTools(self.container),
-                "controller": ControllerTools(self.container),
-                "retropie": RetroPieTools(self.container),
-                "emulationstation": EmulationStationTools(self.container),
-                "hardware": HardwareTools(self.container),
-                "management": ManagementTools(self.container),
-                "admin": AdminTools(self.container),
+                "system_management": SystemManagementTools(self.container),
+                "hardware_monitoring": HardwareMonitoringTools(self.container),
+                "gaming_system": GamingSystemTools(self.container),
                 "state": StateTools(self.container),
+                "docker": DockerTools(self.container),
             }
 
             # Collect tools from all modules
@@ -210,55 +201,25 @@ class RetroMCPServer:
 
             # Get tool instances from container
             tool_instances = {
-                "system": SystemTools(self.container),
-                "controller": ControllerTools(self.container),
-                "retropie": RetroPieTools(self.container),
-                "emulationstation": EmulationStationTools(self.container),
-                "hardware": HardwareTools(self.container),
-                "management": ManagementTools(self.container),
-                "admin": AdminTools(self.container),
+                "system_management": SystemManagementTools(self.container),
+                "hardware_monitoring": HardwareMonitoringTools(self.container),
+                "gaming_system": GamingSystemTools(self.container),
                 "state": StateTools(self.container),
+                "docker": DockerTools(self.container),
             }
 
             # Define tool routing - maps tool names to modules
             tool_routing = {
-                # System tools
-                "test_connection": "system",
-                "system_info": "system",
-                "install_packages": "system",
-                "check_bios": "system",
-                "update_system": "system",
-                # Controller tools
-                "detect_controllers": "controller",
-                "setup_controller": "controller",
-                "test_controller": "controller",
-                "configure_controller_mapping": "controller",
-                # RetroPie tools
-                "run_retropie_setup": "retropie",
-                "install_emulator": "retropie",
-                "manage_roms": "retropie",
-                "configure_overclock": "retropie",
-                "configure_audio": "retropie",
-                # EmulationStation tools
-                "restart_emulationstation": "emulationstation",
-                "configure_themes": "emulationstation",
-                "manage_gamelists": "emulationstation",
-                "configure_es_settings": "emulationstation",
-                # Hardware tools
-                "check_temperatures": "hardware",
-                "monitor_fan_control": "hardware",
-                "check_power_supply": "hardware",
-                "inspect_hardware_errors": "hardware",
-                "check_gpio_status": "hardware",
-                # Management tools
-                "manage_services": "management",
-                "manage_packages": "management",
-                "manage_files": "management",
-                # Admin tools
-                "execute_command": "admin",
-                "write_file": "admin",
+                # System Management tools (consolidated from AdminTools, ManagementTools, SystemTools)
+                "manage_system": "system_management",
+                # Hardware monitoring tools (consolidated from HardwareTools)
+                "manage_hardware": "hardware_monitoring",
+                # Gaming system tools (consolidated from RetroPieTools, EmulationStationTools, ControllerTools)
+                "manage_gaming": "gaming_system",
                 # State tools
                 "manage_state": "state",
+                # Docker tools
+                "manage_docker": "docker",
             }
 
             # Route tool call to appropriate module

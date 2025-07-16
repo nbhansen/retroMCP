@@ -13,7 +13,7 @@ from mcp.types import TextContent
 
 from retromcp.config import RetroPieConfig
 from retromcp.discovery import RetroPiePaths
-from retromcp.tools.hardware_tools import HardwareTools
+from retromcp.tools.hardware_monitoring_tools import HardwareMonitoringTools
 from retromcp.tools.system_tools import SystemTools
 
 
@@ -84,7 +84,7 @@ class TestSSHConnectionIntegration:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools (correct constructor signature: ssh_handler, config)
-            hardware_tools = HardwareTools(mock_ssh, test_config)
+            hardware_tools = HardwareMonitoringTools(mock_ssh)
 
             # Attempt operation that might timeout
             result = await hardware_tools.handle_tool_call("check_temperatures", {})
@@ -260,7 +260,7 @@ class TestConcurrentOperationsIntegration:
 
             # Create multiple tools (correct constructor signature: ssh_handler, config)
             system_tools = SystemTools(mock_ssh, test_config)
-            hardware_tools = HardwareTools(mock_ssh, test_config)
+            hardware_tools = HardwareMonitoringTools(mock_ssh)
 
             # Run operations concurrently
             tasks = [

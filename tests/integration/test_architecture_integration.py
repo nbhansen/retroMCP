@@ -11,11 +11,9 @@ from retromcp.container import Container
 from retromcp.domain.models import CommandResult
 from retromcp.domain.models import Controller
 from retromcp.server import RetroMCPServer
-from retromcp.tools.controller_tools import ControllerTools
-from retromcp.tools.emulationstation_tools import EmulationStationTools
-from retromcp.tools.hardware_tools import HardwareTools
-from retromcp.tools.retropie_tools import RetroPieTools
-from retromcp.tools.system_tools import SystemTools
+from retromcp.tools.gaming_system_tools import GamingSystemTools
+from retromcp.tools.hardware_monitoring_tools import HardwareMonitoringTools
+from retromcp.tools.system_management_tools import SystemManagementTools
 
 
 class TestArchitecturalIntegration:
@@ -67,8 +65,8 @@ class TestArchitecturalIntegration:
                 execution_time=0.1,
             )
 
-            # Create SystemTools with container
-            system_tools = SystemTools(container)
+            # Create SystemManagementTools with container
+            system_tools = SystemManagementTools(container)
 
             # Test that tools can access use cases through container
             assert hasattr(system_tools.container, "test_connection_use_case")
@@ -99,7 +97,7 @@ class TestArchitecturalIntegration:
                 )
             ]
 
-            controller_tools = ControllerTools(container)
+            controller_tools = GamingSystemTools(container)
 
             # Verify access to use cases
             assert hasattr(controller_tools.container, "detect_controllers_use_case")
@@ -136,11 +134,9 @@ class TestArchitecturalIntegration:
 
             # Verify expected tools exist
             expected_tools = [
-                "test_connection",
-                "system_info",
-                "install_packages",
-                "detect_controllers",
-                "setup_controller",
+                "manage_system",
+                "manage_gaming",
+                "manage_hardware",
             ]
 
             for expected_tool in expected_tools:
@@ -156,11 +152,9 @@ class TestArchitecturalIntegration:
 
         # Create all tool types
         tools = [
-            SystemTools(container),
-            ControllerTools(container),
-            RetroPieTools(container),
-            HardwareTools(container),
-            EmulationStationTools(container),
+            SystemManagementTools(container),
+            GamingSystemTools(container),
+            HardwareMonitoringTools(container),
         ]
 
         for tool in tools:
@@ -248,7 +242,9 @@ class TestArchitecturalIntegration:
             )
 
             # Execute a tool call through the server
-            result = await server.call_tool("test_connection", {})
+            result = await server.call_tool(
+                "manage_system", {"resource": "connection", "action": "test"}
+            )
 
             # Verify result structure
             assert len(result) == 1
@@ -280,7 +276,7 @@ class TestArchitecturalIntegration:
     ) -> None:
         """Test that configuration remains immutable through the dependency chain."""
         container = Container(test_config)
-        system_tools = SystemTools(container)
+        system_tools = SystemManagementTools(container)
 
         # Config should be same reference through the chain
         assert system_tools.config is container.config
@@ -300,7 +296,7 @@ class TestArchitecturalIntegration:
         with patch.object(container, "retropie_client") as mock_client:
             mock_client.execute_command.side_effect = Exception("SSH connection failed")
 
-            SystemTools(container)
+            SystemManagementTools(container)
 
             # Exception should propagate through the chain
             with pytest.raises(Exception, match="SSH connection failed"):
@@ -314,7 +310,7 @@ class TestArchitecturalCompliance:
     def test_dependency_direction_compliance(self, test_config: RetroPieConfig) -> None:
         """Test that dependencies flow in the correct direction."""
         container = Container(test_config)
-        system_tools = SystemTools(container)
+        system_tools = SystemManagementTools(container)
 
         # Tools should depend on container (abstraction)
         assert hasattr(system_tools, "container")
