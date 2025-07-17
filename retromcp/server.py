@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 
 from dotenv import load_dotenv
 from mcp.server import NotificationOptions
@@ -90,8 +91,7 @@ def configure_logging() -> None:
         logging.info(f"Debug logging enabled - writing to {log_dir / 'debug.log'}")
 
 
-# Configure logging on module import
-configure_logging()
+# Logging will be configured in main() to avoid blocking during module import
 
 
 class RetroMCPServer:
@@ -103,13 +103,20 @@ class RetroMCPServer:
         self.server_config = server_config
         self.server = Server(server_config.name)
         self.container = Container(config)
-        self.profile_manager = SystemProfileManager()
+        self._profile_manager: Optional[SystemProfileManager] = None
 
         # Register handlers
         self.server.list_tools()(self.list_tools)
         self.server.call_tool()(self.call_tool)
         self.server.list_resources()(self.list_resources)
         self.server.read_resource()(self.read_resource)
+
+    @property
+    def profile_manager(self) -> SystemProfileManager:
+        """Lazy initialization of profile manager."""
+        if self._profile_manager is None:
+            self._profile_manager = SystemProfileManager()
+        return self._profile_manager
 
     async def list_resources(self) -> List[Resource]:
         """List available MCP resources."""
@@ -271,6 +278,8 @@ class RetroMCPServer:
 
     async def run(self) -> None:
         """Run the MCP server."""
+        import sys
+
         # Check if .env file exists, if not create from example
         env_path = Path(".env")
         env_example_path = Path(".env.example")
@@ -284,8 +293,12 @@ class RetroMCPServer:
             )
 
         # Run the server using stdio transport
-        async with stdio_server() as (read_stream, write_stream):
-            await self.server.run(
+        print("Attempting to initialize stdio_server...", file=sys.stderr)
+        try:
+            async with stdio_server() as (read_stream, write_stream):
+                print("stdio_server initialized successfully", file=sys.stderr)
+                print("Starting MCP server.run()...", file=sys.stderr)
+                await self.server.run(
                 read_stream,
                 write_stream,
                 InitializationOptions(
@@ -327,17 +340,31 @@ Before using, ensure your .env file is configured with:
                 ),
                 raise_exceptions=True,
             )
+        except Exception as e:
+            print(f"Error during stdio_server initialization or MCP run: {e}", file=sys.stderr)
+            raise
 
 
 async def main() -> None:
     """Main entry point for the MCP server."""
     try:
+        # Configure logging first to avoid blocking during module import
+        configure_logging()
+
+        # Add startup diagnostics
+        import sys
+        print("RetroMCP Server starting...", file=sys.stderr)
+
         # Load configuration from environment
         config = RetroPieConfig.from_env()
         server_config = ServerConfig()
 
+        print("Configuration loaded successfully", file=sys.stderr)
+
         # Create and run server
+        print("Creating RetroMCPServer instance...", file=sys.stderr)
         server = RetroMCPServer(config, server_config)
+        print("Server initialized, starting MCP protocol...", file=sys.stderr)
         await server.run()
 
     except ValueError as e:

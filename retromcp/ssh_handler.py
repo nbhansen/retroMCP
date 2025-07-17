@@ -53,6 +53,7 @@ class SSHHandler:
                 "hostname": self.host,
                 "port": self.port,
                 "username": self.username,
+                "timeout": 10,  # 10 second timeout to prevent hanging
             }
 
             if self.key_path:
