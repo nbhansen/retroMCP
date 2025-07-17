@@ -152,66 +152,169 @@ class StateTools(BaseTool):
         response_text = f"✅ {result.message}\n\n"
 
         if result.action == StateAction.LOAD and result.state:
-            # Format loaded state
+            # Format loaded state with enhanced v2.0 presentation
             state = result.state
             response_text += f"🔄 System State (Schema v{state.schema_version})\n"
-            response_text += f"📅 Last Updated: {state.last_updated}\n\n"
+            response_text += f"📅 Last Updated: {state.last_updated}\n"
+            response_text += "━" * 80 + "\n\n"
 
-            # System info
+            # Enhanced System Information Section
             response_text += "🖥️ System Information:\n"
+            response_text += "━" * 40 + "\n"
+
             if "hostname" in state.system:
-                response_text += f"  • Hostname: {state.system['hostname']}\n"
+                response_text += f"  🏷️ Hostname: {state.system['hostname']}\n"
+
             if "cpu_temperature" in state.system:
-                response_text += (
-                    f"  • CPU Temperature: {state.system['cpu_temperature']}°C\n"
-                )
+                temp = state.system['cpu_temperature']
+                temp_emoji = "🌡️" if temp < 60 else "🔥" if temp > 80 else "🌡️"
+                response_text += f"  {temp_emoji} CPU Temperature: {temp}°C\n"
+
+            # Enhanced memory information
             if "memory_total" in state.system:
-                memory_gb = state.system["memory_total"] / (1024 * 1024 * 1024)
-                response_text += f"  • Memory: {memory_gb:.1f}GB\n"
+                memory_total_gb = state.system["memory_total"] / (1024 * 1024 * 1024)
+                memory_info = f"💾 Memory: {memory_total_gb:.1f}GB total"
 
-            # Emulators
-            response_text += "\n🎮 Emulators:\n"
+                if "memory_used" in state.system and "memory_free" in state.system:
+                    memory_used_gb = state.system["memory_used"] / (1024 * 1024 * 1024)
+                    memory_free_gb = state.system["memory_free"] / (1024 * 1024 * 1024)
+                    usage_percent = (state.system["memory_used"] / state.system["memory_total"]) * 100
+                    memory_info += f" ({memory_used_gb:.1f}GB used, {memory_free_gb:.1f}GB free, {usage_percent:.1f}% used)"
+
+                response_text += f"  {memory_info}\n"
+
+            # Enhanced disk information
+            if "disk_total" in state.system:
+                disk_total_gb = state.system["disk_total"] / (1024 * 1024 * 1024)
+                disk_info = f"💿 Storage: {disk_total_gb:.1f}GB total"
+
+                if "disk_used" in state.system and "disk_free" in state.system:
+                    disk_used_gb = state.system["disk_used"] / (1024 * 1024 * 1024)
+                    disk_free_gb = state.system["disk_free"] / (1024 * 1024 * 1024)
+                    usage_percent = (state.system["disk_used"] / state.system["disk_total"]) * 100
+                    disk_info += f" ({disk_used_gb:.1f}GB used, {disk_free_gb:.1f}GB free, {usage_percent:.1f}% used)"
+
+                response_text += f"  {disk_info}\n"
+
+            # System performance
+            if "load_average" in state.system:
+                load_avg = state.system["load_average"]
+                if isinstance(load_avg, list) and len(load_avg) >= 3:
+                    response_text += f"  📊 Load Average: {load_avg[0]:.2f}, {load_avg[1]:.2f}, {load_avg[2]:.2f} (1m, 5m, 15m)\n"
+
+            if "uptime" in state.system:
+                uptime_hours = state.system["uptime"] / 3600
+                if uptime_hours < 24:
+                    response_text += f"  ⏱️ Uptime: {uptime_hours:.1f} hours\n"
+                else:
+                    uptime_days = uptime_hours / 24
+                    response_text += f"  ⏱️ Uptime: {uptime_days:.1f} days\n"
+
+            # Enhanced Emulators Section
+            response_text += "\n🎮 Emulation Systems:\n"
+            response_text += "━" * 40 + "\n"
             installed = state.emulators.get("installed", [])
+            preferred = state.emulators.get("preferred", {})
+
             if installed:
-                response_text += f"  • Installed: {', '.join(installed)}\n"
+                response_text += f"  🎯 Installed Emulators: {len(installed)}\n"
+                for emulator in installed:
+                    preferred_systems = [k for k, v in preferred.items() if v == emulator]
+                    if preferred_systems:
+                        response_text += f"    • {emulator} (preferred for: {', '.join(preferred_systems)})\n"
+                    else:
+                        response_text += f"    • {emulator}\n"
             else:
-                response_text += "  • No emulators installed\n"
+                response_text += "  ❌ No emulators installed\n"
 
-            # Controllers
-            response_text += "\n🎯 Controllers:\n"
+            # Enhanced Controllers Section
+            response_text += "\n🎯 Input Controllers:\n"
+            response_text += "━" * 40 + "\n"
             if state.controllers:
+                response_text += f"  🎮 Detected Controllers: {len(state.controllers)}\n"
                 for controller in state.controllers:
-                    status = (
-                        "✅ Configured"
-                        if controller.get("configured")
-                        else "❌ Not configured"
-                    )
-                    response_text += f"  • {controller['type']} ({controller['device']}) - {status}\n"
-            else:
-                response_text += "  • No controllers detected\n"
+                    status_emoji = "✅" if controller.get("configured") else "❌"
+                    status_text = "Configured" if controller.get("configured") else "Not configured"
+                    controller_type = controller['type'].replace('_', ' ').title()
+                    device_name = controller['device'].split('/')[-1] if '/' in controller['device'] else controller['device']
 
-            # ROMs
-            response_text += "\n📁 ROMs:\n"
+                    response_text += f"    {status_emoji} {controller_type}\n"
+                    response_text += f"      📱 Device: {device_name}\n"
+                    response_text += f"      ⚙️ Status: {status_text}\n"
+            else:
+                response_text += "  ❌ No controllers detected\n"
+
+            # Enhanced ROMs Section
+            response_text += "\n📁 ROM Collections:\n"
+            response_text += "━" * 40 + "\n"
             rom_systems = state.roms.get("systems", [])
             rom_counts = state.roms.get("counts", {})
+
             if rom_systems:
-                for system in rom_systems:
+                total_roms = sum(rom_counts.values())
+                response_text += f"  🎲 Total ROMs: {total_roms} across {len(rom_systems)} systems\n"
+
+                # Sort systems by ROM count for better presentation
+                sorted_systems = sorted(rom_systems, key=lambda x: rom_counts.get(x, 0), reverse=True)
+
+                for system in sorted_systems:
                     count = rom_counts.get(system, 0)
-                    response_text += f"  • {system.upper()}: {count} ROMs\n"
+                    count_emoji = "🎯" if count > 10 else "📦" if count > 0 else "📭"
+                    response_text += f"    {count_emoji} {system.upper()}: {count} ROMs\n"
             else:
-                response_text += "  • No ROM directories found\n"
+                response_text += "  📭 No ROM directories found\n"
 
-            # Custom configs
-            if state.custom_configs:
-                response_text += (
-                    f"\n⚙️ Custom Configurations: {', '.join(state.custom_configs)}\n"
-                )
+            # Enhanced Configuration & Issues Section
+            if state.custom_configs or state.known_issues:
+                response_text += "\n⚙️ System Configuration:\n"
+                response_text += "━" * 40 + "\n"
 
-            # Known issues
-            if state.known_issues:
-                response_text += "\n⚠️ Known Issues:\n"
-                for issue in state.known_issues:
-                    response_text += f"  • {issue}\n"
+                if state.custom_configs:
+                    response_text += f"  🔧 Custom Configurations: {len(state.custom_configs)}\n"
+                    for config in state.custom_configs:
+                        response_text += f"    • {config}\n"
+
+                if state.known_issues:
+                    response_text += f"  ⚠️ Known Issues: {len(state.known_issues)}\n"
+                    for issue in state.known_issues:
+                        response_text += f"    • {issue}\n"
+
+            # v2.0 Enhanced Fields Display
+            if hasattr(state, 'hardware') and state.hardware:
+                response_text += "\n🔧 Hardware Details:\n"
+                response_text += "━" * 40 + "\n"
+                hw = state.hardware
+                response_text += f"  🖥️ Model: {hw.model}\n"
+                response_text += f"  📟 Revision: {hw.revision}\n"
+                if hw.storage:
+                    response_text += f"  💾 Storage Devices: {len(hw.storage)}\n"
+                    for storage in hw.storage:
+                        response_text += f"    • {storage.device}: {storage.mount}\n"
+                if hw.gpio_usage:
+                    response_text += f"  🔌 GPIO Usage: {len(hw.gpio_usage)} pins\n"
+                response_text += f"  🌪️ Cooling Active: {'Yes' if hw.cooling_active else 'No'}\n"
+
+            if hasattr(state, 'network') and state.network:
+                response_text += "\n🌐 Network Interfaces:\n"
+                response_text += "━" * 40 + "\n"
+                for interface in state.network:
+                    status_emoji = "🟢" if interface.status.value == "up" else "🔴"
+                    response_text += f"  {status_emoji} {interface.name} ({interface.ip})\n"
+                    response_text += f"    🚀 Speed: {interface.speed}\n"
+                    if interface.ssid:
+                        signal_bars = "📶" if (interface.signal_strength or 0) > 50 else "📵"
+                        response_text += f"    📡 WiFi: {interface.ssid} {signal_bars}\n"
+
+            if hasattr(state, 'software') and state.software:
+                response_text += "\n💿 Software Environment:\n"
+                response_text += "━" * 40 + "\n"
+                sw = state.software
+                response_text += f"  🐧 OS: {sw.os_name} {sw.os_version}\n"
+                response_text += f"  ⚙️ Kernel: {sw.kernel}\n"
+                response_text += f"  🐍 Python: {sw.python_version}\n"
+                docker_emoji = "🟢" if sw.docker_status.value == "running" else "🔴"
+                response_text += f"  🐳 Docker: {sw.docker_version} {docker_emoji}\n"
+                response_text += f"  🎮 RetroPie: {sw.retropie_version}\n"
 
         elif result.action == StateAction.EXPORT and result.exported_data:
             # Format export results

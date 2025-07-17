@@ -5,6 +5,10 @@ echo "Starting MCP Inspector for RetroMCP..."
 echo "This will open a web browser with the inspector interface."
 echo ""
 
+# Get the project root directory (parent of scripts directory)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
 # Check if npm/npx is available
 if ! command -v npx &> /dev/null; then
     echo "Error: npx not found. Please install Node.js first."
@@ -12,16 +16,28 @@ if ! command -v npx &> /dev/null; then
     exit 1
 fi
 
-# Check if Python module can be imported
-if ! python -c "import retromcp.server" 2>/dev/null; then
-    echo "Error: RetroMCP module not found."
-    echo "Please run 'pip install -e .' from the project root first."
+# Check if virtual environment exists
+if [ ! -f "$PROJECT_ROOT/venv/bin/activate" ]; then
+    echo "Error: Virtual environment not found at $PROJECT_ROOT/venv/"
+    echo "Please create a virtual environment and install the package:"
+    echo "  python -m venv venv"
+    echo "  source venv/bin/activate"
+    echo "  pip install -e ."
     exit 1
 fi
 
-# Get the project root directory (parent of scripts directory)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+# Activate virtual environment
+echo "Activating virtual environment..."
+source "$PROJECT_ROOT/venv/bin/activate"
+
+# Check if Python module can be imported (now using venv Python)
+if ! python -c "import retromcp.server" 2>/dev/null; then
+    echo "Error: RetroMCP module not found in virtual environment."
+    echo "Please install the package in the virtual environment:"
+    echo "  source venv/bin/activate"
+    echo "  pip install -e ."
+    exit 1
+fi
 
 # Check if .env file exists in project root
 if [ ! -f "$PROJECT_ROOT/.env" ]; then
