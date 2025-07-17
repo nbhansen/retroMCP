@@ -2,18 +2,18 @@
 
 ## Executive Summary
 
-RetroMCP is a production-ready MCP (Model Context Protocol) server that enables AI assistants to safely manage RetroPie installations on Raspberry Pi. Built with hexagonal architecture, comprehensive security controls, and persistent state management for efficient AI-assisted retro gaming setup.
+RetroMCP is a production-ready MCP (Model Context Protocol) server that enables AI assistants to safely manage Raspberry Pi systems and RetroPie installations. Built with hexagonal architecture, comprehensive security controls, and v2.0 state management with caching for efficient AI-assisted system administration.
 
 ## Core Architecture
 
 **Pattern**: Hexagonal Architecture with Domain-Driven Design  
 **Security**: Defense-in-depth with comprehensive input validation  
-**Testing**: Test-Driven Development with 84% coverage  
+**Testing**: Test-Driven Development with comprehensive test coverage  
 **Protocol**: Full MCP standard compliance  
 
-## Memory/State Management System ✅ IMPLEMENTED
+## State Management System v2.0 ✅ IMPLEMENTED
 
-**Purpose**: Persistent system state eliminates rediscovery overhead across sessions
+**Purpose**: Comprehensive system state management with caching, backup/restore, and change tracking
 
 **Storage Strategy**:
 - Primary: JSON file at `/home/{user}/.retropie-state.json`
@@ -23,7 +23,7 @@ RetroMCP is a production-ready MCP (Model Context Protocol) server that enables 
 **Data Structure**:
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "last_updated": "2025-07-15T18:48:21Z",
   "system": {
     "hostname": "retropie",
@@ -43,7 +43,25 @@ RetroMCP is a production-ready MCP (Model Context Protocol) server that enables 
     "counts": {"nes": 150, "snes": 89}
   },
   "custom_configs": ["shaders", "bezels", "themes"],
-  "known_issues": ["occasional audio crackling on HDMI"]
+  "known_issues": ["occasional audio crackling on HDMI"],
+  "hardware": {
+    "model": "Raspberry Pi 5",
+    "revision": "c04170",
+    "cpu_temperature": 65.2,
+    "memory_total": "8GB",
+    "memory_used": "2.1GB",
+    "storage": [{"device": "/dev/mmcblk0p2", "mount": "/", "size": "64GB", "used": "12GB"}]
+  },
+  "network": [
+    {"name": "eth0", "ip": "192.168.1.100", "status": "up", "speed": "1000Mbps"}
+  ],
+  "software": {
+    "os_name": "Raspberry Pi OS",
+    "os_version": "11.7",
+    "kernel": "6.1.21-v8+",
+    "docker_version": "24.0.5",
+    "docker_status": "running"
+  }
 }
 ```
 
@@ -51,9 +69,16 @@ RetroMCP is a production-ready MCP (Model Context Protocol) server that enables 
 ```python
 # Unified state management function
 retromcp:manage_state(action, options)
-# action: "load" | "save" | "update" | "compare"
-# options: { path?, value?, force_scan? }
+# action: "load" | "save" | "update" | "compare" | "export" | "import" | "diff" | "watch"
+# options: { path?, value?, force_scan?, state_data?, other_state_data? }
 ```
+
+**Caching System**:
+- TTL-based caching for expensive operations
+- System info cache: 30s TTL
+- Hardware scan cache: 5min TTL  
+- Network scan cache: 1min TTL
+- Performance tracking with hit/miss statistics
 
 **Intelligence Layer**:
 - Auto-detects configuration changes

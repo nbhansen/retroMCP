@@ -1,8 +1,8 @@
 # RetroMCP
 
-An MCP server that connects AI assistants to RetroPie systems for configuration and troubleshooting.
+An MCP server that connects AI assistants to Raspberry Pi systems for comprehensive system administration and RetroPie management.
 
-RetroMCP enables AI assistants like Claude to help configure and manage RetroPie installations on Raspberry Pi through SSH connections. Ask questions in natural language instead of learning Linux commands.
+RetroMCP enables AI assistants like Claude to help configure and manage Raspberry Pi systems through SSH connections. From gaming setup to system administration - ask questions in natural language instead of learning Linux commands.
 
 ## Claude Talking to Your RetroPie Setup
 
@@ -44,17 +44,20 @@ graph LR
 - "My N64 games are slow" - Checks performance and suggests tuning options
 - "Find missing BIOS files" - Identifies required files for your emulators
 - "Install arcade emulators" - Sets up MAME and configures input
+- "Export my system configuration" - Creates backups of your current setup
+- "Monitor CPU temperature" - Tracks system health and cooling performance
 
 ## The Problem This Solves
 
-**Retro gaming on Raspberry Pi is amazing but can be frustrating:**
-- Setting up controllers often requires specific drivers and configuration files
-- Different emulators need different BIOS files, but which ones?
-- Performance tuning requires knowledge of arcane configuration files
-- Troubleshooting usually means diving into Linux command line and forums
-- Every setup is slightly different, making generic guides unhelpful
+**Raspberry Pi administration challenges:**
+- System configuration requires Linux command line knowledge
+- Gaming setup needs specific drivers and configuration files
+- Different emulators require different BIOS files and settings
+- Performance tuning involves complex configuration files
+- Troubleshooting means diving into logs and forums
+- Every setup is different, making generic guides unhelpful
 
-**Traditional solutions require you to:**
+**Traditional approaches require:**
 - SSH into your Pi and run complex commands
 - Navigate unfamiliar Linux file systems
 - Edit configuration files by hand
@@ -62,12 +65,12 @@ graph LR
 
 ## The RetroMCP Solution
 
-RetroMCP turns your AI assistant into a knowledgeable helper that:
-- **Connects to your Pi** - SSH security with host verification
-- **Learns your specific setup** - Remembers your username, paths, and successful configurations
-- **Speaks your language** - Ask questions like "Why won't my Xbox controller work?" or "Help me get N64 games running smoothly"
-- **Provides contextual guidance** - The AI gets full context about your system and can troubleshoot effectively
-- **Adapts automatically** - Works with standard setups and custom configurations alike
+RetroMCP provides AI assistants with:
+- **SSH connectivity** - Secure connections with host verification
+- **System discovery** - Automatic detection of paths and configurations
+- **Natural language interface** - Ask questions instead of writing commands
+- **System context** - Full visibility into hardware, software, and configurations
+- **Configuration flexibility** - Works with standard and custom setups
 
 ## Key Features
 
@@ -77,17 +80,18 @@ RetroMCP turns your AI assistant into a knowledgeable helper that:
 - Identifies EmulationStation process type (systemd vs user)
 - No hardcoded assumptions about your setup
 
-### **Persistent System Memory**
-- Stores system state (hardware, emulators, controllers, ROMs) in `/home/{user}/.retropie-state.json`
-- Remembers successful configurations and troubleshooting solutions
-- Tracks configuration changes over time
-- Enables faster problem-solving across sessions
+### **Advanced State Management (v2.0)**
+- Persistent system state tracking in `/home/{user}/.retropie-state.json`
+- Comprehensive hardware, network, software, and service monitoring
+- Configuration backup and restore capabilities
+- Real-time system monitoring and change detection
+- Schema versioning with automatic v1.0 → v2.0 migration
 
-### **Intelligent State Management**
-- **Load state**: Instantly recall your system configuration
-- **Save state**: Capture current system state after changes
-- **Compare state**: Detect configuration drift and changes
-- **Update state**: Modify specific configuration values
+### **Performance Optimization**
+- TTL-based caching for expensive system operations
+- Intelligent caching of hardware scans and system information
+- Configurable cache timeouts for different data types
+- Performance monitoring and hit/miss tracking
 
 ### **AI Context Sharing**
 - Exposes system state via MCP Resources
@@ -97,9 +101,9 @@ RetroMCP turns your AI assistant into a knowledgeable helper that:
 
 ## Project Status
 
-**Current Phase**: Functional implementation  
-**Security Status**: Security validation implemented  
-**Test Coverage**: 84% (434 tests passing)  
+**Current Phase**: v2.0 production implementation  
+**Security Status**: Comprehensive security validation  
+**Test Coverage**: 94% domain layer, comprehensive caching and state management testing  
 
 ## Installation
 
@@ -220,12 +224,16 @@ Restart Claude Desktop to load the server.
   - `image` - Image management and cleanup
   - `service` - Docker service operations
 
-### State Management
-- **manage_state** - Load, save, update, and compare system state
+### State Management (v2.0)
+- **manage_state** - Comprehensive system state operations
   - `load` - Retrieve cached system configuration
   - `save` - Scan and persist current state
   - `update` - Modify specific configuration field
   - `compare` - Detect configuration drift
+  - `export` - Backup state to JSON format
+  - `import` - Restore state from backup
+  - `diff` - Compare against another state
+  - `watch` - Monitor specific field changes
 
 ## Security Features
 

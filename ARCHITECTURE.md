@@ -2,7 +2,7 @@
 
 ## Overview
 
-RetroMCP implements **Hexagonal Architecture** (Ports and Adapters) with comprehensive security hardening and Test-Driven Development (TDD) methodology. The system enables AI assistants to safely manage RetroPie systems through the Model Context Protocol (MCP).
+RetroMCP implements **Hexagonal Architecture** (Ports and Adapters) with comprehensive security hardening and Test-Driven Development (TDD) methodology. The system enables AI assistants to safely manage Raspberry Pi systems and RetroPie installations through the Model Context Protocol (MCP).
 
 ## System Overview Diagram
 
@@ -37,7 +37,7 @@ graph TB
         ESTools[EmulationStationTools<br/>• restart_emulationstation<br/>• configure_themes<br/>• manage_gamelists<br/>• configure_es_settings]
         HardwareTools[HardwareTools<br/>• check_temperatures<br/>• monitor_fan_control<br/>• check_power_supply<br/>• inspect_hardware_errors<br/>• check_gpio_status]
         RetroPieTools[RetroPieTools<br/>• run_retropie_setup<br/>• install_emulator<br/>• manage_roms<br/>• configure_overclock<br/>• configure_audio]
-        StateTools[StateTools<br/>• manage_state<br/>  - load/save/update/compare<br/>  - configuration drift detection<br/>  - persistent system memory]
+        StateTools[StateTools<br/>• manage_state<br/>  - load/save/update/compare<br/>  - export/import/diff/watch<br/>  - configuration change tracking<br/>  - persistent system state]
     end
     
     %% Application Layer (Use Cases)
@@ -52,12 +52,12 @@ graph TB
         ListRomsUC[ListRomsUseCase<br/>• system_filter<br/>• min_rom_count]
         ExecuteCommandUC[ExecuteCommandUseCase<br/>🔒 Dangerous Pattern Detection<br/>🔒 Command Escaping]
         WriteFileUC[WriteFileUseCase<br/>🔒 Path Traversal Prevention<br/>🔒 System File Protection]
-        ManageStateUC[ManageStateUseCase<br/>• State scanning and persistence<br/>• Configuration drift detection<br/>• Field-level updates]
+        ManageStateUC[ManageStateUseCase<br/>• State operations (load/save/update/compare)<br/>• Export/import/diff/watch operations<br/>• Configuration change detection<br/>• Field-level updates]
     end
     
     %% Domain Layer
     subgraph "Domain Layer (domain/)"
-        DomainModels[Domain Models<br/>@dataclass(frozen=True)<br/>• SystemInfo, Controller<br/>• Emulator, BiosFile<br/>• CommandResult<br/>• ExecuteCommandRequest<br/>• WriteFileRequest<br/>• SystemState, StateAction<br/>• StateManagementRequest/Result]
+        DomainModels[Domain Models<br/>@dataclass(frozen=True)<br/>• SystemInfo, Controller<br/>• Emulator, BiosFile<br/>• CommandResult<br/>• ExecuteCommandRequest<br/>• WriteFileRequest<br/>• SystemState, StateAction<br/>• StateManagementRequest/Result<br/>• v2.0: HardwareInfo, NetworkInterface<br/>• SoftwareInfo, SystemNote<br/>• CacheEntry, SystemCache]
         DomainPorts[Ports (Interfaces)<br/>• RetroPieClient<br/>• SystemRepository<br/>• ControllerRepository<br/>• EmulatorRepository<br/>• StateRepository]
         DomainEnums[Enums<br/>• ControllerType<br/>• EmulatorStatus<br/>• ServiceStatus]
     end
@@ -68,7 +68,8 @@ graph TB
         SSHSystemRepo[SSHSystemRepository<br/>• get_system_info()<br/>• install_packages()<br/>• get_services()]
         SSHControllerRepo[SSHControllerRepository<br/>• detect_controllers()<br/>• setup_controller()<br/>• test_controller()]
         SSHEmulatorRepo[SSHEmulatorRepository<br/>• get_emulators()<br/>• install_emulator()<br/>• get_rom_directories()]
-        SSHStateRepo[SSHStateRepository<br/>• load_state()<br/>• save_state()<br/>• update_state_field()<br/>• compare_state()<br/>🔒 File locking & validation]
+        SSHStateRepo[SSHStateRepository<br/>• load_state()<br/>• save_state()<br/>• update_state_field()<br/>• compare_state()<br/>• export_state()<br/>• import_state()<br/>• diff_states()<br/>• watch_field()<br/>🔒 File locking & validation]
+        CacheSystem[CacheSystem<br/>• TTLCache with expiration<br/>• SystemCache for expensive ops<br/>• Performance tracking<br/>• Configurable TTL values]
     end
     
     %% RetroPie System
