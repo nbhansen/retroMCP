@@ -253,3 +253,134 @@ class SSHStateRepository(StateRepository):
                 pass
 
         return sanitized
+
+    def export_state(self) -> StateManagementResult:
+        """Export state for backup/migration."""
+        try:
+            state = self.load_state()
+            return StateManagementResult(
+                success=True,
+                action=StateAction.EXPORT,
+                message="State exported successfully",
+                exported_data=state.to_json(),
+            )
+        except FileNotFoundError:
+            return StateManagementResult(
+                success=False,
+                action=StateAction.EXPORT,
+                message="State file not found",
+            )
+        except Exception as e:
+            return StateManagementResult(
+                success=False,
+                action=StateAction.EXPORT,
+                message=f"Error exporting state: {e!s}",
+            )
+
+    def import_state(self, state_data: str) -> StateManagementResult:
+        """Import state from backup/migration."""
+        try:
+            # Validate JSON
+            try:
+                state = SystemState.from_json(state_data)
+            except json.JSONDecodeError:
+                return StateManagementResult(
+                    success=False,
+                    action=StateAction.IMPORT,
+                    message="Invalid JSON format",
+                )
+
+            # Save the imported state
+            save_result = self.save_state(state)
+            if save_result.success:
+                return StateManagementResult(
+                    success=True,
+                    action=StateAction.IMPORT,
+                    message="State imported successfully",
+                )
+            else:
+                return StateManagementResult(
+                    success=False,
+                    action=StateAction.IMPORT,
+                    message=f"Failed to save imported state: {save_result.message}",
+                )
+        except Exception as e:
+            return StateManagementResult(
+                success=False,
+                action=StateAction.IMPORT,
+                message=f"Error importing state: {e!s}",
+            )
+
+    def diff_states(self, other_state: SystemState) -> StateManagementResult:
+        """Compare with another state."""
+        try:
+            # Compare the states
+            diff = self.compare_state(other_state)
+
+            return StateManagementResult(
+                success=True,
+                action=StateAction.DIFF,
+                message="State diff completed",
+                diff=diff,
+            )
+        except FileNotFoundError:
+            return StateManagementResult(
+                success=False,
+                action=StateAction.DIFF,
+                message="No stored state to compare against",
+            )
+        except Exception as e:
+            return StateManagementResult(
+                success=False,
+                action=StateAction.DIFF,
+                message=f"Error comparing states: {e!s}",
+            )
+
+    def watch_field(self, path: str) -> StateManagementResult:
+        """Monitor specific field changes."""
+        try:
+            # Validate path for security
+            self._validate_path(path)
+
+            # Load current state
+            state = self.load_state()
+
+            # Get the current value at the path
+            state_dict = json.loads(state.to_json())
+            path_parts = path.split(".")
+
+            current_value = state_dict
+            for part in path_parts:
+                if isinstance(current_value, dict) and part in current_value:
+                    current_value = current_value[part]
+                else:
+                    return StateManagementResult(
+                        success=False,
+                        action=StateAction.WATCH,
+                        message=f"Invalid path: {path}",
+                    )
+
+            return StateManagementResult(
+                success=True,
+                action=StateAction.WATCH,
+                message=f"Watch started for {path}",
+                watch_value=current_value,
+            )
+        except FileNotFoundError:
+            return StateManagementResult(
+                success=False,
+                action=StateAction.WATCH,
+                message="State file not found",
+            )
+        except ValueError as e:
+            return StateManagementResult(
+                success=False,
+                action=StateAction.WATCH,
+                message=str(e),
+            )
+        except Exception as e:
+            return StateManagementResult(
+                success=False,
+                action=StateAction.WATCH,
+                message=f"Error setting up watch: {e!s}",
+            )

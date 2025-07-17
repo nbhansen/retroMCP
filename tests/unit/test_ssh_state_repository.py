@@ -406,3 +406,208 @@ class TestSSHStateRepository:
 
         # Should still be valid JSON
         json.loads(sanitized)
+
+
+class TestSSHStateRepositoryV2Operations:
+    """Test cases for v2.0 state repository operations."""
+
+    @pytest.fixture
+    def mock_client(self) -> Mock:
+        """Provide mock RetroPie client."""
+        return Mock()
+
+    @pytest.fixture
+    def test_config(self) -> RetroPieConfig:
+        """Provide test configuration."""
+        from retromcp.discovery import RetroPiePaths
+
+        paths = RetroPiePaths(
+            home_dir="/home/retro",
+            username="retro",
+            retropie_dir="/home/retro/RetroPie",
+            retropie_setup_dir="/home/retro/RetroPie-Setup",
+            bios_dir="/home/retro/RetroPie/BIOS",
+            roms_dir="/home/retro/RetroPie/roms",
+            configs_dir="/opt/retropie/configs",
+            emulators_dir="/opt/retropie/emulators",
+        )
+
+        return RetroPieConfig(
+            host="test-retropie.local",
+            username="retro",
+            password="test_password",  # noqa: S106
+            port=22,
+            paths=paths,
+        )
+
+    @pytest.fixture
+    def repository(
+        self, mock_client: Mock, test_config: RetroPieConfig
+    ) -> SSHStateRepository:
+        """Provide SSHStateRepository instance."""
+        return SSHStateRepository(mock_client, test_config)
+
+    @pytest.fixture
+    def sample_state(self) -> SystemState:
+        """Provide sample system state."""
+        return SystemState(
+            schema_version="2.0",
+            last_updated=datetime.now().isoformat(),
+            system={"hostname": "retropie", "cpu_temperature": 60.0},
+            emulators={"installed": ["mupen64plus"], "preferred": {"n64": "mupen64plus"}},
+            controllers=[{"type": "xbox", "device": "/dev/input/js0", "configured": True}],
+            roms={"systems": ["nes"], "counts": {"nes": 150}},
+            custom_configs=["shaders"],
+            known_issues=[],
+        )
+
+    def test_export_state_success(
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
+    ) -> None:
+        """Test successful state export."""
+        # Mock successful file read
+        mock_client.execute_command.return_value = CommandResult(
+            command="cat /home/retro/.retropie-state.json",
+            exit_code=0,
+            stdout=sample_state.to_json(),
+            stderr="",
+            success=True,
+            execution_time=0.1,
+        )
+
+        result = repository.export_state()
+
+        assert result.success is True
+        assert result.action == StateAction.EXPORT
+        assert "exported successfully" in result.message
+        assert result.exported_data is not None
+        assert json.loads(result.exported_data).get("schema_version") == "2.0"
+
+    def test_export_state_file_not_found(
+        self, repository: SSHStateRepository, mock_client: Mock
+    ) -> None:
+        """Test export when state file doesn't exist."""
+        # Mock file not found
+        mock_client.execute_command.return_value = CommandResult(
+            command="cat /home/retro/.retropie-state.json",
+            exit_code=1,
+            stdout="",
+            stderr="No such file or directory",
+            success=False,
+            execution_time=0.1,
+        )
+
+        result = repository.export_state()
+
+        assert result.success is False
+        assert result.action == StateAction.EXPORT
+        assert "not found" in result.message
+
+    def test_import_state_success(
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
+    ) -> None:
+        """Test successful state import."""
+        # Mock successful file write
+        mock_client.execute_command.return_value = CommandResult(
+            command="write command",
+            exit_code=0,
+            stdout="",
+            stderr="",
+            success=True,
+            execution_time=0.1,
+        )
+
+        result = repository.import_state(sample_state.to_json())
+
+        assert result.success is True
+        assert result.action == StateAction.IMPORT
+        assert "imported successfully" in result.message
+
+    def test_import_state_invalid_json(
+        self, repository: SSHStateRepository, mock_client: Mock
+    ) -> None:
+        """Test import with invalid JSON."""
+        result = repository.import_state("invalid json")
+
+        assert result.success is False
+        assert result.action == StateAction.IMPORT
+        assert "Invalid JSON" in result.message
+
+    def test_diff_states_success(
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
+    ) -> None:
+        """Test successful state diff."""
+        # Create a different state for comparison
+        other_state = SystemState(
+            schema_version="2.0",
+            last_updated=datetime.now().isoformat(),
+            system={"hostname": "different-retropie", "cpu_temperature": 70.0},
+            emulators={"installed": ["pcsx-rearmed"], "preferred": {"psx": "pcsx-rearmed"}},
+            controllers=[],
+            roms={"systems": ["snes"], "counts": {"snes": 89}},
+            custom_configs=["bezels"],
+            known_issues=["audio issues"],
+        )
+
+        # Mock successful file read
+        mock_client.execute_command.return_value = CommandResult(
+            command="cat /home/retro/.retropie-state.json",
+            exit_code=0,
+            stdout=sample_state.to_json(),
+            stderr="",
+            success=True,
+            execution_time=0.1,
+        )
+
+        result = repository.diff_states(other_state)
+
+        assert result.success is True
+        assert result.action == StateAction.DIFF
+        assert "diff completed" in result.message
+        assert result.diff is not None
+        assert "changed" in result.diff
+        assert "added" in result.diff
+        assert "removed" in result.diff
+
+    def test_watch_field_success(
+        self,
+        repository: SSHStateRepository,
+        mock_client: Mock,
+        sample_state: SystemState,
+    ) -> None:
+        """Test successful field watching."""
+        # Mock successful file read
+        mock_client.execute_command.return_value = CommandResult(
+            command="cat /home/retro/.retropie-state.json",
+            exit_code=0,
+            stdout=sample_state.to_json(),
+            stderr="",
+            success=True,
+            execution_time=0.1,
+        )
+
+        result = repository.watch_field("system.hostname")
+
+        assert result.success is True
+        assert result.action == StateAction.WATCH
+        assert "Watch started" in result.message
+        assert result.watch_value is not None
+
+    def test_watch_field_invalid_path(
+        self, repository: SSHStateRepository, mock_client: Mock
+    ) -> None:
+        """Test watching invalid field path."""
+        result = repository.watch_field("../invalid")
+
+        assert result.success is False
+        assert result.action == StateAction.WATCH
+        assert "Invalid path" in result.message

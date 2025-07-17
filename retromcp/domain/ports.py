@@ -152,6 +152,22 @@ class StateRepository(ABC):
     def compare_state(self, current_state: SystemState) -> Dict[str, Any]:
         """Compare current state with stored state."""
 
+    @abstractmethod
+    def export_state(self) -> StateManagementResult:
+        """Export state for backup/migration."""
+
+    @abstractmethod
+    def import_state(self, state_data: str) -> StateManagementResult:
+        """Import state from backup/migration."""
+
+    @abstractmethod
+    def diff_states(self, other_state: SystemState) -> StateManagementResult:
+        """Compare with another state."""
+
+    @abstractmethod
+    def watch_field(self, path: str) -> StateManagementResult:
+        """Monitor specific field changes."""
+
 
 class DockerRepository(ABC):
     """Interface for Docker management."""
