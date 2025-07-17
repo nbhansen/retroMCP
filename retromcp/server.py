@@ -299,16 +299,16 @@ class RetroMCPServer:
                 print("stdio_server initialized successfully", file=sys.stderr)
                 print("Starting MCP server.run()...", file=sys.stderr)
                 await self.server.run(
-                read_stream,
-                write_stream,
-                InitializationOptions(
-                    server_name=self.server_config.name,
-                    server_version=self.server_config.version,
-                    capabilities=self.server.get_capabilities(
-                        notification_options=NotificationOptions(),
-                        experimental_capabilities={},
-                    ),
-                    instructions=f"""{self.server_config.description}
+                    read_stream,
+                    write_stream,
+                    InitializationOptions(
+                        server_name=self.server_config.name,
+                        server_version=self.server_config.version,
+                        capabilities=self.server.get_capabilities(
+                            notification_options=NotificationOptions(),
+                            experimental_capabilities={},
+                        ),
+                        instructions=f"""{self.server_config.description}
 
 This MCP server helps you configure and manage RetroPie installations.
 
@@ -337,11 +337,14 @@ Before using, ensure your .env file is configured with:
 - RETROPIE_PASSWORD or RETROPIE_SSH_KEY_PATH: Authentication method
 
 ⚠️ Some tools require sudo access and may modify your system.""",
-                ),
-                raise_exceptions=True,
-            )
+                    ),
+                    raise_exceptions=True,
+                )
         except Exception as e:
-            print(f"Error during stdio_server initialization or MCP run: {e}", file=sys.stderr)
+            print(
+                f"Error during stdio_server initialization or MCP run: {e}",
+                file=sys.stderr,
+            )
             raise
 
 
@@ -353,6 +356,7 @@ async def main() -> None:
 
         # Add startup diagnostics
         import sys
+
         print("RetroMCP Server starting...", file=sys.stderr)
 
         # Load configuration from environment

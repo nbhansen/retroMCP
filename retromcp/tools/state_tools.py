@@ -3,6 +3,7 @@
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 
 from mcp.types import EmbeddedResource
 from mcp.types import ImageContent
@@ -11,6 +12,7 @@ from mcp.types import Tool
 
 from ..domain.models import StateAction
 from ..domain.models import StateManagementRequest
+from ..domain.models import StateManagementResult
 from .base import BaseTool
 
 
@@ -32,12 +34,21 @@ class StateTools(BaseTool):
                     "properties": {
                         "action": {
                             "type": "string",
-                            "enum": ["load", "save", "update", "compare"],
-                            "description": "Action to perform: load (retrieve cached state), save (scan and persist current state), update (modify specific field), compare (detect configuration drift)",
+                            "enum": [
+                                "load",
+                                "save",
+                                "update",
+                                "compare",
+                                "export",
+                                "import",
+                                "diff",
+                                "watch",
+                            ],
+                            "description": "Action to perform: load (retrieve cached state), save (scan and persist current state), update (modify specific field), compare (detect configuration drift), export (backup state to JSON), import (restore state from JSON), diff (compare with another state), watch (monitor specific field)",
                         },
                         "path": {
                             "type": "string",
-                            "description": "Field path for update action (e.g., 'system.hostname')",
+                            "description": "Field path for update or watch actions (e.g., 'system.hostname')",
                         },
                         "value": {
                             "description": "New value for update action (any type)"
@@ -46,6 +57,14 @@ class StateTools(BaseTool):
                             "type": "boolean",
                             "description": "Force full system scan for save action",
                             "default": False,
+                        },
+                        "state_data": {
+                            "type": "string",
+                            "description": "JSON state data for import action",
+                        },
+                        "other_state_data": {
+                            "type": "string",
+                            "description": "JSON state data to compare against for diff action",
                         },
                     },
                     "required": ["action"],
@@ -77,6 +96,7 @@ class StateTools(BaseTool):
     async def _manage_state(self, arguments: Dict[str, Any]) -> List[TextContent]:
         """Handle state management operations."""
         action_str = arguments.get("action")
+        path = arguments.get("path")  # Store path for later use
 
         if not action_str:
             return self.format_error("Action is required")
@@ -89,31 +109,45 @@ class StateTools(BaseTool):
 
         # Validate action-specific arguments
         if action == StateAction.UPDATE:
-            path = arguments.get("path")
             value = arguments.get("value")
 
             if not path or value is None:
                 return self.format_error(
                     "Path and value are required for update action"
                 )
+        elif action == StateAction.WATCH:
+            if not path:
+                return self.format_error("Path is required for watch action")
+        elif action == StateAction.IMPORT:
+            state_data = arguments.get("state_data")
+            if not state_data:
+                return self.format_error("state_data is required for import action")
+        elif action == StateAction.DIFF:
+            other_state_data = arguments.get("other_state_data")
+            if not other_state_data:
+                return self.format_error("other_state_data is required for diff action")
 
         # Build request
         request = StateManagementRequest(
             action=action,
-            path=arguments.get("path"),
+            path=path,
             value=arguments.get("value"),
             force_scan=arguments.get("force_scan", False),
+            state_data=arguments.get("state_data"),
+            other_state_data=arguments.get("other_state_data"),
         )
 
         # Execute use case
         result = self.container.manage_state_use_case.execute(request)
 
         if result.success:
-            return self._format_success_response(result)
+            return self._format_success_response(result, path)
         else:
             return self.format_error(result.message)
 
-    def _format_success_response(self, result: "StateResult") -> List[TextContent]:
+    def _format_success_response(
+        self, result: StateManagementResult, path: Optional[str] = None
+    ) -> List[TextContent]:
         """Format successful state management response."""
         response_text = f"✅ {result.message}\n\n"
 
@@ -179,7 +213,28 @@ class StateTools(BaseTool):
                 for issue in state.known_issues:
                     response_text += f"  • {issue}\n"
 
-        elif result.action == StateAction.COMPARE and result.diff:
+        elif result.action == StateAction.EXPORT and result.exported_data:
+            # Format export results
+            response_text += "📤 State exported successfully!\n\n"
+            response_text += "📄 Exported JSON Data:\n"
+            response_text += "```json\n"
+            response_text += result.exported_data
+            response_text += "\n```\n"
+
+        elif result.action == StateAction.IMPORT:
+            # Format import results
+            response_text += "📥 State imported successfully!\n"
+            response_text += (
+                "The system state has been restored from the provided backup.\n"
+            )
+
+        elif result.action == StateAction.WATCH and result.watch_value is not None:
+            # Format watch results
+            response_text += f"👁️ Watching field: {path or 'unknown'}\n"
+            response_text += f"📊 Current value: {result.watch_value}\n"
+            response_text += "Monitor will track changes to this field.\n"
+
+        elif result.action in [StateAction.DIFF, StateAction.COMPARE] and result.diff:
             # Format comparison results
             diff = result.diff
             has_changes = bool(

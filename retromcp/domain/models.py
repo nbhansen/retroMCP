@@ -259,7 +259,9 @@ class SystemState:
         if self.hardware is not None:
             data["hardware"] = self._hardware_to_dict(self.hardware)
         if self.network is not None:
-            data["network"] = [self._network_interface_to_dict(ni) for ni in self.network]
+            data["network"] = [
+                self._network_interface_to_dict(ni) for ni in self.network
+            ]
         if self.software is not None:
             data["software"] = self._software_to_dict(self.software)
         if self.services is not None:
@@ -335,7 +337,9 @@ class SystemState:
             "fan_speed": hardware.fan_speed,
         }
 
-    def _network_interface_to_dict(self, interface: "NetworkInterface") -> Dict[str, Any]:
+    def _network_interface_to_dict(
+        self, interface: "NetworkInterface"
+    ) -> Dict[str, Any]:
         """Convert NetworkInterface to dictionary."""
         return {
             "name": interface.name,
@@ -504,6 +508,8 @@ class StateManagementRequest:
     path: Optional[str] = None
     value: Optional[Any] = None
     force_scan: bool = False
+    state_data: Optional[str] = None
+    other_state_data: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -661,8 +667,6 @@ class SoftwareInfo:
     docker_status: ServiceStatus
     retropie_version: str
     retropie_status: ServiceStatus
-
-
 
 
 @dataclass(frozen=True)

@@ -265,7 +265,9 @@ class GamingSystemTools(BaseTool):
     # RetroPie component methods
 
     async def _retropie_setup(
-        self, target: str, options: Dict[str, Any]
+        self,
+        target: str,
+        options: Dict[str, Any],  # noqa: ARG002
     ) -> List[TextContent]:
         """Handle RetroPie setup operations."""
         try:
