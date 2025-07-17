@@ -121,12 +121,18 @@ class TestManageStateUseCase:
         mock_controller_repository: Mock,
     ) -> None:
         """Test saving state with system scan."""
-        # Mock system info
+        # Mock system info with v2.0 fields
         mock_system_info = Mock()
         mock_system_info.hostname = "retropie"
         mock_system_info.cpu_temperature = 60.0
         mock_system_info.memory_total = 8000000000
+        mock_system_info.memory_used = 4000000000
+        mock_system_info.memory_free = 4000000000
         mock_system_info.disk_total = 32000000000
+        mock_system_info.disk_used = 16000000000
+        mock_system_info.disk_free = 16000000000
+        mock_system_info.load_average = [0.5, 0.3, 0.2]
+        mock_system_info.uptime = 86400  # 1 day in seconds
         mock_system_repository.get_system_info.return_value = mock_system_info
 
         # Mock emulators
@@ -165,13 +171,21 @@ class TestManageStateUseCase:
         assert result.action == StateAction.SAVE
         mock_state_repository.save_state.assert_called_once()
 
-        # Verify the state was built correctly
+        # Verify the state was built correctly with v2.0 schema
         saved_state = mock_state_repository.save_state.call_args[0][0]
-        assert saved_state.schema_version == "1.0"
+        assert saved_state.schema_version == "2.0"
         assert saved_state.system["hostname"] == "retropie"
+        assert saved_state.system["memory_total"] == 8000000000
+        assert saved_state.system["memory_used"] == 4000000000
+        assert saved_state.system["load_average"] == [0.5, 0.3, 0.2]
+        assert saved_state.system["uptime"] == 86400
         assert "mupen64plus" in saved_state.emulators["installed"]
         assert len(saved_state.controllers) == 1
         assert saved_state.roms["counts"]["nes"] == 150
+        # Verify v2.0 enhanced fields are present (even if None for now)
+        assert hasattr(saved_state, 'hardware')
+        assert hasattr(saved_state, 'network')
+        assert hasattr(saved_state, 'software')
 
     def test_update_state_field(
         self, use_case: ManageStateUseCase, mock_state_repository: Mock

@@ -14,7 +14,7 @@ from mcp.types import TextContent
 from retromcp.config import RetroPieConfig
 from retromcp.discovery import RetroPiePaths
 from retromcp.tools.hardware_monitoring_tools import HardwareMonitoringTools
-from retromcp.tools.system_tools import SystemTools
+from retromcp.tools.system_management_tools import SystemManagementTools
 
 
 class TestSSHConnectionIntegration:
@@ -50,7 +50,7 @@ class TestSSHConnectionIntegration:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemTools(mock_ssh, test_config)
+            system_tools = SystemManagementTools(mock_ssh, test_config)
 
             # Attempt tool operation - should handle connection error gracefully
             result = await system_tools.handle_tool_call("system_info", {})
@@ -118,7 +118,7 @@ class TestSSHConnectionIntegration:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemTools(mock_ssh, test_config)
+            system_tools = SystemManagementTools(mock_ssh, test_config)
 
             # Attempt operation
             result = await system_tools.handle_tool_call("system_info", {})
@@ -177,7 +177,7 @@ class TestErrorRecoveryIntegration:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools
-            system_tools = SystemTools(test_config, mock_ssh)
+            system_tools = SystemManagementTools(test_config, mock_ssh)
 
             # First attempt - should handle temporary failure
             result1 = await system_tools.handle_tool_call("get_system_info", {})
@@ -206,7 +206,7 @@ class TestErrorRecoveryIntegration:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemTools(mock_ssh, test_config)
+            system_tools = SystemManagementTools(mock_ssh, test_config)
 
             # Execute tool that collects system info
             result = await system_tools.handle_tool_call("system_info", {})
@@ -259,7 +259,7 @@ class TestConcurrentOperationsIntegration:
             mock_ssh_class.return_value = mock_ssh
 
             # Create multiple tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemTools(mock_ssh, test_config)
+            system_tools = SystemManagementTools(mock_ssh, test_config)
             hardware_tools = HardwareMonitoringTools(mock_ssh)
 
             # Run operations concurrently
@@ -303,7 +303,7 @@ class TestConcurrentOperationsIntegration:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemTools(mock_ssh, test_config)
+            system_tools = SystemManagementTools(mock_ssh, test_config)
 
             # Execute operation that will fail
             result = await system_tools.handle_tool_call("system_info", {})
@@ -348,7 +348,7 @@ class TestEndToEndErrorScenarios:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemTools(mock_ssh, test_config)
+            system_tools = SystemManagementTools(mock_ssh, test_config)
 
             # Attempt operation
             result = await system_tools.handle_tool_call("system_info", {})
@@ -392,7 +392,7 @@ class TestEndToEndErrorScenarios:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools
-            system_tools = SystemTools(test_config, mock_ssh)
+            system_tools = SystemManagementTools(test_config, mock_ssh)
 
             # Execute operation with malformed responses
             result = await system_tools.handle_tool_call("get_system_info", {})

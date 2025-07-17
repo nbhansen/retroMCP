@@ -15,7 +15,7 @@ from retromcp.domain.models import CommandResult
 from retromcp.domain.ports import RetroPieClient
 from retromcp.profile import SystemProfile
 from retromcp.profile import SystemProfileManager
-from retromcp.tools.system_tools import SystemTools
+from retromcp.tools.system_management_tools import SystemManagementTools
 
 
 class TestBasicIntegration:
@@ -152,7 +152,10 @@ class TestBasicIntegration:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools
-            system_tools = SystemTools(base_config, mock_ssh)
+            # Create container mock
+            container = Mock()
+            container.config = base_config
+            system_tools = SystemManagementTools(container)
 
             # Execute a simple tool call
             result = await system_tools.handle_tool_call("get_system_info", {})
@@ -172,7 +175,10 @@ class TestBasicIntegration:
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools
-            system_tools = SystemTools(base_config, mock_ssh)
+            # Create container mock
+            container = Mock()
+            container.config = base_config
+            system_tools = SystemManagementTools(container)
 
             # Execute tool call that will encounter an error
             result = await system_tools.handle_tool_call("get_system_info", {})

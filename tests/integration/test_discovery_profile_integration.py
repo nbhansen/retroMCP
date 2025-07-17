@@ -20,7 +20,7 @@ from retromcp.discovery import RetroPiePaths
 from retromcp.domain.models import CommandResult
 from retromcp.domain.ports import RetroPieClient
 from retromcp.profile import SystemProfileManager
-from retromcp.tools.system_tools import SystemTools
+from retromcp.tools.system_management_tools import SystemManagementTools
 
 
 class TestDiscoveryProfileIntegration:
@@ -261,8 +261,8 @@ class TestDiscoveryProfileIntegration:
             mock_ssh.execute_command = AsyncMock(return_value=(0, "test-hostname", ""))
             mock_ssh_class.return_value = mock_ssh
 
-            # Create SystemTools with configuration
-            system_tools = SystemTools(updated_config, mock_ssh)
+            # Create SystemManagementTools with configuration
+            system_tools = SystemManagementTools(updated_config, mock_ssh)
 
             # CLAUDE.md compliance check for tools
             self._verify_claude_md_compliance(updated_config)

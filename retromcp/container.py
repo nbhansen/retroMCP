@@ -4,6 +4,7 @@ import logging
 from typing import Any
 from typing import Callable
 from typing import Dict
+from typing import Optional
 
 from .application.use_cases import DetectControllersUseCase
 from .application.use_cases import ExecuteCommandUseCase
@@ -42,8 +43,8 @@ class Container:
     def __init__(self, config: RetroPieConfig) -> None:
         """Initialize container with configuration."""
         self._initial_config = config
-        self.config = config
         self._instances: Dict[str, Any] = {}
+        self._config: Optional[RetroPieConfig] = None
         self._discovery_completed = False
 
     def _get_or_create(self, key: str, factory: Callable[[], Any]) -> Any:  # noqa: ANN401
@@ -51,6 +52,13 @@ class Container:
         if key not in self._instances:
             self._instances[key] = factory()
         return self._instances[key]
+
+    @property
+    def config(self) -> RetroPieConfig:
+        """Get configuration with discovery performed once."""
+        if self._config is None:
+            self._config = self._initial_config
+        return self._config
 
     def _ensure_discovery(self) -> None:
         """Ensure system discovery has been performed."""
@@ -60,7 +68,7 @@ class Container:
                 client = self.retropie_client
                 discovery = RetroPieDiscovery(client)
                 paths = discovery.discover_system_paths()
-                self.config = self._initial_config.with_paths(paths)
+                self._config = self._initial_config.with_paths(paths)
                 self._discovery_completed = True
                 logger.info("System discovery completed successfully")
             except Exception as e:
@@ -73,11 +81,11 @@ class Container:
         return self._get_or_create(
             "ssh_handler",
             lambda: RetroPieSSH(
-                host=self.config.host,
-                username=self.config.username,
-                password=self.config.password,
-                key_path=self.config.key_path,
-                port=self.config.port,
+                host=self._initial_config.host,
+                username=self._initial_config.username,
+                password=self._initial_config.password,
+                key_path=self._initial_config.key_path,
+                port=self._initial_config.port,
             ),
         )
 
