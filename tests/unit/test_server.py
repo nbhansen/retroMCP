@@ -74,10 +74,10 @@ class TestRetroMCPServer:
 
             server = RetroMCPServer(test_config, server_config)
             server.container = mock_container
-            server.profile_manager = mock_profile_manager
+            # Set the private attribute instead of trying to set the property
+            server._profile_manager = mock_profile_manager
             return server
 
-    @pytest.mark.asyncio
     @pytest.mark.asyncio
     async def test_initialization(
         self, test_config: RetroPieConfig, server_config: ServerConfig
@@ -91,7 +91,14 @@ class TestRetroMCPServer:
             assert server.config == test_config
             assert server.server_config == server_config
             assert server.server is not None
+            assert server._profile_manager is None  # Lazy initialization
             mock_container_class.assert_called_once_with(test_config)
+
+            # SystemProfileManager should only be called when accessing profile_manager property
+            mock_profile_class.assert_not_called()
+
+            # Now access the property to trigger lazy initialization
+            _ = server.profile_manager
             mock_profile_class.assert_called_once()
 
     @pytest.mark.asyncio
@@ -189,8 +196,14 @@ class TestRetroMCPServer:
             "retromcp.server.GamingSystemTools", return_value=mock_controller_tools
         ) as mock_gaming_class, patch(
             "retromcp.server.HardwareMonitoringTools"
-        ) as mock_hw_class:
+        ) as mock_hw_class, patch(
+            "retromcp.server.StateTools"
+        ) as mock_state_class, patch(
+            "retromcp.server.DockerTools"
+        ) as mock_docker_class:
             mock_hw_class.return_value.get_tools.return_value = []
+            mock_state_class.return_value.get_tools.return_value = []
+            mock_docker_class.return_value.get_tools.return_value = []
 
             server.container.connect.return_value = True
 
@@ -199,34 +212,43 @@ class TestRetroMCPServer:
             assert len(tools) == 2
             assert tools[0].name == "test_connection"
             assert tools[1].name == "detect_controllers"
-            server.container.connect.assert_called_once()
+            # list_tools doesn't require connection
+            server.container.connect.assert_not_called()
 
             # Verify tools are instantiated with container
             mock_system_class.assert_called_once_with(server.container)
             mock_gaming_class.assert_called_once_with(server.container)
             mock_hw_class.assert_called_once_with(server.container)
+            mock_state_class.assert_called_once_with(server.container)
+            mock_docker_class.assert_called_once_with(server.container)
 
     @pytest.mark.asyncio
     async def test_list_tools_connection_failure(self, server: RetroMCPServer) -> None:
         """Test listing tools when connection fails."""
-        server.container.connect.return_value = False
+        # Make one of the tool initializations fail
+        with patch(
+            "retromcp.server.SystemManagementTools",
+            side_effect=Exception("Error connecting to RetroPie")
+        ):
+            tools = await server.list_tools()
 
-        tools = await server.list_tools()
-
-        assert len(tools) == 1
-        assert tools[0].name == "connection_error"
-        assert "Error connecting to RetroPie" in tools[0].description
+            assert len(tools) == 1
+            assert tools[0].name == "connection_error"
+            assert "Error connecting to RetroPie" in tools[0].description
 
     @pytest.mark.asyncio
     async def test_list_tools_exception(self, server: RetroMCPServer) -> None:
         """Test listing tools when exception occurs."""
-        server.container.connect.side_effect = Exception("Connection failed")
+        # Make one of the tool initializations fail
+        with patch(
+            "retromcp.server.SystemManagementTools",
+            side_effect=Exception("Connection failed")
+        ):
+            tools = await server.list_tools()
 
-        tools = await server.list_tools()
-
-        assert len(tools) == 1
-        assert tools[0].name == "connection_error"
-        assert "Connection failed" in tools[0].description
+            assert len(tools) == 1
+            assert tools[0].name == "connection_error"
+            assert "Connection failed" in tools[0].description
 
     @pytest.mark.asyncio
     async def test_call_tool_connection_error(self, server: RetroMCPServer) -> None:
@@ -267,7 +289,7 @@ class TestRetroMCPServer:
             assert isinstance(result[0], TextContent)
             assert "✓ Tool executed successfully" in result[0].text
             mock_system_tools.handle_tool_call.assert_called_once_with(
-                "test_connection", {}
+                "manage_connection", {"action": "test"}
             )
 
             # Verify tools are instantiated with container

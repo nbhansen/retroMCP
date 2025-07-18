@@ -48,11 +48,11 @@ class InstallPackagesUseCase:
         # Only allow alphanumeric characters, hyphens, and underscores
         if not package_name.replace("-", "").replace("_", "").isalnum():
             raise ValueError(f"Invalid package name: {package_name}")
-        
+
         # Prevent empty or overly long names
         if not package_name or len(package_name) > 100:
             raise ValueError(f"Package name must be between 1 and 100 characters: {package_name}")
-        
+
         # Prevent system command injection
         dangerous_chars = [";", "&", "|", "$", "`", "(", ")", "{", "}", "[", "]", "<", ">", "\\", "/"]
         for char in dangerous_chars:

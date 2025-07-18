@@ -122,7 +122,7 @@ class TestSSHRetroPieClient:
     ):
         """Test successful command execution."""
         # Arrange
-        mock_ssh_handler.execute_command.return_value = (True, "success output", "")
+        mock_ssh_handler.execute_command.return_value = (0, "success output", "")
 
         # Act
         with patch("time.time", side_effect=[1000.0, 1000.1]):
@@ -135,28 +135,28 @@ class TestSSHRetroPieClient:
         assert result.stderr == ""
         assert result.success is True
         assert abs(result.execution_time - 0.1) < 0.001
-        mock_ssh_handler.execute_command.assert_called_once_with("echo test", False)
+        mock_ssh_handler.execute_command.assert_called_once_with("echo test")
 
     def test_execute_command_with_sudo(
         self, client: SSHRetroPieClient, mock_ssh_handler: Mock
     ):
         """Test command execution with sudo."""
         # Arrange
-        mock_ssh_handler.execute_command.return_value = (True, "success output", "")
+        mock_ssh_handler.execute_command.return_value = (0, "success output", "")
 
         # Act
         result = client.execute_command("apt update", use_sudo=True)
 
         # Assert
         assert result.success is True
-        mock_ssh_handler.execute_command.assert_called_once_with("apt update", True)
+        mock_ssh_handler.execute_command.assert_called_once_with("sudo apt update")
 
     def test_execute_command_failure(
         self, client: SSHRetroPieClient, mock_ssh_handler: Mock
     ):
         """Test failed command execution."""
         # Arrange
-        mock_ssh_handler.execute_command.return_value = (False, "", "command not found")
+        mock_ssh_handler.execute_command.return_value = (1, "", "command not found")
 
         # Act
         with patch("time.time", side_effect=[1000.0, 1000.2]):

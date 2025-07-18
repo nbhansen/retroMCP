@@ -59,21 +59,21 @@ class ServiceManagementTools(BaseTool):
             if not action or not service_name:
                 return self.format_error("Both 'action' and 'name' are required")
 
-            # Get the use case from container
-            use_case = self.container.get_service_management_use_case()
-            
+            # Get the client from container
+            client = self.container.retropie_client
+
             if action == "start":
-                result = use_case.start_service(service_name)
+                result = client.execute_command(f"sudo systemctl start {service_name}")
             elif action == "stop":
-                result = use_case.stop_service(service_name)
+                result = client.execute_command(f"sudo systemctl stop {service_name}")
             elif action == "restart":
-                result = use_case.restart_service(service_name)
+                result = client.execute_command(f"sudo systemctl restart {service_name}")
             elif action == "enable":
-                result = use_case.enable_service(service_name)
+                result = client.execute_command(f"sudo systemctl enable {service_name}")
             elif action == "disable":
-                result = use_case.disable_service(service_name)
+                result = client.execute_command(f"sudo systemctl disable {service_name}")
             elif action == "status":
-                result = use_case.get_service_status(service_name)
+                result = client.execute_command(f"systemctl status {service_name} --no-pager")
             else:
                 return self.format_error(f"Unknown action: {action}")
 

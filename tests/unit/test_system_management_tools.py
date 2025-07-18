@@ -61,40 +61,47 @@ class TestSystemManagementTools:
 
     # Schema and Tool Structure Tests
 
-    def test_get_tools_returns_single_manage_system_tool(
+    def test_get_tools_returns_individual_management_tools(
         self, system_management_tools: SystemManagementTools
     ) -> None:
-        """Test that get_tools returns exactly one manage_system tool."""
+        """Test that get_tools returns individual management tools."""
         tools = system_management_tools.get_tools()
 
-        assert len(tools) == 1
-        assert tools[0].name == "manage_system"
-        assert "system administration" in tools[0].description.lower()
-
-    def test_manage_system_tool_schema_validation(
-        self, system_management_tools: SystemManagementTools
-    ) -> None:
-        """Test that manage_system tool has proper schema with all resources and actions."""
-        tools = system_management_tools.get_tools()
-        tool = tools[0]
-
-        # Check required properties
-        assert "resource" in tool.inputSchema["properties"]
-        assert "action" in tool.inputSchema["properties"]
-        assert tool.inputSchema["required"] == ["resource", "action"]
-
-        # Check resource enum
-        resource_enum = tool.inputSchema["properties"]["resource"]["enum"]
-        expected_resources = [
-            "service",
-            "package",
-            "file",
-            "command",
-            "connection",
-            "info",
-            "update",
+        assert len(tools) == 7
+        tool_names = [tool.name for tool in tools]
+        expected_tools = [
+            "manage_service",
+            "manage_package",
+            "manage_file",
+            "execute_command",
+            "manage_connection",
+            "get_system_info",
+            "update_system"
         ]
-        assert set(resource_enum) == set(expected_resources)
+        assert set(tool_names) == set(expected_tools)
+
+    def test_individual_tools_have_proper_schemas(
+        self, system_management_tools: SystemManagementTools
+    ) -> None:
+        """Test that individual tools have proper schemas."""
+        tools = system_management_tools.get_tools()
+
+        # Find the service management tool
+        service_tool = next(tool for tool in tools if tool.name == "manage_service")
+        assert "action" in service_tool.inputSchema["properties"]
+        assert "name" in service_tool.inputSchema["properties"]
+        assert service_tool.inputSchema["required"] == ["action", "name"]
+
+        # Find the package management tool
+        package_tool = next(tool for tool in tools if tool.name == "manage_package")
+        assert "action" in package_tool.inputSchema["properties"]
+        assert package_tool.inputSchema["required"] == ["action"]
+
+        # Find the file management tool
+        file_tool = next(tool for tool in tools if tool.name == "manage_file")
+        assert "action" in file_tool.inputSchema["properties"]
+        assert "path" in file_tool.inputSchema["properties"]
+        assert file_tool.inputSchema["required"] == ["action", "path"]
 
     # Service Resource Tests
 
@@ -115,9 +122,8 @@ class TestSystemManagementTools:
 
         # Execute service start
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "manage_service",
             {
-                "resource": "service",
                 "action": "start",
                 "name": "test-service",
             },
@@ -126,7 +132,7 @@ class TestSystemManagementTools:
         # Verify result
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert "started successfully" in result[0].text.lower()
+        assert "started test-service successfully" in result[0].text.lower()
 
     @pytest.mark.asyncio
     async def test_manage_system_service_status(
@@ -145,9 +151,8 @@ class TestSystemManagementTools:
 
         # Execute service status check
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "manage_service",
             {
-                "resource": "service",
                 "action": "status",
                 "name": "test-service",
             },
@@ -165,8 +170,8 @@ class TestSystemManagementTools:
         self, system_management_tools: SystemManagementTools
     ) -> None:
         """Test successful package installation."""
-        # Mock successful package installation
-        system_management_tools.container.retropie_client.execute_command.return_value = CommandResult(
+        # Mock successful package installation through use case
+        system_management_tools.container.install_packages_use_case.execute.return_value = CommandResult(
             command="sudo apt-get install -y test-package",
             exit_code=0,
             stdout="Successfully installed test-package",
@@ -177,9 +182,8 @@ class TestSystemManagementTools:
 
         # Execute package installation
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "manage_package",
             {
-                "resource": "package",
                 "action": "install",
                 "packages": ["test-package"],
             },
@@ -188,7 +192,7 @@ class TestSystemManagementTools:
         # Verify result
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert "successfully installed" in result[0].text.lower()
+        assert "successfully installed test-package" in result[0].text.lower()
 
     @pytest.mark.asyncio
     async def test_manage_system_package_check_verification(
@@ -207,9 +211,8 @@ class TestSystemManagementTools:
 
         # Execute package check
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "manage_package",
             {
-                "resource": "package",
                 "action": "check",
                 "packages": ["test-package"],
             },
@@ -239,9 +242,8 @@ class TestSystemManagementTools:
 
         # Execute file read
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "manage_file",
             {
-                "resource": "file",
                 "action": "read",
                 "path": "/test/file.txt",
             },
@@ -269,9 +271,8 @@ class TestSystemManagementTools:
 
         # Execute file write with parent creation
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "manage_file",
             {
-                "resource": "file",
                 "action": "write",
                 "path": "/test/new/file.txt",
                 "content": "Test content",
@@ -300,14 +301,13 @@ class TestSystemManagementTools:
             success=True,
             execution_time=0.1,
         )
-        system_management_tools.container.execute_command_use_case.execute.return_value = mock_result
+        # Mock the client execute_command instead since tools use client directly now
+        system_management_tools.container.retropie_client.execute_command.return_value = mock_result
 
         # Execute command
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "execute_command",
             {
-                "resource": "command",
-                "action": "execute",
                 "command": "ls -la /home",
             },
         )
@@ -329,10 +329,8 @@ class TestSystemManagementTools:
 
         # Execute dangerous command
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "execute_command",
             {
-                "resource": "command",
-                "action": "execute",
                 "command": "rm -rf /",
             },
         )
@@ -358,13 +356,12 @@ class TestSystemManagementTools:
         mock_connection_info.connection_method = "password"
         mock_connection_info.last_connected = "2024-01-01 12:00:00"
 
-        system_management_tools.container.test_connection_use_case.execute.return_value = mock_connection_info
+        system_management_tools.container.get_test_connection_use_case.return_value.execute.return_value = mock_connection_info
 
         # Execute connection test
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "manage_connection",
             {
-                "resource": "connection",
                 "action": "test",
             },
         )
@@ -372,7 +369,7 @@ class TestSystemManagementTools:
         # Verify result
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert "successfully connected" in result[0].text.lower()
+        assert "connection test successful" in result[0].text.lower()
 
     # Info Resource Tests
 
@@ -386,13 +383,15 @@ class TestSystemManagementTools:
         mock_system_info.cpu_temperature = 65.5
         mock_system_info.memory_total = 8589934592
         mock_system_info.memory_used = 4294967296
+        mock_system_info.memory_free = 4294967296
         mock_system_info.disk_total = 32000000000
         mock_system_info.disk_used = 16000000000
+        mock_system_info.disk_free = 16000000000
         mock_system_info.load_average = [0.5, 0.3, 0.2]
         mock_system_info.uptime = 3600
         mock_system_info.hostname = "retropie"
 
-        system_management_tools.container.get_system_info_use_case.execute.return_value = mock_system_info
+        system_management_tools.container.get_system_info_use_case.return_value.execute.return_value = mock_system_info
 
         # Mock port check
         system_management_tools.container.retropie_client.execute_command.return_value = CommandResult(
@@ -406,10 +405,8 @@ class TestSystemManagementTools:
 
         # Execute info retrieval
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "get_system_info",
             {
-                "resource": "info",
-                "action": "get",
                 "check_ports": [22, 80],
             },
         )
@@ -436,15 +433,13 @@ class TestSystemManagementTools:
             success=True,
             execution_time=120.0,
         )
-        system_management_tools.container.update_system_use_case.execute.return_value = mock_result
+        system_management_tools.container.get_update_system_use_case.return_value.execute.return_value = mock_result
 
         # Execute update
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "update_system",
             {
-                "resource": "update",
-                "action": "run",
-                "update_type": "basic",
+                "action": "update",
             },
         )
 
@@ -461,9 +456,8 @@ class TestSystemManagementTools:
     ) -> None:
         """Test error handling for invalid resource."""
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "invalid_tool",
             {
-                "resource": "invalid_resource",
                 "action": "test",
             },
         )
@@ -471,7 +465,7 @@ class TestSystemManagementTools:
         # Verify error
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert "invalid resource" in result[0].text.lower()
+        assert "unknown tool" in result[0].text.lower()
 
     @pytest.mark.asyncio
     async def test_invalid_action_error(
@@ -479,10 +473,10 @@ class TestSystemManagementTools:
     ) -> None:
         """Test error handling for invalid action."""
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "manage_service",
             {
-                "resource": "service",
                 "action": "invalid_action",
+                "name": "test-service",
             },
         )
 
@@ -497,9 +491,8 @@ class TestSystemManagementTools:
     ) -> None:
         """Test error handling for missing required parameters."""
         result = await system_management_tools.handle_tool_call(
-            "manage_system",
+            "manage_service",
             {
-                "resource": "service",
                 "action": "start",
                 # Missing 'name' parameter
             },

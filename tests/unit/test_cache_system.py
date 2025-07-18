@@ -1,13 +1,15 @@
 """Unit tests for cache system."""
 
 import time
-from datetime import datetime, timedelta
-from unittest.mock import Mock
+from datetime import datetime
+from datetime import timedelta
 
 import pytest
 
 from retromcp.domain.models import SystemInfo
-from retromcp.infrastructure.cache_system import CacheEntry, SystemCache, TTLCache
+from retromcp.infrastructure.cache_system import CacheEntry
+from retromcp.infrastructure.cache_system import SystemCache
+from retromcp.infrastructure.cache_system import TTLCache
 
 
 class TestCacheEntry:
@@ -17,7 +19,7 @@ class TestCacheEntry:
         """Test cache entry creation with data and timestamp."""
         data = {"test": "value"}
         entry = CacheEntry(data=data, timestamp=datetime.now(), ttl_seconds=300)
-        
+
         assert entry.data == data
         assert entry.ttl_seconds == 300
         assert isinstance(entry.timestamp, datetime)
@@ -41,7 +43,7 @@ class TestCacheEntry:
             timestamp=datetime.now(),
             ttl_seconds=300
         )
-        
+
         assert not entry.is_expired()
 
     def test_is_expired_old_entry(self) -> None:
@@ -52,7 +54,7 @@ class TestCacheEntry:
             timestamp=old_timestamp,
             ttl_seconds=300
         )
-        
+
         assert entry.is_expired()
 
     def test_is_expired_zero_ttl(self) -> None:
@@ -62,7 +64,7 @@ class TestCacheEntry:
             timestamp=datetime.now(),
             ttl_seconds=0
         )
-        
+
         assert entry.is_expired()
 
 
@@ -94,13 +96,13 @@ class TestTTLCache:
         """Test that expired entries are not returned."""
         key = "test_key"
         value = {"data": "test_value"}
-        
+
         # Set with very short TTL
         cache.set(key, value, ttl_seconds=0.1)
-        
+
         # Wait for expiration
         time.sleep(0.2)
-        
+
         result = cache.get(key)
         assert result is None
 
@@ -108,9 +110,9 @@ class TestTTLCache:
         """Test cache key existence check."""
         key = "test_key"
         value = {"data": "test_value"}
-        
+
         assert not cache.has(key)
-        
+
         cache.set(key, value, 300)
         assert cache.has(key)
 
@@ -118,25 +120,25 @@ class TestTTLCache:
         """Test that expired key is considered as not having the key."""
         key = "test_key"
         value = {"data": "test_value"}
-        
+
         # Set with very short TTL
         cache.set(key, value, ttl_seconds=0.1)
-        
+
         # Wait for expiration
         time.sleep(0.2)
-        
+
         assert not cache.has(key)
 
     def test_cache_clear(self, cache: TTLCache) -> None:
         """Test cache clearing functionality."""
         cache.set("key1", {"data": "value1"}, 300)
         cache.set("key2", {"data": "value2"}, 300)
-        
+
         assert cache.has("key1")
         assert cache.has("key2")
-        
+
         cache.clear()
-        
+
         assert not cache.has("key1")
         assert not cache.has("key2")
 
@@ -144,10 +146,10 @@ class TestTTLCache:
         """Test cache invalidation for specific key."""
         key = "test_key"
         value = {"data": "test_value"}
-        
+
         cache.set(key, value, 300)
         assert cache.has(key)
-        
+
         cache.invalidate(key)
         assert not cache.has(key)
 
@@ -155,14 +157,14 @@ class TestTTLCache:
         """Test that cleanup removes expired entries."""
         # Add fresh entry
         cache.set("fresh", {"data": "fresh_value"}, 300)
-        
+
         # Add expired entry
         cache.set("expired", {"data": "expired_value"}, 0.1)
         time.sleep(0.2)
-        
+
         # Trigger cleanup
         cache.cleanup()
-        
+
         assert cache.has("fresh")
         assert not cache.has("expired")
 
@@ -194,7 +196,7 @@ class TestSystemCache:
     def test_cache_system_info(self, cache: SystemCache, sample_system_info: SystemInfo) -> None:
         """Test caching system information."""
         cache.cache_system_info(sample_system_info)
-        
+
         result = cache.get_system_info()
         assert result is not None
         assert result.hostname == sample_system_info.hostname
@@ -207,9 +209,9 @@ class TestSystemCache:
             "gpio_usage": {"614": "fan_control"},
             "cooling_active": True
         }
-        
+
         cache.cache_hardware_scan(hardware_data)
-        
+
         result = cache.get_hardware_scan()
         assert result is not None
         assert result["model"] == "Raspberry Pi 5"
@@ -225,9 +227,9 @@ class TestSystemCache:
                 "speed": "1000Mbps"
             }
         ]
-        
+
         cache.cache_network_scan(network_data)
-        
+
         result = cache.get_network_scan()
         assert result is not None
         assert len(result) == 1
@@ -242,9 +244,9 @@ class TestSystemCache:
                 "enabled": True
             }
         ]
-        
+
         cache.cache_service_status(services_data)
-        
+
         result = cache.get_service_status()
         assert result is not None
         assert len(result) == 1
@@ -254,30 +256,30 @@ class TestSystemCache:
         """Test that system info cache expires."""
         # Override TTL for testing
         cache.system_info_ttl = 0.1
-        
+
         cache.cache_system_info(sample_system_info)
         assert cache.get_system_info() is not None
-        
+
         # Wait for expiration
         time.sleep(0.2)
-        
+
         assert cache.get_system_info() is None
 
     def test_cache_invalidation(self, cache: SystemCache, sample_system_info: SystemInfo) -> None:
         """Test cache invalidation functionality."""
         hardware_data = {"model": "Pi 5"}
-        
+
         cache.cache_system_info(sample_system_info)
         cache.cache_hardware_scan(hardware_data)
-        
+
         assert cache.get_system_info() is not None
         assert cache.get_hardware_scan() is not None
-        
+
         # Invalidate specific cache
         cache.invalidate_system_info()
         assert cache.get_system_info() is None
         assert cache.get_hardware_scan() is not None
-        
+
         # Clear all caches
         cache.clear_all()
         assert cache.get_hardware_scan() is None
@@ -288,14 +290,14 @@ class TestSystemCache:
         stats = cache.get_cache_stats()
         assert stats["hits"] == 0
         assert stats["misses"] == 0
-        
+
         # Cache miss
         result = cache.get_system_info()
         assert result is None
-        
+
         stats = cache.get_cache_stats()
         assert stats["misses"] == 1
-        
+
         # Cache hit
         sample_info = SystemInfo(
             hostname="test", cpu_temperature=60.0, memory_total=8000000000,
@@ -306,6 +308,6 @@ class TestSystemCache:
         cache.cache_system_info(sample_info)
         result = cache.get_system_info()
         assert result is not None
-        
+
         stats = cache.get_cache_stats()
         assert stats["hits"] == 1

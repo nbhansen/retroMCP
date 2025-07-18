@@ -52,7 +52,7 @@ class SystemInfoTools(BaseTool):
             category = arguments.get("category", "all")
 
             # Get the use case from container
-            use_case = self.container.get_system_info_use_case()
+            use_case = self.container.get_system_info_use_case
             system_info = use_case.execute()
 
             if category == "all":

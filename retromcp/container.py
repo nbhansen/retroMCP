@@ -156,7 +156,7 @@ class Container:
         """Get system info use case."""
         return self._get_or_create(
             "get_system_info_use_case",
-            lambda: GetSystemInfoUseCase(self.system_repository),
+            lambda: GetSystemInfoUseCase(self.retropie_client),
         )
 
     @property
@@ -164,7 +164,7 @@ class Container:
         """Get install packages use case."""
         return self._get_or_create(
             "install_packages_use_case",
-            lambda: InstallPackagesUseCase(self.system_repository),
+            lambda: InstallPackagesUseCase(self.retropie_client),
         )
 
     @property
@@ -172,7 +172,7 @@ class Container:
         """Get update system use case."""
         return self._get_or_create(
             "update_system_use_case",
-            lambda: UpdateSystemUseCase(self.system_repository),
+            lambda: UpdateSystemUseCase(self.retropie_client),
         )
 
     @property

@@ -60,32 +60,35 @@ class SystemUpdateTools(BaseTool):
             if not action:
                 return self.format_error("Action is required")
 
-            # Get the use case from container
-            use_case = self.container.get_update_system_use_case()
-            
+            # Get the client from container
+            client = self.container.retropie_client
+
             if action == "update":
-                result = use_case.execute()
+                result = client.execute_command("sudo apt update", use_sudo=False)
                 if result.success:
                     return self.format_success(f"System update completed:\n{result.stdout}")
                 else:
                     return self.format_error(f"System update failed:\n{result.stderr}")
             elif action == "upgrade":
-                # For upgrade, we'll use the same use case but with different parameters
-                result = use_case.execute()
+                # For upgrade, run apt upgrade with force flag if specified
+                upgrade_cmd = "sudo apt upgrade"
+                if force:
+                    upgrade_cmd += " -y"
+                result = client.execute_command(upgrade_cmd, use_sudo=False)
                 if result.success:
                     return self.format_success(f"System upgrade completed:\n{result.stdout}")
                 else:
                     return self.format_error(f"System upgrade failed:\n{result.stderr}")
             elif action == "check":
                 # Check for available updates
-                result = use_case.execute()
+                result = client.execute_command("sudo apt list --upgradable", use_sudo=False)
                 if result.success:
                     return self.format_info(f"Update check completed:\n{result.stdout}")
                 else:
                     return self.format_error(f"Update check failed:\n{result.stderr}")
             elif action == "cleanup":
                 # Clean up after updates
-                result = use_case.execute()
+                result = client.execute_command("sudo apt autoremove -y", use_sudo=False)
                 if result.success:
                     return self.format_success(f"System cleanup completed:\n{result.stdout}")
                 else:

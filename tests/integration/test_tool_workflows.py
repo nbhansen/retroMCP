@@ -63,14 +63,14 @@ class TestSystemManagementToolsWorkflow:
     def _verify_claude_md_compliance(self, obj: object) -> None:
         """Verify that an object follows CLAUDE.md principles."""
         # Test immutability for dataclasses
-        if is_dataclass(obj):
-            # Check if it's a frozen dataclass
-            if hasattr(obj, "__dataclass_params__"):
-                # Allow mutable for profile classes that need updates
-                if "Profile" not in obj.__class__.__name__:
-                    assert obj.__dataclass_params__.frozen is True, (
-                        f"{obj.__class__.__name__} should be frozen for immutability"
-                    )
+        if (
+            is_dataclass(obj)
+            and hasattr(obj, "__dataclass_params__")
+            and "Profile" not in obj.__class__.__name__
+        ):
+            assert obj.__dataclass_params__.frozen is True, (
+                f"{obj.__class__.__name__} should be frozen for immutability"
+            )
 
         # Test meaningful naming
         class_name = obj.__class__.__name__
@@ -83,24 +83,33 @@ class TestSystemManagementToolsWorkflow:
     async def test_get_system_info_workflow(
         self,
         system_tools: SystemManagementTools,
-        mock_ssh_handler: Mock,
+        mock_ssh_handler: Mock,  # noqa: ARG002
         test_config: RetroPieConfig,
     ) -> None:
         """Test complete system_info workflow with CLAUDE.md compliance."""
         # CLAUDE.md compliance check for config
         self._verify_claude_md_compliance(test_config)
 
-        # Mock the get_system_info method that the tool actually calls
-        mock_ssh_handler.get_system_info.return_value = {
-            "temperature": 55.4,
-            "memory": {"total": 1024, "used": 512},
-            "disk": {"total": "32G", "used": "12G", "use_percent": "40%"},
-            "emulationstation_running": True,
-        }
+        # Mock the get_system_info use case that the tool actually calls
+        mock_system_info = Mock()
+        mock_system_info.hostname = "test-retropie"
+        mock_system_info.cpu_temperature = 55.4
+        mock_system_info.load_average = "0.25, 0.30, 0.35"
+        mock_system_info.uptime = "2 days"
+        mock_system_info.memory_total = 1024 * 1024 * 1024  # 1GB in bytes
+        mock_system_info.memory_used = 512 * 1024 * 1024  # 512MB in bytes
+        mock_system_info.memory_free = 512 * 1024 * 1024  # 512MB in bytes
+        mock_system_info.disk_total = 32 * 1024 * 1024 * 1024  # 32GB in bytes
+        mock_system_info.disk_used = 12 * 1024 * 1024 * 1024  # 12GB in bytes
+        mock_system_info.disk_free = 20 * 1024 * 1024 * 1024  # 20GB in bytes
+
+        mock_use_case = Mock()
+        mock_use_case.execute.return_value = mock_system_info
+        system_tools.container.get_system_info_use_case = mock_use_case
 
         # Execute the tool workflow
         result = await system_tools.handle_tool_call(
-            "manage_system", {"resource": "info", "action": "get"}
+            "get_system_info", {"category": "all"}
         )
 
         # Verify the workflow completed successfully and follows MCP protocol
@@ -115,33 +124,41 @@ class TestSystemManagementToolsWorkflow:
         # Verify system information is collected
         response_text = response.text
         assert "55.4°C" in response_text or "temperature" in response_text.lower()
-        assert "memory" in response_text.lower() or "512MB" in response_text
-        assert "disk" in response_text.lower() or "32G" in response_text
+        assert "memory" in response_text.lower() or "512" in response_text
+        assert (
+            "disk" in response_text.lower()
+            or "32" in response_text
+            or "storage" in response_text.lower()
+        )
 
-        # Verify SSH method was called
-        mock_ssh_handler.get_system_info.assert_called_once()
+        # Verify use case was called
+        mock_use_case.execute.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_install_packages_workflow(
         self,
         system_tools: SystemManagementTools,
-        mock_ssh_handler: Mock,
+        mock_ssh_handler: Mock,  # noqa: ARG002
         test_config: RetroPieConfig,
     ) -> None:
         """Test complete install_packages workflow with CLAUDE.md compliance."""
         # CLAUDE.md compliance check
         self._verify_claude_md_compliance(test_config)
 
-        # Mock the install_packages method that the tool actually calls
-        mock_ssh_handler.install_packages.return_value = (
-            True,
-            "Successfully installed htop, vim",
-        )
+        # Mock the install_packages use case that the tool actually calls
+        mock_result = Mock()
+        mock_result.success = True
+        mock_result.stdout = "Successfully installed htop, vim"
+        mock_result.stderr = ""
+
+        mock_use_case = Mock()
+        mock_use_case.execute.return_value = mock_result
+        system_tools.container.install_packages_use_case = mock_use_case
 
         # Execute the tool workflow
         result = await system_tools.handle_tool_call(
-            "manage_system",
-            {"resource": "package", "action": "install", "packages": ["htop", "vim"]},
+            "manage_package",
+            {"action": "install", "packages": ["htop", "vim"]},
         )
 
         # Verify MCP compliance
@@ -156,26 +173,28 @@ class TestSystemManagementToolsWorkflow:
         assert "htop" in response_text or "package" in response_text.lower()
         assert "✅" in response_text or "success" in response_text.lower()
 
-        # Verify SSH method was called
-        mock_ssh_handler.install_packages.assert_called_once_with(["htop", "vim"])
+        # Verify use case was called
+        mock_use_case.execute.assert_called_once_with(["htop", "vim"])
 
     @pytest.mark.asyncio
     async def test_error_propagation_workflow(
         self,
         system_tools: SystemManagementTools,
-        mock_ssh_handler: Mock,
+        mock_ssh_handler: Mock,  # noqa: ARG002
         test_config: RetroPieConfig,
     ) -> None:
         """Test error handling and propagation workflow with CLAUDE.md compliance."""
         # CLAUDE.md compliance check
         self._verify_claude_md_compliance(test_config)
 
-        # Mock SSH command failure
-        mock_ssh_handler.execute_command.return_value = (1, "", "Command failed")
+        # Mock use case that will fail
+        mock_use_case = Mock()
+        mock_use_case.execute.side_effect = Exception("Command failed")
+        system_tools.container.get_system_info_use_case = mock_use_case
 
         # Execute tool that will fail
         result = await system_tools.handle_tool_call(
-            "manage_system", {"resource": "info", "action": "get"}
+            "get_system_info", {"category": "all"}
         )
 
         # Verify error handling follows MCP protocol
@@ -220,13 +239,21 @@ class TestHardwareMonitoringToolsWorkflow:
         self, mock_ssh_handler: Mock, test_config: RetroPieConfig
     ) -> HardwareMonitoringTools:
         """Create HardwareMonitoringTools instance."""
-        return HardwareMonitoringTools(mock_ssh_handler)
+        from retromcp.container import Container
+
+        mock_container = Mock(spec=Container)
+        mock_container.retropie_client = mock_ssh_handler
+        mock_container.config = test_config
+        return HardwareMonitoringTools(mock_container)
 
     def _verify_claude_md_compliance(self, obj: object) -> None:
         """Verify CLAUDE.md compliance."""
-        if is_dataclass(obj) and hasattr(obj, "__dataclass_params__"):
-            if "Profile" not in obj.__class__.__name__:
-                assert obj.__dataclass_params__.frozen is True
+        if (
+            is_dataclass(obj)
+            and hasattr(obj, "__dataclass_params__")
+            and "Profile" not in obj.__class__.__name__
+        ):
+            assert obj.__dataclass_params__.frozen is True
 
         class_name = obj.__class__.__name__
         assert len(class_name) >= 4
@@ -244,13 +271,22 @@ class TestHardwareMonitoringToolsWorkflow:
         self._verify_claude_md_compliance(test_config)
 
         # Mock temperature commands
-        mock_ssh_handler.execute_command.side_effect = [
-            (0, "temp=55.4'C", ""),  # CPU temperature
-            (0, "0x0", ""),  # throttling status
-        ]
+        mock_result1 = Mock()
+        mock_result1.success = True
+        mock_result1.stdout = "temp=55.4'C"
+        mock_result1.stderr = ""
+
+        mock_result2 = Mock()
+        mock_result2.success = True
+        mock_result2.stdout = "throttled=0x0"
+        mock_result2.stderr = ""
+
+        mock_ssh_handler.execute_command.side_effect = [mock_result1, mock_result2]
 
         # Execute the tool workflow
-        result = await hardware_tools.handle_tool_call("check_temperatures", {})
+        result = await hardware_tools.handle_tool_call(
+            "manage_hardware", {"component": "temperature", "action": "check"}
+        )
 
         # Verify MCP compliance
         assert isinstance(result, list), "Tool should return list for MCP compliance"
@@ -293,7 +329,7 @@ class TestGamingSystemToolsWorkflow:
         return mock
 
     @pytest.fixture
-    def retropie_tools(
+    def gaming_tools(
         self, mock_ssh_handler: Mock, test_config: RetroPieConfig
     ) -> GamingSystemTools:
         """Create GamingSystemTools instance."""
@@ -306,9 +342,12 @@ class TestGamingSystemToolsWorkflow:
 
     def _verify_claude_md_compliance(self, obj: object) -> None:
         """Verify CLAUDE.md compliance."""
-        if is_dataclass(obj) and hasattr(obj, "__dataclass_params__"):
-            if "Profile" not in obj.__class__.__name__:
-                assert obj.__dataclass_params__.frozen is True
+        if (
+            is_dataclass(obj)
+            and hasattr(obj, "__dataclass_params__")
+            and "Profile" not in obj.__class__.__name__
+        ):
+            assert obj.__dataclass_params__.frozen is True
 
         class_name = obj.__class__.__name__
         assert len(class_name) >= 4
@@ -326,11 +365,12 @@ class TestGamingSystemToolsWorkflow:
         self._verify_claude_md_compliance(test_config)
 
         # Mock BIOS directory listing
-        mock_ssh_handler.execute_command.return_value = (
-            0,
-            "gba_bios.bin\ndc_bios.bin\nps1_bios.bin",
-            "",
-        )
+        mock_result = Mock()
+        mock_result.success = True
+        mock_result.stdout = "gba_bios.bin\ndc_bios.bin\nps1_bios.bin"
+        mock_result.stderr = ""
+
+        mock_ssh_handler.execute_command.return_value = mock_result
 
         # Execute the tool workflow
         result = await gaming_tools.handle_tool_call(
@@ -371,9 +411,12 @@ class TestCrossComponentWorkflow:
 
     def _verify_claude_md_compliance(self, obj: object) -> None:
         """Verify CLAUDE.md compliance."""
-        if is_dataclass(obj) and hasattr(obj, "__dataclass_params__"):
-            if "Profile" not in obj.__class__.__name__:
-                assert obj.__dataclass_params__.frozen is True
+        if (
+            is_dataclass(obj)
+            and hasattr(obj, "__dataclass_params__")
+            and "Profile" not in obj.__class__.__name__
+        ):
+            assert obj.__dataclass_params__.frozen is True
 
         class_name = obj.__class__.__name__
         assert len(class_name) >= 4
@@ -390,7 +433,11 @@ class TestCrossComponentWorkflow:
         # Mock the complete workflow
         with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
             mock_ssh = Mock()
-            mock_ssh.execute_command = Mock(return_value=(0, "retropie-test", ""))
+            mock_result = Mock()
+            mock_result.success = True
+            mock_result.stdout = "retropie-test"
+            mock_result.stderr = ""
+            mock_ssh.execute_command = Mock(return_value=mock_result)
             mock_ssh_class.return_value = mock_ssh
 
             # Create tools with mocked SSH
@@ -404,9 +451,20 @@ class TestCrossComponentWorkflow:
             # CLAUDE.md compliance check for tools
             self._verify_claude_md_compliance(test_config)
 
+            # Mock the connection use case
+            mock_connection_info = Mock()
+            mock_connection_info.connected = True
+            mock_connection_info.host = "test-retropie.local"
+            mock_connection_info.port = 22
+            mock_connection_info.username = "retro"
+
+            mock_use_case = Mock()
+            mock_use_case.execute.return_value = mock_connection_info
+            mock_container.test_connection_use_case = mock_use_case
+
             # Test a simple tool execution to verify the workflow
             result = await system_tools.handle_tool_call(
-                "manage_system", {"resource": "connection", "action": "test"}
+                "manage_connection", {"action": "test"}
             )
 
             # Verify MCP compliance
@@ -427,10 +485,20 @@ class TestCrossComponentWorkflow:
         with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
             mock_ssh = Mock()
             # First call fails, second succeeds
+            mock_result_fail = Mock()
+            mock_result_fail.success = False
+            mock_result_fail.stdout = ""
+            mock_result_fail.stderr = "Connection failed"
+
+            mock_result_success = Mock()
+            mock_result_success.success = True
+            mock_result_success.stdout = "retropie-test"
+            mock_result_success.stderr = ""
+
             mock_ssh.execute_command = Mock(
                 side_effect=[
-                    (1, "", "Connection failed"),  # First call fails
-                    (0, "retropie-test", ""),  # Second call succeeds
+                    mock_result_fail,  # First call fails
+                    mock_result_success,  # Second call succeeds
                 ]
             )
             mock_ssh_class.return_value = mock_ssh
@@ -440,11 +508,32 @@ class TestCrossComponentWorkflow:
             mock_container = Mock(spec=Container)
             mock_container.retropie_client = mock_ssh
             mock_container.config = test_config
+
+            # Mock the connection use case - first fails, then succeeds
+            mock_connection_info_fail = Mock()
+            mock_connection_info_fail.connected = False
+            mock_connection_info_fail.host = "test-retropie.local"
+            mock_connection_info_fail.port = 22
+            mock_connection_info_fail.username = "retro"
+
+            mock_connection_info_success = Mock()
+            mock_connection_info_success.connected = True
+            mock_connection_info_success.host = "test-retropie.local"
+            mock_connection_info_success.port = 22
+            mock_connection_info_success.username = "retro"
+
+            mock_use_case = Mock()
+            mock_use_case.execute.side_effect = [
+                mock_connection_info_fail,
+                mock_connection_info_success,
+            ]
+            mock_container.test_connection_use_case = mock_use_case
+
             system_tools = SystemManagementTools(mock_container)
 
             # First tool call should handle error gracefully
             result1 = await system_tools.handle_tool_call(
-                "manage_system", {"resource": "connection", "action": "test"}
+                "manage_connection", {"action": "test"}
             )
             assert isinstance(result1, list), (
                 "Error handling should return MCP-compliant list"
@@ -453,12 +542,12 @@ class TestCrossComponentWorkflow:
 
             # Second tool call should succeed
             result2 = await system_tools.handle_tool_call(
-                "manage_system", {"resource": "connection", "action": "test"}
+                "manage_connection", {"action": "test"}
             )
             assert isinstance(result2, list), (
                 "Recovery should return MCP-compliant list"
             )
             assert len(result2) > 0, "Recovery should return content"
 
-            # Verify both calls were made
-            assert mock_ssh.execute_command.call_count == 2
+            # Verify both use case calls were made
+            assert mock_use_case.execute.call_count == 2

@@ -12,7 +12,10 @@ import pytest
 from mcp.types import TextContent
 
 from retromcp.config import RetroPieConfig
+from retromcp.container import Container
 from retromcp.discovery import RetroPiePaths
+from retromcp.domain.models import CommandResult
+from retromcp.domain.models import SystemInfo
 from retromcp.tools.hardware_monitoring_tools import HardwareMonitoringTools
 from retromcp.tools.system_management_tools import SystemManagementTools
 
@@ -49,11 +52,15 @@ class TestSSHConnectionIntegration:
             )
             mock_ssh_class.return_value = mock_ssh
 
-            # Create tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemManagementTools(mock_ssh, test_config)
+            # Create container with mocked client
+            container = Container(test_config)
+            container._instances["retropie_client"] = mock_ssh
+
+            # Create tools with container
+            system_tools = SystemManagementTools(container)
 
             # Attempt tool operation - should handle connection error gracefully
-            result = await system_tools.handle_tool_call("system_info", {})
+            result = await system_tools.handle_tool_call("get_system_info", {})
 
             # Verify error is properly handled using MCP-compliant response format
             assert isinstance(result, list), "Should return MCP-compliant list"
@@ -83,11 +90,15 @@ class TestSSHConnectionIntegration:
             )
             mock_ssh_class.return_value = mock_ssh
 
-            # Create tools (correct constructor signature: ssh_handler, config)
-            hardware_tools = HardwareMonitoringTools(mock_ssh)
+            # Create container with mocked client
+            container = Container(test_config)
+            container._instances["retropie_client"] = mock_ssh
+
+            # Create tools with container
+            hardware_tools = HardwareMonitoringTools(container)
 
             # Attempt operation that might timeout
-            result = await hardware_tools.handle_tool_call("check_temperatures", {})
+            result = await hardware_tools.handle_tool_call("manage_hardware", {"component": "temperature", "action": "check"})
 
             # Verify timeout is handled gracefully using MCP-compliant response
             assert isinstance(result, list), "Should return MCP-compliant list"
@@ -117,11 +128,15 @@ class TestSSHConnectionIntegration:
             )
             mock_ssh_class.return_value = mock_ssh
 
-            # Create tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemManagementTools(mock_ssh, test_config)
+            # Create container with mocked client
+            container = Container(test_config)
+            container._instances["retropie_client"] = mock_ssh
+
+            # Create tools with container
+            system_tools = SystemManagementTools(container)
 
             # Attempt operation
-            result = await system_tools.handle_tool_call("system_info", {})
+            result = await system_tools.handle_tool_call("get_system_info", {})
 
             # Verify authentication error is handled using MCP-compliant response
             assert isinstance(result, list), "Should return MCP-compliant list"
@@ -168,16 +183,34 @@ class TestErrorRecoveryIntegration:
                 call_count += 1
                 if call_count == 1:
                     # First call fails with temporary error
-                    return (1, "", "Temporary failure")
+                    return CommandResult(
+                        command=command,
+                        exit_code=1,
+                        stdout="",
+                        stderr="Temporary failure",
+                        success=False,
+                        execution_time=0.1
+                    )
                 else:
                     # Second call succeeds
-                    return (0, "success output", "")
+                    return CommandResult(
+                        command=command,
+                        exit_code=0,
+                        stdout="success output",
+                        stderr="",
+                        success=True,
+                        execution_time=0.1
+                    )
 
             mock_ssh.execute_command = AsyncMock(side_effect=mock_execute_command)
             mock_ssh_class.return_value = mock_ssh
 
-            # Create tools
-            system_tools = SystemManagementTools(test_config, mock_ssh)
+            # Create container with mocked client
+            container = Container(test_config)
+            container._instances["retropie_client"] = mock_ssh
+
+            # Create tools with container
+            system_tools = SystemManagementTools(container)
 
             # First attempt - should handle temporary failure
             result1 = await system_tools.handle_tool_call("get_system_info", {})
@@ -198,18 +231,29 @@ class TestErrorRecoveryIntegration:
             mock_ssh = Mock()
 
             # Mock get_system_info to return partial data (some info available, some missing)
-            mock_ssh.get_system_info.return_value = {
-                "temperature": 55.0,  # Success
-                "memory": {"total": 1024, "used": 512},  # Success
-                # Missing disk info - simulates partial failure
-            }
+            mock_ssh.get_system_info.return_value = SystemInfo(
+                hostname="retropie-test",
+                cpu_temperature=55.0,
+                memory_total=1024,
+                memory_used=512,
+                memory_free=512,
+                disk_total=16000,
+                disk_used=8000,
+                disk_free=8000,
+                load_average=[0.5, 0.3, 0.2],
+                uptime=3600
+            )
             mock_ssh_class.return_value = mock_ssh
 
-            # Create tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemManagementTools(mock_ssh, test_config)
+            # Create container with mocked client
+            container = Container(test_config)
+            container._instances["retropie_client"] = mock_ssh
+
+            # Create tools with container
+            system_tools = SystemManagementTools(container)
 
             # Execute tool that collects system info
-            result = await system_tools.handle_tool_call("system_info", {})
+            result = await system_tools.handle_tool_call("get_system_info", {})
 
             # Verify partial success is handled appropriately using MCP format
             assert isinstance(result, list), "Should return MCP-compliant list"
@@ -251,22 +295,41 @@ class TestConcurrentOperationsIntegration:
             mock_ssh = Mock()
 
             # Mock the high-level methods that tools actually call
-            mock_ssh.get_system_info.return_value = {
-                "temperature": 45.0,
-                "memory": {"total": 1024, "used": 512},
-            }
-            mock_ssh.execute_command.return_value = (0, "temp=45.0'C", "")
+            mock_ssh.get_system_info.return_value = SystemInfo(
+                hostname="retropie-test",
+                cpu_temperature=45.0,
+                memory_total=1024,
+                memory_used=512,
+                memory_free=512,
+                disk_total=16000,
+                disk_used=8000,
+                disk_free=8000,
+                load_average=[0.2, 0.1, 0.1],
+                uptime=7200
+            )
+            mock_ssh.execute_command.return_value = CommandResult(
+                command="vcgencmd measure_temp",
+                exit_code=0,
+                stdout="temp=45.0'C",
+                stderr="",
+                success=True,
+                execution_time=0.1
+            )
             mock_ssh_class.return_value = mock_ssh
 
-            # Create multiple tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemManagementTools(mock_ssh, test_config)
-            hardware_tools = HardwareMonitoringTools(mock_ssh)
+            # Create container with mocked client
+            container = Container(test_config)
+            container._instances["retropie_client"] = mock_ssh
+
+            # Create multiple tools with container
+            system_tools = SystemManagementTools(container)
+            hardware_tools = HardwareMonitoringTools(container)
 
             # Run operations concurrently
             tasks = [
-                system_tools.handle_tool_call("system_info", {}),
-                hardware_tools.handle_tool_call("check_temperatures", {}),
-                system_tools.handle_tool_call("system_info", {}),  # Duplicate
+                system_tools.handle_tool_call("get_system_info", {}),
+                hardware_tools.handle_tool_call("manage_hardware", {"component": "temperature", "action": "check"}),
+                system_tools.handle_tool_call("get_system_info", {}),  # Duplicate
             ]
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -302,11 +365,15 @@ class TestConcurrentOperationsIntegration:
             mock_ssh.get_system_info = Mock(side_effect=Exception("Test error"))
             mock_ssh_class.return_value = mock_ssh
 
-            # Create tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemManagementTools(mock_ssh, test_config)
+            # Create container with mocked client
+            container = Container(test_config)
+            container._instances["retropie_client"] = mock_ssh
+
+            # Create tools with container
+            system_tools = SystemManagementTools(container)
 
             # Execute operation that will fail
-            result = await system_tools.handle_tool_call("system_info", {})
+            result = await system_tools.handle_tool_call("get_system_info", {})
 
             # Verify error handling using MCP-compliant response format
             assert isinstance(result, list), "Should return MCP-compliant list"
@@ -347,11 +414,15 @@ class TestEndToEndErrorScenarios:
             )
             mock_ssh_class.return_value = mock_ssh
 
-            # Create tools (correct constructor signature: ssh_handler, config)
-            system_tools = SystemManagementTools(mock_ssh, test_config)
+            # Create container with mocked client
+            container = Container(test_config)
+            container._instances["retropie_client"] = mock_ssh
+
+            # Create tools with container
+            system_tools = SystemManagementTools(container)
 
             # Attempt operation
-            result = await system_tools.handle_tool_call("system_info", {})
+            result = await system_tools.handle_tool_call("get_system_info", {})
 
             # Verify network error is handled using MCP-compliant response format
             assert isinstance(result, list), "Should return MCP-compliant list"
@@ -380,19 +451,51 @@ class TestEndToEndErrorScenarios:
             # Mock malformed/unexpected command outputs
             def mock_execute_command(command):
                 if "hostname" in command:
-                    return (0, "MALFORMED_OUTPUT_###", "")
+                    return CommandResult(
+                        command=command,
+                        exit_code=0,
+                        stdout="MALFORMED_OUTPUT_###",
+                        stderr="",
+                        success=True,
+                        execution_time=0.1
+                    )
                 elif "vcgencmd" in command:
-                    return (0, "invalid_temp_format", "")
+                    return CommandResult(
+                        command=command,
+                        exit_code=0,
+                        stdout="invalid_temp_format",
+                        stderr="",
+                        success=True,
+                        execution_time=0.1
+                    )
                 elif "free" in command:
-                    return (0, "completely unexpected output format", "")
+                    return CommandResult(
+                        command=command,
+                        exit_code=0,
+                        stdout="completely unexpected output format",
+                        stderr="",
+                        success=True,
+                        execution_time=0.1
+                    )
                 else:
-                    return (0, "???", "")
+                    return CommandResult(
+                        command=command,
+                        exit_code=0,
+                        stdout="???",
+                        stderr="",
+                        success=True,
+                        execution_time=0.1
+                    )
 
             mock_ssh.execute_command = AsyncMock(side_effect=mock_execute_command)
             mock_ssh_class.return_value = mock_ssh
 
-            # Create tools
-            system_tools = SystemManagementTools(test_config, mock_ssh)
+            # Create container with mocked client
+            container = Container(test_config)
+            container._instances["retropie_client"] = mock_ssh
+
+            # Create tools with container
+            system_tools = SystemManagementTools(container)
 
             # Execute operation with malformed responses
             result = await system_tools.handle_tool_call("get_system_info", {})

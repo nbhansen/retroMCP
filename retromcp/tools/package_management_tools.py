@@ -20,13 +20,13 @@ class PackageManagementTools(BaseTool):
         return [
             Tool(
                 name="manage_package",
-                description="Manage system packages (install, remove, update, list, search)",
+                description="Manage system packages (install, remove, update, list, search, check)",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "action": {
                             "type": "string",
-                            "enum": ["install", "remove", "update", "list", "search"],
+                            "enum": ["install", "remove", "update", "list", "search", "check"],
                             "description": "Action to perform on packages",
                         },
                         "packages": {
@@ -65,33 +65,62 @@ class PackageManagementTools(BaseTool):
             if not action:
                 return self.format_error("'action' is required")
 
-            # Get the use case from container
-            use_case = self.container.get_package_management_use_case()
-            
+            # Get the client from container
+            client = self.container.retropie_client
+
             if action == "install":
                 if not packages:
                     return self.format_error("Package names are required for install action")
-                result = use_case.install_packages(packages)
+                # Use the InstallPackagesUseCase for install
+                use_case = self.container.install_packages_use_case
+                result = use_case.execute(packages)
             elif action == "remove":
                 if not packages:
                     return self.format_error("Package names are required for remove action")
-                result = use_case.remove_packages(packages)
+                # Use direct command for remove
+                package_list = " ".join(packages)
+                result = client.execute_command(f"sudo apt-get remove -y {package_list}")
             elif action == "update":
                 if packages:
-                    result = use_case.update_packages(packages)
+                    # Update specific packages
+                    package_list = " ".join(packages)
+                    result = client.execute_command(f"sudo apt-get update && sudo apt-get upgrade -y {package_list}")
                 else:
-                    result = use_case.update_all_packages()
+                    # Update all packages using system use case
+                    use_case = self.container.update_system_use_case
+                    result = use_case.execute()
             elif action == "list":
-                result = use_case.list_packages()
+                result = client.execute_command("dpkg --get-selections | grep -v deinstall")
             elif action == "search":
                 if not query:
                     return self.format_error("Search query is required for search action")
-                result = use_case.search_packages(query)
+                result = client.execute_command(f"apt-cache search {query}")
+            elif action == "check":
+                if not packages:
+                    return self.format_error("Package names are required for check action")
+                # Check if packages are installed
+                package_list = " ".join(packages)
+                result = client.execute_command(f"dpkg -l {package_list} 2>/dev/null | grep '^ii'")
             else:
                 return self.format_error(f"Unknown action: {action}")
 
             if result.success:
-                return self.format_success(f"Package {action}: {result.stdout}")
+                if action == "check":
+                    # Parse package check output for better formatting
+                    if result.stdout.strip():
+                        formatted_output = "Package Status Check:\n"
+                        for line in result.stdout.strip().split('\n'):
+                            if line.startswith('ii '):
+                                # Extract package name from dpkg output
+                                parts = line.split()
+                                if len(parts) >= 2:
+                                    package_name = parts[1]
+                                    formatted_output += f"✅ {package_name}: Installed\n"
+                        return [TextContent(type="text", text=formatted_output.strip())]
+                    else:
+                        return self.format_error("No packages found")
+                else:
+                    return self.format_success(f"Package {action}: {result.stdout}")
             else:
                 return self.format_error(f"Failed to {action} packages: {result.stderr}")
 

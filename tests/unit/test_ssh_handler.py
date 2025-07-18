@@ -70,6 +70,7 @@ class TestSSHHandler:
             "hostname": "test-pi.local",
             "port": 22,
             "username": "retro",
+            "timeout": 10,
             "password": "test_password",
         }
         mock_client.connect.assert_called_once_with(**expected_args)
@@ -93,6 +94,7 @@ class TestSSHHandler:
             "hostname": "test-pi.local",
             "port": 22,
             "username": "retro",
+            "timeout": 10,
             "key_filename": "/home/user/.ssh/id_rsa",
         }
         mock_client.connect.assert_called_once_with(**expected_args)

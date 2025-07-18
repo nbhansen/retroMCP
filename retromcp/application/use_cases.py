@@ -16,16 +16,16 @@ from .system_use_cases import WriteFileUseCase
 
 # Export all use cases for backward compatibility
 __all__ = [
-    "TestConnectionUseCase",
-    "GetSystemInfoUseCase",
-    "InstallPackagesUseCase",
-    "UpdateSystemUseCase",
     "DetectControllersUseCase",
-    "SetupControllerUseCase",
-    "InstallEmulatorUseCase",
-    "ListRomsUseCase",
     "ExecuteCommandUseCase",
-    "WriteFileUseCase",
-    "ManageStateUseCase",
+    "GetSystemInfoUseCase",
+    "InstallEmulatorUseCase",
+    "InstallPackagesUseCase",
+    "ListRomsUseCase",
     "ManageDockerUseCase",
+    "ManageStateUseCase",
+    "SetupControllerUseCase",
+    "TestConnectionUseCase",
+    "UpdateSystemUseCase",
+    "WriteFileUseCase",
 ]

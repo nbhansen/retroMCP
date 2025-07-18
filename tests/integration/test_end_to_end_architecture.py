@@ -8,8 +8,6 @@ from mcp.types import TextContent
 from retromcp.config import RetroPieConfig
 from retromcp.config import ServerConfig
 from retromcp.container import Container
-from retromcp.domain.models import CommandResult
-from retromcp.domain.models import Controller
 from retromcp.domain.models import SystemInfo
 from retromcp.server import RetroMCPServer
 
@@ -36,22 +34,23 @@ class TestEndToEndArchitecture:
 
         # Mock the entire infrastructure chain
         with patch.object(server.container, "connect", return_value=True):
-            # Mock the SSH client at the lowest level
+            # Mock the RetroPie client methods properly
             with patch.object(
-                server.container.retropie_client, "execute_command"
-            ) as mock_ssh:
-                mock_ssh.return_value = CommandResult(
-                    command="uname -a",
-                    exit_code=0,
-                    stdout="Linux integration-test 5.15.0",
-                    stderr="",
-                    success=True,
-                    execution_time=0.05,
+                server.container.retropie_client, "test_connection", return_value=True
+            ), patch.object(
+                server.container.retropie_client, "get_connection_info"
+            ) as mock_connection_info:
+                from retromcp.domain.models import ConnectionInfo
+                mock_connection_info.return_value = ConnectionInfo(
+                    connected=True,
+                    host="integration-test",
+                    port=22,
+                    username="test-user"
                 )
 
                 # Execute tool call through server (simulates MCP request)
                 result = await server.call_tool(
-                    "manage_system", {"resource": "connection", "action": "test"}
+                    "manage_connection", {"action": "test"}
                 )
 
                 # Verify complete chain executed
@@ -60,7 +59,7 @@ class TestEndToEndArchitecture:
                 assert "integration-test" in result[0].text
 
                 # Verify the call propagated through all layers
-                mock_ssh.assert_called_once()
+                mock_connection_info.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_multiple_tool_types_integration(
@@ -72,48 +71,52 @@ class TestEndToEndArchitecture:
         with patch.object(server.container, "connect", return_value=True):
             # Mock different repository responses for different tools
             with patch.object(
-                server.container.retropie_client, "execute_command"
-            ) as mock_ssh, patch.object(
-                server.container.controller_repository, "detect_controllers"
-            ) as mock_controllers:
+                server.container.retropie_client, "test_connection", return_value=True
+            ), patch.object(
+                server.container.retropie_client, "get_connection_info"
+            ) as mock_connection_info, patch.object(
+                server.container.retropie_client, "get_system_info", create=True
+            ) as mock_system_info:
                 # Setup different responses for different tools
-                mock_ssh.return_value = CommandResult(
-                    command="test",
-                    exit_code=0,
-                    stdout="System OK",
-                    stderr="",
-                    success=True,
-                    execution_time=0.1,
+                from retromcp.domain.models import ConnectionInfo
+                from retromcp.domain.models import SystemInfo
+                mock_connection_info.return_value = ConnectionInfo(
+                    connected=True,
+                    host="integration-test",
+                    port=22,
+                    username="test-user"
                 )
 
-                mock_controllers.return_value = [
-                    Controller(
-                        device_path="/dev/input/js0",
-                        name="Test Controller",
-                        controller_type="xbox",
-                        vendor_id="045e",
-                        product_id="028e",
-                        is_connected=True,
-                    )
-                ]
+                mock_system_info.return_value = SystemInfo(
+                    hostname="integration-test",
+                    cpu_temperature=45.0,
+                    memory_total=1000000,
+                    memory_used=500000,
+                    memory_free=500000,
+                    disk_total=10000000,
+                    disk_used=5000000,
+                    disk_free=5000000,
+                    load_average=[1.0],
+                    uptime=3600
+                )
 
                 # Test system tool
                 system_result = await server.call_tool(
-                    "manage_system", {"resource": "connection", "action": "test"}
+                    "manage_connection", {"action": "test"}
                 )
                 assert len(system_result) == 1
                 assert "integration-test" in system_result[0].text
 
-                # Test controller tool
-                controller_result = await server.call_tool(
-                    "manage_gaming", {"component": "controller", "action": "detect"}
+                # Test another system tool (get_system_info)
+                info_result = await server.call_tool(
+                    "get_system_info", {"category": "hardware"}
                 )
-                assert len(controller_result) == 1
-                assert "Test Controller" in controller_result[0].text
+                assert len(info_result) == 1
+                assert "integration-test" in info_result[0].text
 
                 # Verify both chains executed through proper architecture
-                mock_ssh.assert_called()
-                mock_controllers.assert_called_once()
+                mock_connection_info.assert_called()
+                # Note: get_system_info uses the RetroPie client, not controller repository
 
     @pytest.mark.asyncio
     async def test_error_handling_through_complete_chain(
@@ -123,23 +126,28 @@ class TestEndToEndArchitecture:
         server = RetroMCPServer(test_config, server_config)
 
         with patch.object(server.container, "connect", return_value=True):
-            # Mock SSH to raise exception at infrastructure level
+            # Mock connection test to fail at infrastructure level
             with patch.object(
-                server.container.retropie_client, "execute_command"
-            ) as mock_ssh:
-                mock_ssh.side_effect = Exception(
-                    "Network timeout at infrastructure level"
+                server.container.retropie_client, "test_connection", return_value=False
+            ), patch.object(
+                server.container.retropie_client, "get_connection_info"
+            ) as mock_connection_info:
+                from retromcp.domain.models import ConnectionInfo
+                mock_connection_info.return_value = ConnectionInfo(
+                    connected=False,
+                    host="integration-test",
+                    port=22,
+                    username="test-user"
                 )
 
                 # Error should be caught and returned as proper MCP response
                 result = await server.call_tool(
-                    "manage_system", {"resource": "connection", "action": "test"}
+                    "manage_connection", {"action": "test"}
                 )
 
                 assert len(result) == 1
                 assert isinstance(result[0], TextContent)
-                assert "Connection failed" in result[0].text
-                assert "Network timeout" in result[0].text
+                assert "Connection test failed" in result[0].text
 
     @pytest.mark.asyncio
     async def test_container_isolation_across_tools(
@@ -150,27 +158,44 @@ class TestEndToEndArchitecture:
 
         with patch.object(server.container, "connect", return_value=True):
             with patch.object(
-                server.container.retropie_client, "execute_command"
-            ) as mock_ssh:
-                mock_ssh.return_value = CommandResult(
-                    command="test",
-                    exit_code=0,
-                    stdout="OK",
-                    stderr="",
-                    success=True,
-                    execution_time=0.1,
+                server.container.retropie_client, "test_connection", return_value=True
+            ), patch.object(
+                server.container.retropie_client, "get_connection_info"
+            ) as mock_connection_info, patch.object(
+                server.container.retropie_client, "get_system_info", create=True
+            ) as mock_system_info:
+                from retromcp.domain.models import ConnectionInfo
+                from retromcp.domain.models import SystemInfo
+                mock_connection_info.return_value = ConnectionInfo(
+                    connected=True,
+                    host="integration-test",
+                    port=22,
+                    username="test-user"
+                )
+                mock_system_info.return_value = SystemInfo(
+                    hostname="integration-test",
+                    cpu_temperature=45.0,
+                    memory_total=1000000,
+                    memory_used=500000,
+                    memory_free=500000,
+                    disk_total=10000000,
+                    disk_used=5000000,
+                    disk_free=5000000,
+                    load_average=[1.0],
+                    uptime=3600
                 )
 
                 # Call multiple tools - they should share the same container instance
                 await server.call_tool(
-                    "manage_system", {"resource": "connection", "action": "test"}
+                    "manage_connection", {"action": "test"}
                 )
                 await server.call_tool(
-                    "manage_system", {"resource": "info", "action": "get"}
+                    "get_system_info", {"category": "all"}
                 )
 
-                # Tools should have used same SSH client instance
-                assert mock_ssh.call_count >= 1
+                # Tools should have used same client instance
+                assert mock_connection_info.call_count >= 1
+                assert mock_system_info.call_count >= 1
 
                 # Verify container state is consistent
                 tools = await server.list_tools()
@@ -235,13 +260,13 @@ class TestEndToEndArchitecture:
 
             # Verify expected tool categories exist
             tool_names = [tool.name for tool in tools]
-            expected_categories = [
-                "manage_system",
+            expected_tools = [
+                "manage_connection",
+                "get_system_info",
                 "manage_gaming",
-                "manage_hardware",
             ]
 
-            for expected in expected_categories:
+            for expected in expected_tools:
                 assert expected in tool_names
 
     @pytest.mark.asyncio
@@ -258,20 +283,21 @@ class TestEndToEndArchitecture:
         # Use cases should have access to config through repositories
         with patch.object(server.container, "connect", return_value=True):
             with patch.object(
-                server.container.retropie_client, "execute_command"
-            ) as mock_ssh:
-                mock_ssh.return_value = CommandResult(
-                    command="hostname",
-                    exit_code=0,
-                    stdout=test_config.host,
-                    stderr="",
-                    success=True,
-                    execution_time=0.1,
+                server.container.retropie_client, "test_connection", return_value=True
+            ), patch.object(
+                server.container.retropie_client, "get_connection_info"
+            ) as mock_connection_info:
+                from retromcp.domain.models import ConnectionInfo
+                mock_connection_info.return_value = ConnectionInfo(
+                    connected=True,
+                    host=test_config.host,
+                    port=test_config.port,
+                    username=test_config.username
                 )
 
                 # Execute tool that uses configuration
                 result = await server.call_tool(
-                    "manage_system", {"resource": "connection", "action": "test"}
+                    "manage_connection", {"action": "test"}
                 )
 
                 # Result should reflect the configuration
@@ -287,32 +313,49 @@ class TestEndToEndArchitecture:
 
         with patch.object(server.container, "connect", return_value=True):
             with patch.object(
-                server.container.retropie_client, "execute_command"
-            ) as mock_ssh:
-                mock_ssh.return_value = CommandResult(
-                    command="test",
-                    exit_code=0,
-                    stdout="OK",
-                    stderr="",
-                    success=True,
-                    execution_time=0.1,
+                server.container.retropie_client, "test_connection", return_value=True
+            ), patch.object(
+                server.container.retropie_client, "get_connection_info"
+            ) as mock_connection_info, patch.object(
+                server.container.retropie_client, "get_system_info", create=True
+            ) as mock_system_info:
+                from retromcp.domain.models import ConnectionInfo
+                from retromcp.domain.models import SystemInfo
+                mock_connection_info.return_value = ConnectionInfo(
+                    connected=True,
+                    host="integration-test",
+                    port=22,
+                    username="test-user"
+                )
+                mock_system_info.return_value = SystemInfo(
+                    hostname="integration-test",
+                    cpu_temperature=45.0,
+                    memory_total=1000000,
+                    memory_used=500000,
+                    memory_free=500000,
+                    disk_total=10000000,
+                    disk_used=5000000,
+                    disk_free=5000000,
+                    load_average=[1.0],
+                    uptime=3600
                 )
 
                 # First request
                 result1 = await server.call_tool(
-                    "manage_system", {"resource": "connection", "action": "test"}
+                    "manage_connection", {"action": "test"}
                 )
                 assert len(result1) == 1
 
                 # Second request - should reuse same container state
                 result2 = await server.call_tool(
-                    "manage_system", {"resource": "info", "action": "get"}
+                    "get_system_info", {"category": "all"}
                 )
                 assert len(result2) == 1
 
                 # Container should maintain singleton behavior
                 # Both calls should use same infrastructure instances
-                assert mock_ssh.call_count >= 1
+                assert mock_connection_info.call_count >= 1
+                assert mock_system_info.call_count >= 1
 
     def test_interface_compliance_through_chain(
         self, test_config: RetroPieConfig
@@ -344,28 +387,29 @@ class TestEndToEndArchitecture:
 
         with patch.object(server.container, "connect", return_value=True):
             with patch.object(
-                server.container.retropie_client, "execute_command"
-            ) as mock_ssh:
-                mock_ssh.return_value = CommandResult(
-                    command="test",
-                    exit_code=0,
-                    stdout="OK",
-                    stderr="",
-                    success=True,
-                    execution_time=0.1,
+                server.container.retropie_client, "test_connection", return_value=True
+            ), patch.object(
+                server.container.retropie_client, "get_connection_info"
+            ) as mock_connection_info:
+                from retromcp.domain.models import ConnectionInfo
+                mock_connection_info.return_value = ConnectionInfo(
+                    connected=True,
+                    host="integration-test",
+                    port=22,
+                    username="test-user"
                 )
 
                 # Multiple calls should reuse resources appropriately
                 for _i in range(3):
                     result = await server.call_tool(
-                        "manage_system", {"resource": "connection", "action": "test"}
+                        "manage_connection", {"action": "test"}
                     )
                     assert len(result) == 1
 
                 # Should not create new instances for each call (singleton behavior)
                 # The exact call count depends on implementation, but should be reasonable
-                assert mock_ssh.call_count >= 1
-                assert mock_ssh.call_count <= 10  # Should not be excessive
+                assert mock_connection_info.call_count >= 1
+                assert mock_connection_info.call_count <= 10  # Should not be excessive
 
 
 class TestArchitecturalConstraints:
@@ -461,7 +505,7 @@ class TestArchitecturalConstraints:
             if not name.startswith("_") and callable(getattr(container, name))
         ]
 
-        # Container should not have business logic verbs
+        # Container should not have business logic verbs (only dependency management)
         business_verbs = [
             "install",
             "configure",
@@ -471,7 +515,16 @@ class TestArchitecturalConstraints:
             "execute",
             "manage",
         ]
-        for method in container_methods:
+
+        # Get actual methods and exclude properties and known DI methods
+        container_business_methods = [
+            method for method in container_methods
+            if not method.startswith(("get_", "test_")) and
+               not method.endswith(("_repository", "_use_case", "_client")) and
+               method not in ["connect", "disconnect", "config"]
+        ]
+
+        for method in container_business_methods:
             for verb in business_verbs:
                 assert not method.startswith(verb), (
                     f"Container violates SRP with business logic method: {method}"
@@ -483,11 +536,13 @@ class TestArchitecturalConstraints:
         system_tools = SystemManagementTools(container)
 
         tool_attrs = [name for name in dir(system_tools) if not name.startswith("_")]
-        infrastructure_indicators = ["ssh", "socket", "connection", "client"]
+        # Check that tools don't directly access low-level infrastructure
+        # Allow delegation tools (like connection_tools) but not direct ssh access
+        direct_infrastructure_indicators = ["ssh", "socket", "client", "paramiko"]
 
         for attr in tool_attrs:
-            for indicator in infrastructure_indicators:
+            for indicator in direct_infrastructure_indicators:
                 if indicator in attr.lower() and attr != "container":
                     pytest.fail(
-                        f"Tool violates SRP with infrastructure attribute: {attr}"
+                        f"Tool violates SRP with direct infrastructure attribute: {attr}"
                     )

@@ -25,7 +25,7 @@ class SystemManagementTools(BaseTool):
     def __init__(self, container):
         """Initialize with container and create sub-tools."""
         super().__init__(container)
-        
+
         # Create focused sub-tools
         self.service_tools = ServiceManagementTools(container)
         self.package_tools = PackageManagementTools(container)
@@ -38,7 +38,7 @@ class SystemManagementTools(BaseTool):
     def get_tools(self) -> List[Tool]:
         """Return list of all available system management tools."""
         tools = []
-        
+
         # Collect tools from all sub-tools
         tools.extend(self.service_tools.get_tools())
         tools.extend(self.package_tools.get_tools())
@@ -47,14 +47,13 @@ class SystemManagementTools(BaseTool):
         tools.extend(self.connection_tools.get_tools())
         tools.extend(self.info_tools.get_tools())
         tools.extend(self.update_tools.get_tools())
-        
+
         return tools
 
     async def handle_tool_call(
         self, name: str, arguments: Dict[str, Any]
     ) -> List[TextContent | ImageContent | EmbeddedResource]:
         """Route tool calls to appropriate sub-tools."""
-        
         # Route to appropriate sub-tool based on tool name
         if name == "manage_service":
             return await self.service_tools.handle_tool_call(name, arguments)

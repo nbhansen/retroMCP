@@ -2,9 +2,6 @@
 
 import re
 import shlex
-from typing import Any
-from typing import List
-from typing import Optional
 
 from ..domain.models import CommandResult
 from ..domain.models import ConnectionInfo
@@ -66,10 +63,10 @@ class ExecuteCommandUseCase:
         """Execute a command on the system."""
         # Validate command for security
         self._validate_command_security(request.command)
-        
+
         # Build final command with proper escaping
         final_command = self._build_secure_command(request)
-        
+
         # Execute with proper error handling
         try:
             result = self._client.execute_command(final_command)
@@ -123,12 +120,12 @@ class ExecuteCommandUseCase:
             r"source\s+/dev/",  # Source from devices
             r"\.\s+/dev/",  # Dot source from devices
         ]
-        
+
         # Check each pattern
         for pattern in dangerous_patterns:
             if re.search(pattern, command, re.IGNORECASE):
                 raise ValueError(f"Command contains dangerous pattern: {pattern}")
-        
+
         # Additional checks for command injection
         if any(char in command for char in [";", "&", "|", "&&", "||"]):
             # Allow only specific safe combinations
@@ -141,7 +138,7 @@ class ExecuteCommandUseCase:
                 r"^.*\s+\|\s+sort\s+",  # Piping to sort
                 r"^.*\s+\|\s+uniq\s+",  # Piping to uniq
             ]
-            
+
             if not any(re.match(pattern, command, re.IGNORECASE) for pattern in safe_patterns):
                 raise ValueError("Command contains potentially dangerous operators")
 
@@ -149,15 +146,15 @@ class ExecuteCommandUseCase:
         """Build a secure command with proper escaping."""
         # Base command
         command = request.command
-        
+
         # Add sudo if requested and not already present
         if request.use_sudo and not command.startswith("sudo"):
             command = f"sudo {command}"
-        
+
         # Add timeout if specified
         if request.timeout:
             command = f"timeout {request.timeout} {command}"
-        
+
         # Quote the entire command to prevent injection
         return shlex.quote(command) if request.escape_args else command
 
@@ -173,7 +170,7 @@ class WriteFileUseCase:
         """Write a file to the system."""
         # Validate path for security
         self._validate_path_security(request.path)
-        
+
         # Write the file
         return self._repository.write_file(request.path, request.content)
 
@@ -182,7 +179,7 @@ class WriteFileUseCase:
         # Prevent path traversal
         if ".." in path:
             raise ValueError("Path traversal attempt detected in file path")
-        
+
         # Prevent writing to sensitive system locations
         sensitive_paths = [
             "/etc/passwd",
@@ -197,11 +194,11 @@ class WriteFileUseCase:
             "/dev/",
             "/boot/",
         ]
-        
+
         for sensitive_path in sensitive_paths:
             if path.startswith(sensitive_path) or sensitive_path.replace("*", "") in path:
                 raise ValueError(f"Writing to sensitive path is not allowed: {path}")
-        
+
         # Require absolute paths
         if not path.startswith("/"):
             raise ValueError("Only absolute paths are allowed")

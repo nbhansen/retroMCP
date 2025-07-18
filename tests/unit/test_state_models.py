@@ -5,18 +5,18 @@ from datetime import datetime
 
 import pytest
 
+from retromcp.domain.models import HardwareInfo
+from retromcp.domain.models import NetworkInterface
+from retromcp.domain.models import NetworkStatus
+from retromcp.domain.models import ServiceStatus
+from retromcp.domain.models import SoftwareInfo
 from retromcp.domain.models import StateAction
 from retromcp.domain.models import StateManagementRequest
 from retromcp.domain.models import StateManagementResult
-from retromcp.domain.models import SystemState
-from retromcp.domain.models import HardwareInfo
-from retromcp.domain.models import NetworkInterface
-from retromcp.domain.models import SoftwareInfo
-from retromcp.domain.models import SystemService
-from retromcp.domain.models import SystemNote
 from retromcp.domain.models import StorageDevice
-from retromcp.domain.models import NetworkStatus
-from retromcp.domain.models import ServiceStatus
+from retromcp.domain.models import SystemNote
+from retromcp.domain.models import SystemService
+from retromcp.domain.models import SystemState
 
 
 class TestStateModels:
@@ -208,7 +208,7 @@ class TestV2StateModels:
             used="45GB",
             filesystem_type="ext4"
         )
-        
+
         hardware = HardwareInfo(
             model="Raspberry Pi 5 Model B Rev 1.1",
             revision="e04171",
@@ -510,7 +510,7 @@ class TestSchemaVersionMigration:
 
         v2_state = v1_state.migrate_to_v2()
         json_str = v2_state.to_json()
-        
+
         # Verify JSON structure
         import json
         data = json.loads(json_str)
@@ -518,7 +518,7 @@ class TestSchemaVersionMigration:
         assert data["last_updated"] == v1_state.last_updated
         assert data["system"] == v1_state.system
         assert data["emulators"] == v1_state.emulators
-        
+
         # v2.0 fields should not be in JSON if they're None
         assert "hardware" not in data
         assert "network" not in data

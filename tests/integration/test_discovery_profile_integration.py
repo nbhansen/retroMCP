@@ -4,11 +4,11 @@ Tests the complete flow: SSH connection → discovery → profile creation → t
 Also verifies CLAUDE.md compliance during these workflows.
 """
 
+import asyncio
 import tempfile
 from dataclasses import fields
 from dataclasses import is_dataclass
 from pathlib import Path
-from unittest.mock import AsyncMock
 from unittest.mock import Mock
 from unittest.mock import patch
 
@@ -60,14 +60,14 @@ class TestDiscoveryProfileIntegration:
     def _verify_claude_md_compliance(self, obj: object) -> None:
         """Verify that an object follows CLAUDE.md principles."""
         # Test immutability for dataclasses
-        if is_dataclass(obj):
-            # Check if it's a frozen dataclass
-            if hasattr(obj, "__dataclass_params__"):
-                # Allow mutable for profile classes that need updates
-                if "Profile" not in obj.__class__.__name__:
-                    assert obj.__dataclass_params__.frozen is True, (
-                        f"{obj.__class__.__name__} should be frozen for immutability"
-                    )
+        if (
+            is_dataclass(obj)
+            and hasattr(obj, "__dataclass_params__")
+            and "Profile" not in obj.__class__.__name__
+        ):
+            assert obj.__dataclass_params__.frozen is True, (
+                f"{obj.__class__.__name__} should be frozen for immutability"
+            )
 
         # Test meaningful naming
         class_name = obj.__class__.__name__
@@ -255,14 +255,30 @@ class TestDiscoveryProfileIntegration:
         self._verify_claude_md_compliance(updated_config)
 
         # Step 2: Use tools with the configured system
-        with patch("retromcp.ssh_handler.SSHHandler") as mock_ssh_class:
-            # Mock SSH handler for tool usage
-            mock_ssh = Mock()
-            mock_ssh.execute_command = AsyncMock(return_value=(0, "test-hostname", ""))
-            mock_ssh_class.return_value = mock_ssh
+        with patch("retromcp.container.Container") as mock_container_class:
+            # Mock Container instance
+            mock_container = Mock()
+            mock_container.config = updated_config
+            mock_container_class.return_value = mock_container
 
-            # Create SystemManagementTools with configuration
-            system_tools = SystemManagementTools(updated_config, mock_ssh)
+            # Mock the get_system_info_use_case
+            mock_use_case = Mock()
+            mock_system_info = Mock()
+            mock_system_info.hostname = "test-hostname"
+            mock_system_info.cpu_temperature = 45.0
+            mock_system_info.load_average = "0.1 0.2 0.3"
+            mock_system_info.uptime = "2 days, 3 hours"
+            mock_system_info.memory_total = 1024 * 1024 * 1024  # 1GB
+            mock_system_info.memory_used = 512 * 1024 * 1024  # 512MB
+            mock_system_info.memory_free = 512 * 1024 * 1024  # 512MB
+            mock_system_info.disk_total = 16 * 1024 * 1024 * 1024  # 16GB
+            mock_system_info.disk_used = 8 * 1024 * 1024 * 1024  # 8GB
+            mock_system_info.disk_free = 8 * 1024 * 1024 * 1024  # 8GB
+            mock_use_case.execute.return_value = mock_system_info
+            mock_container.get_system_info_use_case = mock_use_case
+
+            # Create SystemManagementTools with Container
+            system_tools = SystemManagementTools(mock_container)
 
             # CLAUDE.md compliance check for tools
             self._verify_claude_md_compliance(updated_config)
@@ -301,14 +317,14 @@ class TestProfilePersistenceIntegration:
     def _verify_claude_md_compliance(self, obj: object) -> None:
         """Verify that an object follows CLAUDE.md principles."""
         # Test immutability for dataclasses
-        if is_dataclass(obj):
-            # Check if it's a frozen dataclass
-            if hasattr(obj, "__dataclass_params__"):
-                # Allow mutable for profile classes that need updates
-                if "Profile" not in obj.__class__.__name__:
-                    assert obj.__dataclass_params__.frozen is True, (
-                        f"{obj.__class__.__name__} should be frozen for immutability"
-                    )
+        if (
+            is_dataclass(obj)
+            and hasattr(obj, "__dataclass_params__")
+            and "Profile" not in obj.__class__.__name__
+        ):
+            assert obj.__dataclass_params__.frozen is True, (
+                f"{obj.__class__.__name__} should be frozen for immutability"
+            )
 
         # Test meaningful naming
         class_name = obj.__class__.__name__
@@ -424,7 +440,3 @@ class TestProfilePersistenceIntegration:
         assert current_profile is not None
         assert current_profile.username == "pi"
         assert current_profile.home_dir == "/home/pi"
-
-
-# Import asyncio for async tests
-import asyncio

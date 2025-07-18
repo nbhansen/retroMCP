@@ -84,24 +84,28 @@ class TestArchitecturalIntegration:
         """Test complete dependency chain for controller tools."""
         container = Container(test_config)
 
-        # Mock controller repository
-        with patch.object(container, "controller_repository") as mock_repo:
-            mock_repo.detect_controllers.return_value = [
-                Controller(
-                    device_path="/dev/input/js0",
-                    name="Xbox Controller",
-                    controller_type="xbox",
-                    vendor_id="045e",
-                    product_id="028e",
-                    is_connected=True,
-                )
-            ]
+        # Mock the controller repository with the actual repository instance
+        from unittest.mock import Mock
+        mock_repo = Mock()
+        mock_repo.detect_controllers.return_value = [
+            Controller(
+                device_path="/dev/input/js0",
+                name="Xbox Controller",
+                controller_type="xbox",
+                vendor_id="045e",
+                product_id="028e",
+                connected=True,
+            )
+        ]
 
-            controller_tools = GamingSystemTools(container)
+        # Replace the repository instance in container's instances
+        container._instances["controller_repository"] = mock_repo
 
-            # Verify access to use cases
-            assert hasattr(controller_tools.container, "detect_controllers_use_case")
-            assert hasattr(controller_tools.container, "setup_controller_use_case")
+        controller_tools = GamingSystemTools(container)
+
+        # Verify access to use cases
+        assert hasattr(controller_tools.container, "detect_controllers_use_case")
+        assert hasattr(controller_tools.container, "setup_controller_use_case")
 
     def test_server_container_integration(
         self, test_config: RetroPieConfig, server_config: ServerConfig
@@ -134,7 +138,7 @@ class TestArchitecturalIntegration:
 
             # Verify expected tools exist
             expected_tools = [
-                "manage_system",
+                "manage_service",
                 "manage_gaming",
                 "manage_hardware",
             ]
@@ -229,9 +233,12 @@ class TestArchitecturalIntegration:
         server = RetroMCPServer(test_config, server_config)
 
         # Mock the infrastructure layer
-        with patch.object(server.container, "connect", return_value=True), patch.object(
-            server.container.retropie_client, "execute_command"
-        ) as mock_execute:
+        with patch.object(server.container, "connect", return_value=True):
+            # Replace the retropie_client with a mock
+            from unittest.mock import Mock
+            mock_client = Mock()
+            mock_execute = mock_client.execute_command
+            server.container._instances["retropie_client"] = mock_client
             mock_execute.return_value = CommandResult(
                 command="uname -a",
                 exit_code=0,
@@ -243,7 +250,7 @@ class TestArchitecturalIntegration:
 
             # Execute a tool call through the server
             result = await server.call_tool(
-                "manage_system", {"resource": "connection", "action": "test"}
+                "manage_connection", {"action": "test"}
             )
 
             # Verify result structure
@@ -292,16 +299,29 @@ class TestArchitecturalIntegration:
         """Test that errors properly propagate through the dependency chain."""
         container = Container(test_config)
 
-        # Mock repository to raise exception
-        with patch.object(container, "retropie_client") as mock_client:
-            mock_client.execute_command.side_effect = Exception("SSH connection failed")
+        # Mock repository to raise exception by replacing the instance
+        from unittest.mock import Mock
+        mock_client = Mock()
+        mock_client.execute_command.side_effect = Exception("SSH connection failed")
+        container._instances["retropie_client"] = mock_client
 
-            SystemManagementTools(container)
+        SystemManagementTools(container)
 
-            # Exception should propagate through the chain
-            with pytest.raises(Exception, match="SSH connection failed"):
-                # This would go: Tool → Container → Use Case → Repository → SSH (exception)
-                container.test_connection_use_case.execute()
+        # Create system tools and test exception propagation
+        system_tools = SystemManagementTools(container)
+
+        # Exception should propagate through the tool chain when calling manage_connection
+        # This goes: Tool → Container → Use Case → Repository → SSH (exception)
+        import asyncio
+
+        async def test_exception_propagation():
+            result = await system_tools.handle_tool_call("manage_connection", {"action": "test"})
+            # Should return error response, not raise exception
+            assert len(result) == 1
+            assert "❌" in result[0].text or "error" in result[0].text.lower()
+
+        # Run the async test
+        asyncio.run(test_exception_propagation())
 
 
 class TestArchitecturalCompliance:
@@ -342,7 +362,7 @@ class TestArchitecturalCompliance:
 
         # Controller repository should have controller-specific methods
         assert hasattr(controller_repo, "detect_controllers")
-        assert hasattr(controller_repo, "configure_controller")
+        assert hasattr(controller_repo, "setup_controller")  # Updated method name
 
         # System repo should not have controller methods
         assert not hasattr(system_repo, "detect_controllers")

@@ -668,3 +668,872 @@ class TestGamingSystemTools:
         assert hasattr(gaming_system_tools, "format_success")
         assert hasattr(gaming_system_tools, "format_error")
         assert hasattr(gaming_system_tools, "format_info")
+
+    # Comprehensive Error Handling Tests
+
+    @pytest.mark.asyncio
+    async def test_missing_component_error(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test error handling for missing component."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "action": "test",
+                # Missing 'component' parameter
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "component is required" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_missing_action_error(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test error handling for missing action."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                # Missing 'action' parameter
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "action is required" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_handle_tool_call_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test exception handling in handle_tool_call."""
+        # Mock an exception in _manage_gaming by making the use case throw
+        gaming_system_tools.container.detect_controllers_use_case.execute.side_effect = Exception(
+            "Test exception"
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "detect",
+            },
+        )
+
+        # Should handle exception gracefully
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "controller detection failed" in result[0].text.lower()
+
+    # RetroPie Component Error Tests
+
+    @pytest.mark.asyncio
+    async def test_retropie_invalid_actions(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie component with invalid actions."""
+        invalid_actions = ["invalid_action", "delete", "remove", "test"]
+
+        for action in invalid_actions:
+            result = await gaming_system_tools.handle_tool_call(
+                "manage_gaming",
+                {
+                    "component": "retropie",
+                    "action": action,
+                },
+            )
+
+            # Verify error
+            assert len(result) == 1
+            assert isinstance(result[0], TextContent)
+            assert "invalid action" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_retropie_setup_failure(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie setup failure scenarios."""
+        # Mock failed update
+        mock_result = CommandResult(
+            command="sudo apt-get update && sudo apt-get upgrade -y",
+            exit_code=1,
+            stdout="",
+            stderr="Update failed",
+            success=False,
+            execution_time=60.0,
+        )
+        gaming_system_tools.container.update_system_use_case.execute.return_value = (
+            mock_result
+        )
+
+        # Execute RetroPie setup
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "retropie",
+                "action": "setup",
+                "target": "update",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_retropie_setup_invalid_target(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie setup with invalid target."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "retropie",
+                "action": "setup",
+                "target": "invalid_target",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "unknown retropie setup target" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_retropie_setup_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie setup exception handling."""
+        # Mock exception in use case
+        gaming_system_tools.container.update_system_use_case.execute.side_effect = (
+            Exception("Test exception")
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "retropie",
+                "action": "setup",
+                "target": "update",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "retropie setup failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_retropie_install_failure(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie installation failure scenarios."""
+        # Mock failed installation
+        mock_result = CommandResult(
+            command="sudo ./retropie_setup.sh mupen64plus install",
+            exit_code=1,
+            stdout="",
+            stderr="Installation failed",
+            success=False,
+            execution_time=120.0,
+        )
+        gaming_system_tools.container.install_emulator_use_case.execute.return_value = (
+            mock_result
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "retropie",
+                "action": "install",
+                "target": "emulator",
+                "options": {"emulator": "mupen64plus"},
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_retropie_install_missing_emulator(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie installation with missing emulator parameter."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "retropie",
+                "action": "install",
+                "target": "emulator",
+                "options": {},  # Missing 'emulator' key
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "emulator name is required" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_retropie_install_invalid_target(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie installation with invalid target."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "retropie",
+                "action": "install",
+                "target": "invalid_target",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "unknown retropie install target" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_retropie_install_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie installation exception handling."""
+        # Mock exception in use case
+        gaming_system_tools.container.install_emulator_use_case.execute.side_effect = (
+            Exception("Test exception")
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "retropie",
+                "action": "install",
+                "target": "emulator",
+                "options": {"emulator": "mupen64plus"},
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "retropie installation failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_retropie_configure_failure(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie configuration failure scenarios."""
+        # Mock failed configuration
+        gaming_system_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                command="sudo raspi-config nonint do_overclock Pi4",
+                exit_code=1,
+                stdout="",
+                stderr="Configuration failed",
+                success=False,
+                execution_time=5.0,
+            )
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "retropie",
+                "action": "configure",
+                "target": "overclock",
+                "options": {"preset": "Pi4"},
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_retropie_configure_invalid_target(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie configuration with invalid target."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "retropie",
+                "action": "configure",
+                "target": "invalid_target",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "unknown retropie configuration target" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_retropie_configure_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie configuration exception handling."""
+        # Mock exception in client
+        gaming_system_tools.container.retropie_client.execute_command.side_effect = (
+            Exception("Test exception")
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "retropie",
+                "action": "configure",
+                "target": "overclock",
+                "options": {"preset": "Pi4"},
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "retropie configuration failed" in result[0].text.lower()
+
+    # EmulationStation Component Error Tests
+
+    @pytest.mark.asyncio
+    async def test_emulationstation_invalid_actions(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test EmulationStation component with invalid actions."""
+        invalid_actions = ["invalid_action", "delete", "remove", "test"]
+
+        for action in invalid_actions:
+            result = await gaming_system_tools.handle_tool_call(
+                "manage_gaming",
+                {
+                    "component": "emulationstation",
+                    "action": action,
+                },
+            )
+
+            # Verify error
+            assert len(result) == 1
+            assert isinstance(result[0], TextContent)
+            assert "invalid action" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulationstation_configure_failure(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test EmulationStation configuration failure scenarios."""
+        # Mock failed configuration
+        gaming_system_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                command="sudo ./retropie_setup.sh esthemes install_theme carbon",
+                exit_code=1,
+                stdout="",
+                stderr="Theme installation failed",
+                success=False,
+                execution_time=30.0,
+            )
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulationstation",
+                "action": "configure",
+                "target": "themes",
+                "options": {"theme": "carbon", "action": "install"},
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulationstation_configure_invalid_target(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test EmulationStation configuration with invalid target."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulationstation",
+                "action": "configure",
+                "target": "invalid_target",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "unknown emulationstation configuration target" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulationstation_configure_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test EmulationStation configuration exception handling."""
+        # Mock exception in client
+        gaming_system_tools.container.retropie_client.execute_command.side_effect = (
+            Exception("Test exception")
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulationstation",
+                "action": "configure",
+                "target": "themes",
+                "options": {"theme": "carbon", "action": "install"},
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "emulationstation configuration failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulationstation_restart_failure(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test EmulationStation restart failure scenarios."""
+        # Mock failed restart
+        gaming_system_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                command="sudo systemctl restart emulationstation",
+                exit_code=1,
+                stdout="",
+                stderr="Restart failed",
+                success=False,
+                execution_time=10.0,
+            )
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulationstation",
+                "action": "restart",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulationstation_restart_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test EmulationStation restart exception handling."""
+        # Mock exception in client
+        gaming_system_tools.container.retropie_client.execute_command.side_effect = (
+            Exception("Test exception")
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulationstation",
+                "action": "restart",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "emulationstation restart failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulationstation_scan_failure(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test EmulationStation scan failure scenarios."""
+        # Mock failed scan
+        gaming_system_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                command="emulationstation --gamelist-only",
+                exit_code=1,
+                stdout="",
+                stderr="Scan failed",
+                success=False,
+                execution_time=45.0,
+            )
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulationstation",
+                "action": "scan",
+                "target": "gamelists",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulationstation_scan_invalid_target(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test EmulationStation scan with invalid target."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulationstation",
+                "action": "scan",
+                "target": "invalid_target",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "unknown emulationstation scan target" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulationstation_scan_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test EmulationStation scan exception handling."""
+        # Mock exception in client
+        gaming_system_tools.container.retropie_client.execute_command.side_effect = (
+            Exception("Test exception")
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulationstation",
+                "action": "scan",
+                "target": "gamelists",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "emulationstation scan failed" in result[0].text.lower()
+
+    # Controller Component Error Tests
+
+    @pytest.mark.asyncio
+    async def test_controller_invalid_actions(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test Controller component with invalid actions."""
+        invalid_actions = ["invalid_action", "delete", "remove", "install"]
+
+        for action in invalid_actions:
+            result = await gaming_system_tools.handle_tool_call(
+                "manage_gaming",
+                {
+                    "component": "controller",
+                    "action": action,
+                },
+            )
+
+            # Verify error
+            assert len(result) == 1
+            assert isinstance(result[0], TextContent)
+            assert "invalid action" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_detect_no_controllers(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller detection with no controllers found."""
+        # Mock no controllers detected
+        gaming_system_tools.container.detect_controllers_use_case.execute.return_value = []
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "detect",
+            },
+        )
+
+        # Verify result shows no controllers
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "no controllers detected" in result[0].text.lower()
+        assert "troubleshooting" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_detect_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller detection exception handling."""
+        # Mock exception in use case
+        gaming_system_tools.container.detect_controllers_use_case.execute.side_effect = Exception(
+            "Test exception"
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "detect",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "controller detection failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_setup_missing_target(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller setup with missing target."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "setup",
+                # Missing 'target' parameter
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "controller type is required" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_setup_invalid_type(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller setup with invalid controller type."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "setup",
+                "target": "invalid_controller_type",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "invalid controller type" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_setup_failure(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller setup failure scenarios."""
+        # Mock failed setup
+        mock_result = CommandResult(
+            command="sudo ./retropie_setup.sh xboxdrv install",
+            exit_code=1,
+            stdout="",
+            stderr="Setup failed",
+            success=False,
+            execution_time=30.0,
+        )
+        gaming_system_tools.container.setup_controller_use_case.execute.return_value = (
+            mock_result
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "setup",
+                "target": "xbox",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_setup_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller setup exception handling."""
+        # Mock exception in use case
+        gaming_system_tools.container.setup_controller_use_case.execute.side_effect = (
+            Exception("Test exception")
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "setup",
+                "target": "xbox",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "controller setup failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_test_missing_target(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller test with missing target."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "test",
+                # Missing 'target' parameter
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "controller device is required" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_test_failure(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller test failure scenarios."""
+        # Mock failed test
+        gaming_system_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                command="jstest /dev/input/js0 --event",
+                exit_code=1,
+                stdout="",
+                stderr="Test failed",
+                success=False,
+                execution_time=5.0,
+            )
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "test",
+                "target": "js0",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_test_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller test exception handling."""
+        # Mock exception in client
+        gaming_system_tools.container.retropie_client.execute_command.side_effect = (
+            Exception("Test exception")
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "test",
+                "target": "js0",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "controller test failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_configure_failure(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller configuration failure scenarios."""
+        # Mock failed configuration
+        gaming_system_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                command="emulationstation --force-input-config",
+                exit_code=1,
+                stdout="",
+                stderr="Configuration failed",
+                success=False,
+                execution_time=10.0,
+            )
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "configure",
+                "target": "mapping",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "failed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_configure_invalid_target(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller configuration with invalid target."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "configure",
+                "target": "invalid_target",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "unknown controller configuration target" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_configure_exception(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller configuration exception handling."""
+        # Mock exception in client
+        gaming_system_tools.container.retropie_client.execute_command.side_effect = (
+            Exception("Test exception")
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "configure",
+                "target": "mapping",
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "controller configuration failed" in result[0].text.lower()

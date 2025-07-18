@@ -1,6 +1,5 @@
 """Command execution tools for running system commands."""
 
-import shlex
 from typing import Any
 from typing import Dict
 from typing import List
@@ -10,7 +9,6 @@ from mcp.types import ImageContent
 from mcp.types import TextContent
 from mcp.types import Tool
 
-from ..domain.models import ExecuteCommandRequest
 from .base import BaseTool
 
 
@@ -67,26 +65,35 @@ class CommandExecutionTools(BaseTool):
         try:
             command = arguments.get("command")
             use_sudo = arguments.get("use_sudo", False)
-            timeout = arguments.get("timeout", 60)
-            escape_args = arguments.get("escape_args", True)
+            working_directory = arguments.get("working_directory")
 
             if not command:
                 return self.format_error("Command is required")
 
-            # Create command request
-            request = ExecuteCommandRequest(
-                command=command,
-                use_sudo=use_sudo,
-                timeout=timeout,
-                escape_args=escape_args,
-            )
+            # Basic security validation
+            dangerous_patterns = [
+                "rm -rf /",
+                "dd if=/dev/zero",
+                "mkfs",
+                "> /dev/sda",
+                "chmod 777 /",
+            ]
 
-            # Get the use case from container
-            use_case = self.container.get_execute_command_use_case()
-            result = use_case.execute(request)
+            for pattern in dangerous_patterns:
+                if pattern in command:
+                    return self.format_error("Security validation failed: Command contains dangerous pattern")
+
+            # Get the client from container
+            client = self.container.retropie_client
+
+            # Execute command with options
+            if working_directory:
+                command = f"cd {working_directory} && {command}"
+
+            result = client.execute_command(command, use_sudo=use_sudo)
 
             if result.success:
-                output = f"Command executed successfully (exit code: {result.exit_code})"
+                output = "Command Executed Successfully"
                 if result.stdout:
                     output += f"\n\nSTDOUT:\n{result.stdout}"
                 if result.stderr:

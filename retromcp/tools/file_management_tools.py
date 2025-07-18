@@ -100,50 +100,108 @@ class FileManagementTools(BaseTool):
             if not action or not path:
                 return self.format_error("Both 'action' and 'path' are required")
 
-            # Get the use case from container
-            use_case = self.container.get_file_management_use_case()
-            
+            # Get the client from container
+            client = self.container.retropie_client
+
             if action == "read":
                 if lines:
-                    result = use_case.read_file_lines(path, lines)
+                    cmd = f"head -n {lines} {path}" if lines > 0 else f"tail -n {abs(lines)} {path}"
                 else:
-                    result = use_case.read_file(path)
+                    cmd = f"cat {path}"
+                result = client.execute_command(cmd)
+                if result.success:
+                    return self.format_success(f"File content:\n{result.stdout}")
+                else:
+                    return self.format_error(f"Failed to read file: {result.stderr}")
             elif action == "write":
                 if not content:
                     return self.format_error("Content is required for write action")
-                result = use_case.write_file(path, content)
+                # Write content to file, creating parent directories if needed
+                if create_parents:
+                    parent_cmd = f"mkdir -p $(dirname {path})"
+                    client.execute_command(parent_cmd)
+                write_cmd = f"echo '{content}' > {path}"
+                result = client.execute_command(write_cmd)
+                if result.success:
+                    return self.format_success(f"File written successfully to {path}")
+                else:
+                    return self.format_error(f"Failed to write file: {result.stderr}")
             elif action == "append":
                 if not content:
                     return self.format_error("Content is required for append action")
-                result = use_case.append_file(path, content)
+                append_cmd = f"echo '{content}' >> {path}"
+                result = client.execute_command(append_cmd)
+                if result.success:
+                    return self.format_success(f"Content appended to {path}")
+                else:
+                    return self.format_error(f"Failed to append to file: {result.stderr}")
             elif action == "copy":
                 if not destination:
                     return self.format_error("Destination is required for copy action")
-                result = use_case.copy_file(path, destination)
+                result = client.execute_command(f"cp {path} {destination}")
+                if result.success:
+                    return self.format_success(f"File copied to {destination}")
+                else:
+                    return self.format_error(f"Failed to copy file: {result.stderr}")
             elif action == "move":
                 if not destination:
                     return self.format_error("Destination is required for move action")
-                result = use_case.move_file(path, destination)
+                result = client.execute_command(f"mv {path} {destination}")
+                if result.success:
+                    return self.format_success(f"File moved to {destination}")
+                else:
+                    return self.format_error(f"Failed to move file: {result.stderr}")
             elif action == "delete":
-                result = use_case.delete_file(path)
+                result = client.execute_command(f"rm -f {path}")
+                if result.success:
+                    return self.format_success(f"File deleted: {path}")
+                else:
+                    return self.format_error(f"Failed to delete file: {result.stderr}")
             elif action == "create":
                 if file_type == "directory":
-                    result = use_case.create_directory(path, create_parents)
+                    mkdir_cmd = "mkdir -p" if create_parents else "mkdir"
+                    result = client.execute_command(f"{mkdir_cmd} {path}")
+                    if result.success:
+                        return self.format_success(f"Directory created: {path}")
+                    else:
+                        return self.format_error(f"Failed to create directory: {result.stderr}")
                 else:
-                    result = use_case.create_file(path, content, create_parents)
+                    # Create file with optional parent directories
+                    if create_parents:
+                        parent_cmd = f"mkdir -p $(dirname {path})"
+                        client.execute_command(parent_cmd)
+                    touch_cmd = f"touch {path}"
+                    if content:
+                        touch_cmd = f"echo '{content}' > {path}"
+                    result = client.execute_command(touch_cmd)
+                    if result.success:
+                        return self.format_success(f"File created: {path}")
+                    else:
+                        return self.format_error(f"Failed to create file: {result.stderr}")
             elif action == "permissions":
-                result = use_case.set_permissions(path, mode, owner)
+                commands = []
+                if mode:
+                    commands.append(f"chmod {mode} {path}")
+                if owner:
+                    commands.append(f"chown {owner} {path}")
+                if not commands:
+                    return self.format_error("Either mode or owner must be specified")
+
+                for cmd in commands:
+                    result = client.execute_command(cmd)
+                    if not result.success:
+                        return self.format_error(f"Failed to set permissions: {result.stderr}")
+                return self.format_success(f"Permissions updated for {path}")
             elif action == "download":
                 if not url:
                     return self.format_error("URL is required for download action")
-                result = use_case.download_file(url, path)
+                result = client.execute_command(f"wget -O {path} {url}")
+                if result.success:
+                    return self.format_success(f"File downloaded to {path}")
+                else:
+                    return self.format_error(f"Failed to download file: {result.stderr}")
             else:
                 return self.format_error(f"Unknown action: {action}")
-
-            if result.success:
-                return self.format_success(f"File {action}: {result.stdout}")
-            else:
-                return self.format_error(f"Failed to {action} file: {result.stderr}")
 
         except Exception as e:
             return self.format_error(f"File management error: {e!s}")

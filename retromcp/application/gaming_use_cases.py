@@ -8,7 +8,6 @@ from ..domain.models import EmulatorStatus
 from ..domain.models import RomDirectory
 from ..domain.ports import ControllerRepository
 from ..domain.ports import EmulatorRepository
-from ..domain.ports import RetroPieClient
 
 
 class DetectControllersUseCase:
@@ -34,21 +33,21 @@ class SetupControllerUseCase:
         """Setup a specific controller."""
         # Get current controllers
         controllers = self._repository.detect_controllers()
-        
+
         # Find the target controller
         target_controller = None
         for controller in controllers:
             if controller.id == controller_id:
                 target_controller = controller
                 break
-        
+
         if not target_controller:
             raise ValueError(f"Controller with ID {controller_id} not found")
-        
+
         # Check if controller is already configured
         if target_controller.is_configured and not target_controller.driver_required:
             return target_controller
-        
+
         # Setup the controller
         return self._repository.setup_controller(controller_id, driver_path)
 
@@ -66,11 +65,11 @@ class InstallEmulatorUseCase:
         status = self._repository.get_emulator_status(emulator_name)
         if status == EmulatorStatus.INSTALLED:
             return status
-        
+
         # Check if emulator is available for installation
         if status == EmulatorStatus.NOT_AVAILABLE:
             raise ValueError(f"Emulator '{emulator_name}' is not available for installation")
-        
+
         # Install the emulator
         return self._repository.install_emulator(emulator_name)
 
@@ -78,10 +77,42 @@ class InstallEmulatorUseCase:
 class ListRomsUseCase:
     """Use case for listing ROM directories and files."""
 
-    def __init__(self, client: RetroPieClient) -> None:
-        """Initialize with RetroPie client."""
-        self._client = client
+    def __init__(self, emulator_repository: EmulatorRepository) -> None:
+        """Initialize with emulator repository."""
+        self._repository = emulator_repository
 
-    def execute(self, system: Optional[str] = None) -> List[RomDirectory]:
-        """List ROM directories and files."""
-        return self._client.list_roms(system)
+    def execute(
+        self,
+        system_filter: Optional[str] = None,
+        min_rom_count: Optional[int] = None
+    ) -> List[RomDirectory]:
+        """List ROM directories with optional filtering and sorting.
+        
+        Args:
+            system_filter: Optional system name to filter by
+            min_rom_count: Optional minimum ROM count filter
+            
+        Returns:
+            List of ROM directories sorted by ROM count (descending)
+        """
+        # Get all ROM directories from repository
+        rom_directories = self._repository.get_rom_directories()
+
+        # Apply system filter if specified
+        if system_filter is not None:
+            rom_directories = [
+                rom for rom in rom_directories
+                if rom.system == system_filter
+            ]
+
+        # Apply minimum ROM count filter if specified
+        if min_rom_count is not None:
+            rom_directories = [
+                rom for rom in rom_directories
+                if rom.rom_count >= min_rom_count
+            ]
+
+        # Sort by ROM count in descending order
+        rom_directories.sort(key=lambda r: r.rom_count, reverse=True)
+
+        return rom_directories

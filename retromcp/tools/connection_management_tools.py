@@ -55,8 +55,8 @@ class ConnectionManagementTools(BaseTool):
                 return self.format_error("Action is required")
 
             # Get the use case from container
-            use_case = self.container.get_test_connection_use_case()
-            
+            use_case = self.container.test_connection_use_case
+
             if action == "test":
                 connection_info = use_case.execute()
                 if connection_info.connected:
