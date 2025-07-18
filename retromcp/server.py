@@ -256,6 +256,10 @@ class RetroMCPServer:
                 "compare_states": "state",
                 # Docker tools
                 "manage_docker": "docker",
+                # Unified tool names
+                "manage_hardware": "hardware_monitoring",
+                "manage_gaming": "gaming_system",
+                "manage_state": "state",
                 # Legacy names for backward compatibility
                 "test_connection": "system_management",
                 "system_info": "system_management",

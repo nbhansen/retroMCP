@@ -433,6 +433,10 @@ class TestRetroMCPServer:
         """Test that all expected tools are properly routed."""
         # This test ensures the tool routing dictionary is comprehensive
         expected_tools = {
+            # Unified tools
+            "manage_hardware",
+            "manage_gaming",
+            "manage_state",
             # System tools
             "test_connection",
             "system_info",
@@ -469,9 +473,11 @@ class TestRetroMCPServer:
 
         with patch("retromcp.server.SystemManagementTools") as mock_system, patch(
             "retromcp.server.GamingSystemTools"
-        ) as mock_gaming, patch("retromcp.server.HardwareMonitoringTools") as mock_hw:
+        ) as mock_gaming, patch("retromcp.server.HardwareMonitoringTools") as mock_hw, patch(
+            "retromcp.server.StateTools"
+        ) as mock_state:
             # Setup mocks
-            for mock in [mock_system, mock_gaming, mock_hw]:
+            for mock in [mock_system, mock_gaming, mock_hw, mock_state]:
                 mock.return_value.handle_tool_call = AsyncMock(
                     return_value=[TextContent(type="text", text="success")]
                 )
@@ -488,6 +494,7 @@ class TestRetroMCPServer:
             mock_system.assert_called_with(server.container)
             mock_gaming.assert_called_with(server.container)
             mock_hw.assert_called_with(server.container)
+            mock_state.assert_called_with(server.container)
 
 
 class TestMainFunction:
