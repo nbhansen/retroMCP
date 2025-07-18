@@ -20,90 +20,30 @@ RetroMCP enables AI assistants like Claude to help configure and manage Raspberr
 
 ## How It Works
 
-```mermaid
-graph LR
-    A[User] --> B[Claude Desktop]
-    B --> C[MCP Protocol]
-    C --> D[RetroMCP Server]
-    D --> E[SSH Connection]
-    E --> F[Raspberry Pi]
-    F --> G[RetroPie System]
-    
-    G --> F
-    F --> E
-    E --> D
-    D --> C
-    C --> B
-    B --> A
-```
-
-**Simple Flow:** Natural Language -> AI Understanding -> SSH Commands -> RetroPie Configuration
+Natural language requests are translated through Claude Desktop via MCP protocol to SSH commands executed on your Raspberry Pi.
 
 **Examples:**
 - "Set up my Xbox controller" - Installs drivers and configures button mappings
 - "My N64 games are slow" - Checks performance and suggests tuning options
 - "Find missing BIOS files" - Identifies required files for your emulators
-- "Install arcade emulators" - Sets up MAME and configures input
-- "Export my system configuration" - Creates backups of your current setup
 - "Monitor CPU temperature" - Tracks system health and cooling performance
 
-## The Problem This Solves
+## Problem Solved
 
-**Raspberry Pi administration challenges:**
-- System configuration requires Linux command line knowledge
-- Gaming setup needs specific drivers and configuration files
-- Different emulators require different BIOS files and settings
-- Performance tuning involves complex configuration files
-- Troubleshooting means diving into logs and forums
-- Every setup is different, making generic guides unhelpful
-
-**Traditional approaches require:**
-- SSH into your Pi and run complex commands
-- Navigate unfamiliar Linux file systems
-- Edit configuration files by hand
-- Remember (or re-learn) which packages and settings work for your specific hardware
-
-## The RetroMCP Solution
-
-RetroMCP provides AI assistants with:
-- **SSH connectivity** - Secure connections with host verification
-- **System discovery** - Automatic detection of paths and configurations
-- **Natural language interface** - Ask questions instead of writing commands
-- **System context** - Full visibility into hardware, software, and configurations
-- **Configuration flexibility** - Works with standard and custom setups
+Raspberry Pi and RetroPie administration typically requires Linux command line expertise, manual configuration file editing, and hardware-specific knowledge. RetroMCP eliminates this by providing AI assistants with secure SSH connectivity, automatic system discovery, and comprehensive context about your specific setup.
 
 ## Key Features
 
-### **Dynamic System Discovery**
-- Automatically detects username (pi/retro/custom)
-- Discovers RetroPie installation paths
-- Identifies EmulationStation process type (systemd vs user)
-- No hardcoded assumptions about your setup
-
-### **Advanced State Management (v2.0)**
-- Persistent system state tracking in `/home/{user}/.retropie-state.json`
-- Comprehensive hardware, network, software, and service monitoring
-- Configuration backup and restore capabilities
-- Real-time system monitoring and change detection
-- Schema versioning with automatic v1.0 → v2.0 migration
-
-### **Performance Optimization**
-- TTL-based caching for expensive system operations
-- Intelligent caching of hardware scans and system information
-- Configurable cache timeouts for different data types
-- Performance monitoring and hit/miss tracking
-
-### **AI Context Sharing**
-- Exposes system state via MCP Resources
-- Claude gets context about your specific setup
-- Enables more effective troubleshooting conversations
-- Remembers past issues and resolutions
+- **Dynamic System Discovery** - Automatic detection of usernames, paths, and configurations
+- **State Management** - Persistent system tracking with backup/restore capabilities  
+- **Performance Optimization** - TTL-based caching for expensive operations
+- **AI Context Sharing** - System state exposed via MCP Resources for effective troubleshooting
 
 ## Project Status
 
 **Current Phase**: v2.0 production implementation  
 **Security Status**: Comprehensive security validation  
-**Test Coverage**: 94% domain layer, comprehensive caching and state management testing  
+**Test Coverage**: 89% overall coverage with comprehensive testing infrastructure  
 
 ## Installation
 
@@ -195,78 +135,64 @@ Restart Claude Desktop to load the server.
 ## Available Tools
 
 ### System Management
-- **manage_system** - System operations (connection test, info, packages, updates)
-  - `connection` - Test SSH connection to RetroPie
-  - `info` - Get system information (CPU, memory, disk, temperature)
-  - `package` - Install system packages via apt
-  - `update` - Update system packages
+- **manage_system** - Connection testing, system info, package management, updates
 
-### Gaming System
-- **manage_gaming** - Gaming operations (retropie, emulationstation, controllers, roms, emulators, audio, video)
-  - `retropie` - RetroPie setup and configuration
-  - `emulationstation` - EmulationStation configuration and management
-  - `controller` - Detect, setup, test, and configure controllers
-  - `roms` - Scan, list, and configure ROM files
-  - `emulator` - Install, configure, and test emulators
-  - `audio` - Configure audio settings
-  - `video` - Configure video settings
+### Gaming System  
+- **manage_gaming** - RetroPie configuration, EmulationStation, controllers, ROMs, emulators, audio/video
 
 ### Hardware Monitoring
-- **manage_hardware** - Hardware operations (temperature, fan, power, gpio)
-  - `temperature` - Monitor CPU/GPU temperatures and thermal throttling
-  - `fan` - Check fan operation and cooling system
-  - `power` - Monitor power health and under-voltage warnings
-  - `gpio` - GPIO pin status and configuration
+- **manage_hardware** - Temperature monitoring, fan control, power status, GPIO operations
 
 ### Docker Management
-- **manage_docker** - Docker operations (containers, images, services)
-  - `container` - Container lifecycle management
-  - `image` - Image management and cleanup
-  - `service` - Docker service operations
+- **manage_docker** - Container and image management, service operations
 
-### State Management (v2.0)
-- **manage_state** - Comprehensive system state operations
-  - `load` - Retrieve cached system configuration
-  - `save` - Scan and persist current state
-  - `update` - Modify specific configuration field
-  - `compare` - Detect configuration drift
-  - `export` - Backup state to JSON format
-  - `import` - Restore state from backup
-  - `diff` - Compare against another state
-  - `watch` - Monitor specific field changes
+### State Management
+- **manage_state** - System state persistence, backup/restore, configuration drift detection
 
 ## Security Features
 
-### SSH Security
-- **Host Key Verification**: Proper known_hosts verification
-- **Connection Timeouts**: Prevents hanging connections
-- **Credential Cleanup**: Clears passwords from memory after use
-
-### Command Injection Prevention
-- **Input Escaping**: All user inputs escaped with `shlex.quote()`
-- **Input Validation**: Validation for all parameters
-- **Path Traversal Prevention**: Blocks directory traversal attempts
-
-### Error Handling
-- **Information Sanitization**: Removes sensitive data from error messages
-- **Error Recovery**: Proper error handling and user feedback
+- **SSH Security** - Host key verification, connection timeouts, credential cleanup
+- **Input Protection** - Command injection prevention, parameter validation, path traversal blocking
+- **Error Handling** - Information sanitization and secure error recovery
 
 ## Testing
 
-### MCP Inspector (Recommended)
+### Test Strategy
+
+RetroMCP uses comprehensive test-driven development with 89% code coverage:
+
+- **Unit Tests**: Domain logic and tool functionality testing
+- **Integration Tests**: End-to-end SSH and MCP protocol validation  
+- **Contract Tests**: Architecture compliance and hexagonal pattern verification
+- **Infrastructure Tests**: SSH repositories and external service mocking
+
+### Running Tests
 
 ```bash
-# Run the test script
-./scripts/test-inspector.sh
+# Run all tests
+make test
 
-# Or manually with npx
-npx @modelcontextprotocol/inspector python -m retromcp.server
+# Component-specific testing
+make test-hardware    # Hardware monitoring tools
+make test-gaming      # Gaming system tools  
+make test-state       # State management tools
+make test-ssh         # SSH infrastructure
+
+# Using smart test runner
+python run_tests.py --hardware --coverage
+python run_tests.py --quick --gaming
+
+# Convenience scripts
+./test_hardware.sh
+./test_gaming.sh
 ```
 
-### Quick Setup
+### MCP Inspector
 
 ```bash
-./setup.sh
+# Test MCP protocol compliance
+./scripts/test-inspector.sh
+npx @modelcontextprotocol/inspector python -m retromcp.server
 ```
 
 ## Troubleshooting
@@ -292,13 +218,10 @@ npx @modelcontextprotocol/inspector python -m retromcp.server
 - Check SSH key permissions: `chmod 600 ~/.ssh/id_rsa`
 - Review error messages for security warnings
 
-## What is RetroPie?
+## Background
 
-[RetroPie](https://retropie.org.uk/) is a popular retro gaming platform that turns your Raspberry Pi into a retro-gaming machine. It provides a user-friendly interface to run game emulators for classic consoles like NES, SNES, PlayStation, N64, and dozens more.
-
-## What is MCP?
-
-The [Model Context Protocol](https://modelcontextprotocol.io/) is an open protocol that enables AI assistants like Claude to interact with external systems through standardized server implementations. MCP servers expose tools and resources that AI models can use to perform actions on behalf of users.
+- **[RetroPie](https://retropie.org.uk/)** - Retro gaming platform for Raspberry Pi
+- **[MCP](https://modelcontextprotocol.io/)** - Protocol enabling AI assistants to interact with external systems
 
 ## Documentation
 
