@@ -2,6 +2,7 @@
 
 import shlex
 from typing import Any
+from typing import ClassVar
 from typing import Dict
 from typing import List
 
@@ -16,6 +17,44 @@ from .base import BaseTool
 class GamingSystemTools(BaseTool):
     """Unified gaming system tools for all gaming management operations."""
 
+    # Define valid targets for each component and action
+    VALID_TARGETS: ClassVar[Dict[str, Dict[str, List[str]]]] = {
+        "retropie": {
+            "setup": ["update"],
+            "install": ["emulator"],
+            "configure": ["overclock"],
+        },
+        "emulationstation": {
+            "configure": ["themes", "settings", "gamelists"],
+            "restart": [],  # No target required
+            "scan": ["roms", "media"],
+        },
+        "controller": {
+            "detect": [],  # No target required
+            "setup": ["xbox", "ps3", "ps4", "8bitdo", "generic"],
+            "test": ["player1", "player2", "player3", "player4"],
+            "configure": ["mapping", "hotkeys"],
+        },
+        "roms": {
+            "scan": ["<system_name>"],  # Dynamic - any system name
+            "list": ["all", "<system_name>"],
+            "configure": ["permissions", "paths"],
+        },
+        "emulator": {
+            "install": ["<emulator_name>"],  # Dynamic - any emulator name
+            "configure": ["<emulator_name>"],
+            "list": [],  # No target required
+        },
+        "audio": {
+            "configure": ["hdmi", "analog"],
+            "test": ["hdmi", "analog"],
+        },
+        "video": {
+            "configure": ["resolution", "refresh", "crt"],
+            "test": ["current"],
+        },
+    }
+
     def get_tools(self) -> List[Tool]:
         """Return list of available gaming system tools.
 
@@ -25,7 +64,13 @@ class GamingSystemTools(BaseTool):
         return [
             Tool(
                 name="manage_gaming",
-                description="Unified gaming system tool for retropie, emulationstation, controller, roms, emulator, audio, and video management",
+                description=(
+                    "Unified gaming system management tool. "
+                    "Components: retropie (setup/install/configure), emulationstation (configure/restart/scan), "
+                    "controller (detect/setup/test/configure), roms (scan/list/configure), "
+                    "emulator (install/configure/list), audio (configure/test), video (configure/test). "
+                    "Most actions require a 'target' parameter - error messages will show valid targets."
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -48,7 +93,14 @@ class GamingSystemTools(BaseTool):
                         },
                         "target": {
                             "type": "string",
-                            "description": "Target for the action (e.g., controller type, emulator name, output type)",
+                            "description": (
+                                "Target for the action. Examples: "
+                                "retropie setup: 'update'; "
+                                "controller setup: 'xbox', 'ps3', 'ps4', '8bitdo', 'generic'; "
+                                "audio configure: 'hdmi', 'analog'; "
+                                "roms scan: system name (e.g., 'nes', 'arcade'); "
+                                "emulator install: emulator name (e.g., 'lr-mame2003')"
+                            ),
                         },
                         "options": {
                             "type": "object",
@@ -59,6 +111,25 @@ class GamingSystemTools(BaseTool):
                 },
             ),
         ]
+
+    def _get_valid_targets_message(self, component: str, action: str) -> str:
+        """Get a helpful message about valid targets for a component/action pair."""
+        if component in self.VALID_TARGETS and action in self.VALID_TARGETS[component]:
+            targets = self.VALID_TARGETS[component][action]
+            if not targets:
+                return "No target required for this action"
+            elif any("<" in t for t in targets):
+                # Dynamic targets
+                examples = []
+                for t in targets:
+                    if t == "<system_name>":
+                        examples.append("nes, snes, genesis, arcade, etc.")
+                    elif t == "<emulator_name>":
+                        examples.append("lr-mame2003, lr-snes9x, mupen64plus, etc.")
+                return f"Valid targets: {', '.join(examples)}"
+            else:
+                return f"Valid targets: {', '.join(targets)}"
+        return "No valid targets found"
 
     async def handle_tool_call(
         self, name: str, arguments: Dict[str, Any]
@@ -286,7 +357,10 @@ class GamingSystemTools(BaseTool):
                         f"System update failed: {result.stderr or result.stdout}"
                     )
             else:
-                return self.format_error(f"Unknown RetroPie setup target: {target}")
+                valid_targets = self._get_valid_targets_message("retropie", "setup")
+                return self.format_error(
+                    f"Unknown RetroPie setup target: {target}. {valid_targets}"
+                )
         except Exception as e:
             return self.format_error(f"RetroPie setup failed: {e!s}")
 
@@ -323,7 +397,10 @@ class GamingSystemTools(BaseTool):
                         f"Emulator installation failed: {result.stderr or result.stdout}"
                     )
             else:
-                return self.format_error(f"Unknown RetroPie install target: {target}")
+                valid_targets = self._get_valid_targets_message("retropie", "install")
+                return self.format_error(
+                    f"Unknown RetroPie install target: {target}. {valid_targets}"
+                )
         except Exception as e:
             return self.format_error(f"RetroPie installation failed: {e!s}")
 
@@ -351,8 +428,9 @@ class GamingSystemTools(BaseTool):
                         f"Overclock configuration failed: {result.stderr or result.stdout}"
                     )
             else:
+                valid_targets = self._get_valid_targets_message("retropie", "configure")
                 return self.format_error(
-                    f"Unknown RetroPie configuration target: {target}"
+                    f"Unknown RetroPie configuration target: {target}. {valid_targets}"
                 )
         except Exception as e:
             return self.format_error(f"RetroPie configuration failed: {e!s}")
@@ -385,8 +463,9 @@ class GamingSystemTools(BaseTool):
                         f"Theme configuration failed: {result.stderr or result.stdout}"
                     )
             else:
+                valid_targets = self._get_valid_targets_message("emulationstation", "configure")
                 return self.format_error(
-                    f"Unknown EmulationStation configuration target: {target}"
+                    f"Unknown EmulationStation configuration target: {target}. {valid_targets}"
                 )
         except Exception as e:
             return self.format_error(f"EmulationStation configuration failed: {e!s}")
@@ -430,8 +509,9 @@ class GamingSystemTools(BaseTool):
                         f"Gamelist scan failed: {result.stderr or result.stdout}"
                     )
             else:
+                valid_targets = self._get_valid_targets_message("emulationstation", "scan")
                 return self.format_error(
-                    f"Unknown EmulationStation scan target: {target}"
+                    f"Unknown EmulationStation scan target: {target}. {valid_targets}"
                 )
         except Exception as e:
             return self.format_error(f"EmulationStation scan failed: {e!s}")
@@ -470,13 +550,17 @@ class GamingSystemTools(BaseTool):
         """Handle controller setup operations."""
         try:
             if not target:
-                return self.format_error("Controller type is required for setup")
+                valid_targets = self._get_valid_targets_message("controller", "setup")
+                return self.format_error(
+                    f"Controller type is required for setup. {valid_targets}"
+                )
 
             # Validate controller type
-            valid_types = ["xbox", "ps4", "8bitdo", "generic"]
+            valid_types = ["xbox", "ps3", "ps4", "8bitdo", "generic"]
             if target not in valid_types:
+                valid_targets = self._get_valid_targets_message("controller", "setup")
                 return self.format_error(
-                    f"Invalid controller type: {target}. Must be one of: {', '.join(valid_types)}"
+                    f"Invalid controller type: {target}. {valid_targets}"
                 )
 
             # Execute via use case
@@ -501,7 +585,10 @@ class GamingSystemTools(BaseTool):
         """Handle controller testing operations."""
         try:
             if not target:
-                return self.format_error("Controller device is required for testing")
+                valid_targets = self._get_valid_targets_message("controller", "test")
+                return self.format_error(
+                    f"Controller device is required for testing. {valid_targets}"
+                )
 
             # Test controller using jstest
             device_path = (
@@ -555,8 +642,9 @@ class GamingSystemTools(BaseTool):
                         f"Controller configuration failed: {result.stderr or result.stdout}"
                     )
             else:
+                valid_targets = self._get_valid_targets_message("controller", "configure")
                 return self.format_error(
-                    f"Unknown controller configuration target: {target}"
+                    f"Unknown controller configuration target: {target}. {valid_targets}"
                 )
         except Exception as e:
             return self.format_error(f"Controller configuration failed: {e!s}")
@@ -567,7 +655,10 @@ class GamingSystemTools(BaseTool):
         """Handle ROM scanning operations."""
         try:
             if not target:
-                return self.format_error("ROM system target is required for scanning")
+                valid_targets = self._get_valid_targets_message("roms", "scan")
+                return self.format_error(
+                    f"ROM system target is required for scanning. {valid_targets}"
+                )
 
             # Use the list ROMs use case
             roms = self.container.list_roms_use_case.execute()
@@ -647,7 +738,10 @@ class GamingSystemTools(BaseTool):
                         f"ROM permissions fix failed: {result.stderr or result.stdout}"
                     )
             else:
-                return self.format_error(f"Unknown ROM configuration target: {target}")
+                valid_targets = self._get_valid_targets_message("roms", "configure")
+                return self.format_error(
+                    f"Unknown ROM configuration target: {target}. {valid_targets}"
+                )
         except Exception as e:
             return self.format_error(f"ROM configuration failed: {e!s}")
 
@@ -710,8 +804,9 @@ class GamingSystemTools(BaseTool):
                         f"Audio configuration failed: {result.stderr or result.stdout}"
                     )
             else:
+                valid_targets = self._get_valid_targets_message("audio", "configure")
                 return self.format_error(
-                    f"Unknown audio configuration target: {target}. Use 'hdmi' or 'analog'"
+                    f"Unknown audio configuration target: {target}. {valid_targets}"
                 )
         except Exception as e:
             return self.format_error(f"Audio configuration failed: {e!s}")
@@ -761,8 +856,9 @@ class GamingSystemTools(BaseTool):
                         f"Unsupported resolution: {resolution}. Supported: {', '.join(resolution_map.keys())}"
                     )
             else:
+                valid_targets = self._get_valid_targets_message("video", "configure")
                 return self.format_error(
-                    f"Unknown video configuration target: {target}"
+                    f"Unknown video configuration target: {target}. {valid_targets}"
                 )
         except Exception as e:
             return self.format_error(f"Video configuration failed: {e!s}")
