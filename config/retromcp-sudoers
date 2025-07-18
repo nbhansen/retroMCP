@@ -43,9 +43,9 @@
 %retromcp ALL=(ALL) /bin/chmod 600 /home/*/.retromcp/*
 %retromcp ALL=(ALL) /bin/chmod 644 /home/*/.retromcp/*.log
 %retromcp ALL=(ALL) /bin/chmod 755 /home/*/RetroPie/roms/*
-%retromcp ALL=(ALL) /bin/chown [a-z]* /home/*/.retromcp/*
-%retromcp ALL=(ALL) /bin/chown -R [a-z]* /home/*/RetroPie/roms/*
-%retromcp ALL=(ALL) /bin/chown -R [a-z]* /home/*/RetroPie/BIOS/*
+%retromcp ALL=(ALL) /bin/chown [a-z][a-z0-9_-]* /home/*/.retromcp/*
+%retromcp ALL=(ALL) /bin/chown -R [a-z][a-z0-9_-]* /home/*/RetroPie/roms/*
+%retromcp ALL=(ALL) /bin/chown -R [a-z][a-z0-9_-]* /home/*/RetroPie/BIOS/*
 
 # GPIO operations (if needed)
 %retromcp ALL=(ALL) /usr/bin/gpio *

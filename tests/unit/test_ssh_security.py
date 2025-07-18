@@ -10,7 +10,7 @@ import paramiko
 import pytest
 
 from retromcp.secure_ssh_handler import SecureSSHHandler as SSHHandler
-from retromcp.secure_ssh_handler_v2 import SecureSSHHandlerV2 as SSHHandlerV2
+from retromcp.secure_ssh_handler_v2 import SecureSecureSSHHandlerV2 as SecureSecureSSHHandlerV2
 
 
 pytestmark = [pytest.mark.security, pytest.mark.unit]
@@ -282,7 +282,7 @@ class TestEnhancedSSHSecurity:
         
         for username in blocked_usernames:
             with pytest.raises(ValueError, match="not allowed for security reasons"):
-                SSHHandlerV2(
+                SecureSSHHandlerV2(
                     host="example.com",
                     username=username,
                     password="password"
@@ -293,7 +293,7 @@ class TestEnhancedSSHSecurity:
         safe_usernames = ["pi", "retro", "user", "gaming", "test-user", "user_123"]
         
         for username in safe_usernames:
-            handler = SSHHandlerV2(
+            handler = SecureSSHHandlerV2(
                 host="example.com",
                 username=username,
                 password="password"
@@ -302,7 +302,7 @@ class TestEnhancedSSHSecurity:
 
     def test_sudo_command_validation_blocks_dangerous_commands(self) -> None:
         """Test that dangerous sudo commands are blocked."""
-        handler = SSHHandlerV2(
+        handler = SecureSSHHandlerV2(
             host="example.com",
             username="pi",
             password="password"
@@ -324,7 +324,7 @@ class TestEnhancedSSHSecurity:
 
     def test_sudo_command_validation_allows_safe_commands(self) -> None:
         """Test that safe sudo commands are allowed."""
-        handler = SSHHandlerV2(
+        handler = SecureSSHHandlerV2(
             host="example.com",
             username="pi",
             password="password"
@@ -347,7 +347,7 @@ class TestEnhancedSSHSecurity:
         """Test sudo password prompting functionality."""
         mock_getpass.return_value = "test_password"
         
-        handler = SSHHandlerV2(
+        handler = SecureSSHHandlerV2(
             host="example.com",
             username="pi"
         )
@@ -358,7 +358,7 @@ class TestEnhancedSSHSecurity:
 
     def test_credential_cleanup_includes_sudo_password(self) -> None:
         """Test that sudo password is also cleaned up on disconnect."""
-        handler = SSHHandlerV2(
+        handler = SecureSSHHandlerV2(
             host="example.com",
             username="pi",
             password="ssh_password",
@@ -373,7 +373,7 @@ class TestEnhancedSSHSecurity:
 
     def test_enhanced_error_sanitization(self) -> None:
         """Test that both SSH and sudo passwords are sanitized."""
-        handler = SSHHandlerV2(
+        handler = SecureSSHHandlerV2(
             host="example.com",
             username="pi",
             password="secret_ssh",
@@ -392,7 +392,7 @@ class TestEnhancedSSHSecurity:
     @patch('retromcp.secure_ssh_handler_v2.paramiko.SSHClient')
     def test_execute_command_with_sudo_and_password(self, mock_ssh_client) -> None:
         """Test command execution with sudo password input."""
-        handler = SSHHandlerV2(
+        handler = SecureSSHHandlerV2(
             host="example.com",
             username="pi",
             sudo_password="test_password"
@@ -421,7 +421,7 @@ class TestEnhancedSSHSecurity:
 
     def test_package_installation_requires_sudo_password(self) -> None:
         """Test that package installation prompts for sudo password."""
-        handler = SSHHandlerV2(
+        handler = SecureSSHHandlerV2(
             host="example.com",
             username="pi"
         )
@@ -435,7 +435,7 @@ class TestEnhancedSSHSecurity:
 
     def test_validates_package_names_security(self) -> None:
         """Test package name validation for security."""
-        handler = SSHHandlerV2(
+        handler = SecureSSHHandlerV2(
             host="example.com",
             username="pi"
         )

@@ -82,6 +82,9 @@ class SecureSSHHandlerV2:
         self.sudo_password = sudo_password
         self.client: Optional[paramiko.SSHClient] = None
         self._retry_count = 0
+        
+        # Set user home path based on username for flexible path validation
+        self.user_home = f"/home/{self.username}"
 
     def _validate_host(self, host: str) -> None:
         """Validate host format to prevent injection."""
@@ -325,50 +328,104 @@ class SecureSSHHandlerV2:
         Raises:
             ValueError: If command is not allowed
         """
-        # List of allowed command prefixes for sudo
-        allowed_commands = [
-            "apt-get update",
-            "apt-get install",
-            "apt-get remove",
-            "apt-get purge",
-            "apt-get autoremove",
-            "apt-get autoclean",
-            "systemctl start",
-            "systemctl stop",
-            "systemctl restart",
-            "systemctl reload",
-            "systemctl status",
-            "systemctl enable",
-            "systemctl disable",
-            "chmod 600 /home/pi/.retromcp/",
-            "chmod 644 /home/pi/.retromcp/",
-            "chown pi:pi /home/pi/.retromcp/",
-            "killall emulationstation",
-            "vcgencmd",
-            "gpio",
-            "/opt/retropie/supplementary/emulationstation/emulationstation",
-            "/home/pi/RetroPie-Setup/retropie_packages.sh",
+        # List of allowed command patterns for sudo
+        allowed_patterns = [
+            # Package management - exact commands with safe arguments
+            r"^apt-get update$",
+            r"^apt-get install [a-zA-Z0-9\-\.\_\+]+( [a-zA-Z0-9\-\.\_\+]+)*$",
+            r"^apt-get remove [a-zA-Z0-9\-\.\_\+]+( [a-zA-Z0-9\-\.\_\+]+)*$",
+            r"^apt-get purge [a-zA-Z0-9\-\.\_\+]+( [a-zA-Z0-9\-\.\_\+]+)*$",
+            r"^apt-get autoremove$",
+            r"^apt-get autoclean$",
+            r"^apt update$",
+            r"^apt upgrade [a-zA-Z0-9\-\.\_\+]+( [a-zA-Z0-9\-\.\_\+]+)*$",
+            r"^apt autoremove [a-zA-Z0-9\-\.\_\+]*$",
+            r"^apt list [a-zA-Z0-9\-\.\_\+]*$",
+            
+            # System services - exact service names only
+            r"^systemctl (start|stop|restart|reload|status|enable|disable) [a-zA-Z0-9\-\.\_]+$",
+            
+            # RetroPie configuration - safe arguments only
+            r"^raspi-config nonint [a-zA-Z0-9\-\_]+ [a-zA-Z0-9\-\_]+$",
+            r"^raspi-config --expand-rootfs$",
+            r"^raspi-config --memory-split [0-9]+$",
+            
+            # File operations - specific paths only (using actual username)
+            rf"^chmod 600 {re.escape(self.user_home)}/.retromcp/[a-zA-Z0-9\-\.\_]+$",
+            rf"^chmod 644 {re.escape(self.user_home)}/.retromcp/[a-zA-Z0-9\-\.\_]+\.log$",
+            rf"^chmod 755 {re.escape(self.user_home)}/RetroPie/roms/[a-zA-Z0-9\-\.\_/]+$",
+            rf"^chown {re.escape(self.username)}:{re.escape(self.username)} {re.escape(self.user_home)}/.retromcp/[a-zA-Z0-9\-\.\_]+$",
+            rf"^chown -R {re.escape(self.username)}:{re.escape(self.username)} {re.escape(self.user_home)}/RetroPie/(roms|BIOS)/[a-zA-Z0-9\-\.\_/]*$",
+            
+            # Process management
+            r"^killall emulationstation$",
+            r"^pkill emulationstation$",
+            r"^kill -(TERM|HUP) [0-9]+$",
+            
+            # Hardware monitoring
+            r"^vcgencmd [a-zA-Z0-9\_\-]+( [a-zA-Z0-9\_\-]+)*$",
+            r"^gpio [a-zA-Z0-9\_\-]+( [a-zA-Z0-9\_\-]+)*$",
+            
+            # Network management
+            r"^ifconfig [a-zA-Z0-9\_\-]+ [a-zA-Z0-9\.\_\-]+$",
+            r"^iwconfig [a-zA-Z0-9\_\-]+ [a-zA-Z0-9\.\_\-]+$",
+            
+            # RetroPie executables - exact paths only (using actual username)
+            r"^/opt/retropie/supplementary/emulationstation/emulationstation$",
+            rf"^{re.escape(self.user_home)}/RetroPie-Setup/retropie_packages\.sh [a-zA-Z0-9\-\.\_]+( [a-zA-Z0-9\-\.\_]+)*$",
+            rf"^{re.escape(self.user_home)}/RetroPie-Setup/retropie_setup\.sh$",
+            
+            # System control (use with extreme caution)
+            r"^reboot$",
+            r"^shutdown (-h|-r) (now|[0-9]+)$",
         ]
 
-        # Check if command starts with allowed prefix
-        command_lower = command.lower().strip()
-        allowed = any(command_lower.startswith(allowed_cmd) for allowed_cmd in allowed_commands)
+        # Check if command matches any allowed pattern
+        command_stripped = command.strip()
+        
+        import re
+        for pattern in allowed_patterns:
+            if re.match(pattern, command_stripped):
+                # Additional security validation
+                self._validate_command_security(command_stripped)
+                return
 
-        if not allowed:
-            logger.warning(f"Security: Blocked unauthorized sudo command: {command!r}")
-            raise ValueError(f"Command not allowed for sudo execution: {command}")
+        logger.warning(f"Security: Blocked unauthorized sudo command: {command!r}")
+        raise ValueError(f"Command not allowed for sudo execution: {command}")
 
-        # Additional security checks
+    def _validate_command_security(self, command: str) -> None:
+        """Additional security validation for commands.
+        
+        Args:
+            command: Command to validate
+            
+        Raises:
+            ValueError: If command contains dangerous patterns
+        """
+        # Block dangerous patterns that could bypass validation
         dangerous_patterns = [
+            # Command injection
             "&&", "||", ";", "|", "`", "$(",
-            "rm -rf /", "dd if=", "mkfs", "fdisk",
-            "passwd", "sudo", "su ", "chmod 777",
-            "chmod +s", "chown root", ">/etc/",
+            # Redirection and pipes
+            ">", "<", ">>", "<<",
+            # Dangerous operations
+            "rm -rf", "dd if=", "mkfs", "fdisk",
+            # Privilege escalation
+            "passwd", "sudo", "su ", "su\t", "su\n",
+            # Permission changes
+            "chmod 777", "chmod +s", "chown root",
+            # System file modification
+            ">/etc/", ">>/etc/", "</etc/",
+            # Network tools that could be misused
+            "wget", "curl", "nc ", "netcat",
+            # Execution
+            "exec", "eval", "source", "\\.\\./",
         ]
 
+        command_lower = command.lower()
         for pattern in dangerous_patterns:
             if pattern in command_lower:
-                logger.warning(f"Security: Blocked dangerous command pattern: {command!r}")
+                logger.warning(f"Security: Blocked dangerous command pattern '{pattern}': {command!r}")
                 raise ValueError(f"Command contains dangerous pattern: {pattern}")
 
     def set_sudo_password(self, password: str) -> None:

@@ -55,12 +55,34 @@ echo "Sudoers backed up"
 
 # Step 2: Check for dangerous sudo rules
 echo -e "${YELLOW}Step 2: Checking for dangerous sudo rules...${NC}"
-if sudo grep -q "ALL=(ALL) NOPASSWD:ALL" /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
+
+# Safely check for dangerous rules in sudoers files
+DANGEROUS_FOUND=false
+if sudo grep -q "ALL=(ALL) NOPASSWD:ALL" /etc/sudoers 2>/dev/null; then
+    DANGEROUS_FOUND=true
+fi
+
+# Check sudoers.d directory if it exists and has files
+if [[ -d /etc/sudoers.d ]]; then
+    for file in /etc/sudoers.d/*; do
+        if [[ -f "$file" ]] && sudo grep -q "ALL=(ALL) NOPASSWD:ALL" "$file" 2>/dev/null; then
+            DANGEROUS_FOUND=true
+            break
+        fi
+    done
+fi
+
+if [[ "$DANGEROUS_FOUND" == "true" ]]; then
     echo -e "${RED}FOUND: Dangerous passwordless sudo rules detected${NC}"
     
     # Show the dangerous rules
     echo "Dangerous rules found:"
-    sudo grep -n "ALL=(ALL) NOPASSWD:ALL" /etc/sudoers /etc/sudoers.d/* 2>/dev/null || true
+    sudo grep -n "ALL=(ALL) NOPASSWD:ALL" /etc/sudoers 2>/dev/null || true
+    for file in /etc/sudoers.d/*; do
+        if [[ -f "$file" ]]; then
+            sudo grep -n "ALL=(ALL) NOPASSWD:ALL" "$file" 2>/dev/null || true
+        fi
+    done
     
     echo ""
     echo -e "${YELLOW}These rules give unlimited root access without password verification${NC}"
@@ -70,7 +92,7 @@ if sudo grep -q "ALL=(ALL) NOPASSWD:ALL" /etc/sudoers /etc/sudoers.d/* 2>/dev/nu
         # Comment out dangerous rules instead of deleting
         sudo sed -i.bak 's/.*ALL=(ALL) NOPASSWD:ALL/# REMOVED BY RETROMCP SECURITY MIGRATION: &/' /etc/sudoers
         
-        # Check sudoers.d directory
+        # Check sudoers.d directory safely
         for file in /etc/sudoers.d/*; do
             if [[ -f "$file" ]]; then
                 sudo sed -i.bak 's/.*ALL=(ALL) NOPASSWD:ALL/# REMOVED BY RETROMCP SECURITY MIGRATION: &/' "$file"
@@ -144,19 +166,6 @@ echo "- Fallback rules for 'pi' user (compatibility)"
 echo ""
 echo -e "${YELLOW}For optimal security, users should be added to the retromcp group:${NC}"
 echo "sudo usermod -a -G retromcp <username>"
-    if sudo visudo -c; then
-        echo -e "${GREEN}Secure RetroMCP sudo rules installed successfully${NC}"
-    else
-        echo -e "${RED}ERROR: Sudoers configuration is invalid${NC}"
-        sudo rm -f /etc/sudoers.d/retromcp
-        echo "Removed invalid configuration"
-        exit 1
-    fi
-else
-    echo -e "${RED}ERROR: RetroMCP sudoers file not found at $SUDOERS_FILE${NC}"
-    echo "Please ensure you're running this script from the RetroMCP directory"
-    exit 1
-fi
 
 # Step 4: SSH Key Setup (Optional)
 echo ""
