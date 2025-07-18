@@ -1,6 +1,11 @@
-"""SSH connection handler for RetroPie communication."""
+"""SSH connection handler for RetroPie communication.
+
+DEPRECATED: This module contains security vulnerabilities and should not be used.
+Use secure_ssh_handler_v2.SecureSSHHandlerV2 instead.
+"""
 
 import logging
+import warnings
 from typing import Any
 from typing import Dict
 from typing import List
@@ -11,9 +16,25 @@ import paramiko
 
 logger = logging.getLogger(__name__)
 
+# Issue deprecation warning when module is imported
+warnings.warn(
+    "ssh_handler is deprecated due to security vulnerabilities. "
+    "Use secure_ssh_handler_v2.SecureSSHHandlerV2 instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 
 class SSHHandler:
-    """Handles SSH connections to RetroPie."""
+    """Handles SSH connections to RetroPie.
+    
+    DEPRECATED: This class contains security vulnerabilities including:
+    - Uses AutoAddPolicy (accepts any host key)
+    - No input validation
+    - No command injection protection
+    
+    Use secure_ssh_handler_v2.SecureSSHHandlerV2 instead.
+    """
 
     def __init__(
         self,
@@ -32,6 +53,13 @@ class SSHHandler:
             key_path: Path to SSH private key (if using key auth)
             port: SSH port (default 22)
         """
+        warnings.warn(
+            "SSHHandler is deprecated due to security vulnerabilities. "
+            "Use secure_ssh_handler_v2.SecureSSHHandlerV2 instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         self.host = host
         self.username = username
         self.password = password

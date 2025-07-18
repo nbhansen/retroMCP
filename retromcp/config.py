@@ -21,6 +21,10 @@ class RetroPieConfig:
     # Discovered paths (populated after connection)
     paths: Optional[RetroPiePaths] = None
 
+    def __post_init__(self) -> None:
+        """Validate configuration after initialization."""
+        self._validate_security_requirements(self.username, self.password, self.key_path)
+
     @classmethod
     def from_env(cls) -> "RetroPieConfig":
         """Create configuration from environment variables."""
@@ -34,6 +38,9 @@ class RetroPieConfig:
             msg = "RETROPIE_HOST and RETROPIE_USERNAME must be set"
             raise ValueError(msg)
 
+        # Security validation
+        cls._validate_security_requirements(username, password, key_path)
+
         return cls(
             host=host,
             username=username,
@@ -42,9 +49,44 @@ class RetroPieConfig:
             port=port,
         )
 
+    @classmethod
+    def _validate_security_requirements(
+        cls, username: str, password: Optional[str], key_path: Optional[str]
+    ) -> None:
+        """Validate security requirements for SSH connection."""
+        # Block root user
+        if username.lower() in {"root", "admin", "administrator"}:
+            raise ValueError(
+                f"Username '{username}' is not allowed for security reasons. "
+                "Use a non-privileged user account instead."
+            )
+
+        # Require either key-based auth or password (prefer keys)
+        if not key_path and not password:
+            raise ValueError(
+                "Either RETROPIE_KEY_PATH or RETROPIE_PASSWORD must be set for authentication. "
+                "SSH key authentication is recommended for better security."
+            )
+
+        # Warn about password authentication
+        if password and not key_path:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "Using password authentication. SSH key authentication is more secure."
+            )
+
     def with_paths(self, paths: RetroPiePaths) -> "RetroPieConfig":
         """Create new config with discovered paths."""
         return replace(self, paths=paths)
+
+    def validate_security(self) -> None:
+        """Validate configuration meets security requirements.
+        
+        Raises:
+            ValueError: If configuration is insecure
+        """
+        self._validate_security_requirements(self.username, self.password, self.key_path)
 
     @property
     def home_dir(self) -> str:

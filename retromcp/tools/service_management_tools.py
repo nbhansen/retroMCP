@@ -63,17 +63,17 @@ class ServiceManagementTools(BaseTool):
             client = self.container.retropie_client
 
             if action == "start":
-                result = client.execute_command(f"sudo systemctl start {service_name}")
+                result = client.execute_command(f"systemctl start {service_name}", use_sudo=True)
             elif action == "stop":
-                result = client.execute_command(f"sudo systemctl stop {service_name}")
+                result = client.execute_command(f"systemctl stop {service_name}", use_sudo=True)
             elif action == "restart":
-                result = client.execute_command(f"sudo systemctl restart {service_name}")
+                result = client.execute_command(f"systemctl restart {service_name}", use_sudo=True)
             elif action == "enable":
-                result = client.execute_command(f"sudo systemctl enable {service_name}")
+                result = client.execute_command(f"systemctl enable {service_name}", use_sudo=True)
             elif action == "disable":
-                result = client.execute_command(f"sudo systemctl disable {service_name}")
+                result = client.execute_command(f"systemctl disable {service_name}", use_sudo=True)
             elif action == "status":
-                result = client.execute_command(f"systemctl status {service_name} --no-pager")
+                result = client.execute_command(f"systemctl status {service_name} --no-pager", use_sudo=True)
             else:
                 return self.format_error(f"Unknown action: {action}")
 

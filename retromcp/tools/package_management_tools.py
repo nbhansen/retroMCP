@@ -79,12 +79,12 @@ class PackageManagementTools(BaseTool):
                     return self.format_error("Package names are required for remove action")
                 # Use direct command for remove
                 package_list = " ".join(packages)
-                result = client.execute_command(f"sudo apt-get remove -y {package_list}")
+                result = client.execute_command(f"apt-get remove -y {package_list}", use_sudo=True)
             elif action == "update":
                 if packages:
                     # Update specific packages
                     package_list = " ".join(packages)
-                    result = client.execute_command(f"sudo apt-get update && sudo apt-get upgrade -y {package_list}")
+                    result = client.execute_command(f"apt-get update && apt-get upgrade -y {package_list}", use_sudo=True)
                 else:
                     # Update all packages using system use case
                     use_case = self.container.update_system_use_case
