@@ -13,6 +13,9 @@ from retromcp.domain.models import ControllerType
 from retromcp.tools.gaming_system_tools import GamingSystemTools
 
 
+@pytest.mark.unit
+@pytest.mark.tools
+@pytest.mark.gaming_tools
 class TestGamingSystemTools:
     """Test cases for GamingSystemTools class."""
 

@@ -14,6 +14,8 @@ from retromcp.tools.hardware_monitoring_tools import HardwareMonitoringTools
 from retromcp.tools.system_management_tools import SystemManagementTools
 
 
+@pytest.mark.unit
+@pytest.mark.security
 class TestCommandInjectionPrevention:
     """Test command injection prevention across all tools."""
 

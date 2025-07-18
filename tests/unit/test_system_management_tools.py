@@ -11,6 +11,9 @@ from retromcp.domain.models import CommandResult
 from retromcp.tools.system_management_tools import SystemManagementTools
 
 
+@pytest.mark.unit
+@pytest.mark.tools
+@pytest.mark.system_tools
 class TestSystemManagementTools:
     """Test cases for SystemManagementTools class."""
 

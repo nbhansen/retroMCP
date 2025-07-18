@@ -61,14 +61,15 @@ class SSHControllerRepository(ControllerRepository):
                         name_lower = name.lower()
                         if "xbox" in name_lower:
                             controller_type = ControllerType.XBOX
+                        elif "ps5" in name_lower or "dualsense" in name_lower:
+                            controller_type = ControllerType.PS5
                         elif (
                             "playstation" in name_lower
                             or "ps4" in name_lower
                             or "dualshock" in name_lower
+                            or ("sony" in name_lower and "wireless controller" in name_lower)
                         ):
                             controller_type = ControllerType.PS4
-                        elif "ps5" in name_lower or "dualsense" in name_lower:
-                            controller_type = ControllerType.PS5
                         elif "nintendo" in name_lower or "switch pro" in name_lower:
                             controller_type = ControllerType.NINTENDO_PRO
                         elif "8bitdo" in name_lower:
@@ -86,6 +87,7 @@ class SSHControllerRepository(ControllerRepository):
                                 "controller",
                                 "xbox",
                                 "playstation",
+                                "8bitdo",
                             ]
                         ):
                             id_match = re.search(
@@ -119,9 +121,10 @@ class SSHControllerRepository(ControllerRepository):
                     Controller(
                         name=name,
                         device_path=device,
+                        controller_type=controller_type,
+                        connected=True,
                         vendor_id=vendor_id,
                         product_id=product_id,
-                        controller_type=controller_type,
                         is_configured=is_configured,
                         driver_required=driver_required,
                     )

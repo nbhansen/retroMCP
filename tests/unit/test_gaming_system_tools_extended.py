@@ -11,6 +11,9 @@ from retromcp.domain.models import CommandResult
 from retromcp.tools.gaming_system_tools import GamingSystemTools
 
 
+@pytest.mark.unit
+@pytest.mark.tools
+@pytest.mark.gaming_tools
 class TestGamingSystemToolsExtended:
     """Extended test cases for GamingSystemTools class."""
 

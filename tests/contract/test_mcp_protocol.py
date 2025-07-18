@@ -22,6 +22,7 @@ from retromcp.discovery import RetroPiePaths
 from retromcp.server import RetroMCPServer
 
 
+@pytest.mark.contract
 class TestMCPServerInitialization:
     """Test MCP server initialization and lifecycle compliance."""
 
@@ -98,6 +99,7 @@ class TestMCPServerInitialization:
         assert hasattr(server, "call_tool"), "Server should have call_tool handler"
 
 
+@pytest.mark.contract
 class TestMCPToolCompliance:
     """Test that tools are properly exposed via MCP protocol."""
 
@@ -208,6 +210,7 @@ class TestMCPToolCompliance:
                 )
 
 
+@pytest.mark.contract
 class TestMCPErrorHandling:
     """Test that error handling follows MCP protocol standards."""
 
@@ -286,6 +289,7 @@ class TestMCPErrorHandling:
             ), "Should indicate unknown tool"
 
 
+@pytest.mark.contract
 class TestMCPResourceCompliance:
     """Test MCP resource handling compliance."""
 
@@ -342,6 +346,7 @@ class TestMCPResourceCompliance:
             )
 
 
+@pytest.mark.contract
 class TestMCPSecurityCompliance:
     """Test that security requirements from MCP spec are followed."""
 
@@ -414,6 +419,7 @@ class TestMCPSecurityCompliance:
         )
 
 
+@pytest.mark.contract
 class TestMCPTransportCompliance:
     """Test MCP transport layer compliance."""
 

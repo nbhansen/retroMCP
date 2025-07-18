@@ -88,4 +88,25 @@ markers = [
     "integration: Integration tests",
     "e2e: End-to-end tests",
     "slow: Slow tests",
+    # Component-specific markers
+    "tools: Tool layer tests",
+    "infrastructure: Infrastructure layer tests",
+    "application: Application layer tests",
+    "domain: Domain layer tests",
+    # Tool-specific markers
+    "hardware_tools: Hardware monitoring tools tests",
+    "gaming_tools: Gaming system tools tests",
+    "state_tools: State management tools tests",
+    "system_tools: System management tools tests",
+    "docker_tools: Docker tools tests",
+    # Infrastructure-specific markers
+    "ssh_repos: SSH repository tests",
+    "controller_repo: Controller repository tests",
+    "docker_repo: Docker repository tests",
+    "emulator_repo: Emulator repository tests",
+    "state_repo: State repository tests",
+    "system_repo: System repository tests",
+    # Special markers
+    "security: Security and validation tests",
+    "contract: Contract and compliance tests",
 ]

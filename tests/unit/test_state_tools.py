@@ -18,6 +18,9 @@ from retromcp.domain.models import SystemState
 from retromcp.tools.state_tools import StateTools
 
 
+@pytest.mark.unit
+@pytest.mark.tools
+@pytest.mark.state_tools
 class TestStateTools:
     """Test cases for StateTools class."""
 

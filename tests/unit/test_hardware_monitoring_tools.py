@@ -11,6 +11,9 @@ from retromcp.domain.models import CommandResult
 from retromcp.tools.hardware_monitoring_tools import HardwareMonitoringTools
 
 
+@pytest.mark.unit
+@pytest.mark.tools
+@pytest.mark.hardware_tools
 class TestHardwareMonitoringTools:
     """Test cases for HardwareMonitoringTools class."""
 

@@ -14,6 +14,10 @@ from retromcp.domain.models import SystemState
 from retromcp.infrastructure.ssh_state_repository import SSHStateRepository
 
 
+@pytest.mark.unit
+@pytest.mark.infrastructure
+@pytest.mark.ssh_repos
+@pytest.mark.state_repo
 class TestSSHStateRepository:
     """Test cases for SSHStateRepository."""
 

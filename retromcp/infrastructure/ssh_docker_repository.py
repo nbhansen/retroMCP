@@ -490,11 +490,13 @@ class SSHDockerRepository(DockerRepository):
         port_mappings = ports_str.split(", ")
         for mapping in port_mappings:
             if "->" in mapping:
-                host_part, container_part = mapping.split("->")
-                host_port = re.search(r":(\d+)", host_part)
-                container_port = re.search(r"(\d+)", container_part)
-                if host_port and container_port:
-                    ports[host_port.group(1)] = container_port.group(1)
+                parts = mapping.split("->")
+                if len(parts) == 2:
+                    host_part, container_part = parts
+                    host_port = re.search(r":(\d+)", host_part)
+                    container_port = re.search(r"(\d+)", container_part)
+                    if host_port and container_port:
+                        ports[host_port.group(1)] = container_port.group(1)
         return ports
 
     def _parse_labels(self, labels_str: str) -> Dict[str, str]:
