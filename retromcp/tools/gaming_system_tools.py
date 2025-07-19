@@ -5,6 +5,7 @@ from typing import Any
 from typing import ClassVar
 from typing import Dict
 from typing import List
+from typing import Optional
 
 from mcp.types import EmbeddedResource
 from mcp.types import ImageContent
@@ -490,7 +491,7 @@ class GamingSystemTools(BaseTool):
         except Exception as e:
             return self.format_error(f"EmulationStation restart failed: {e!s}")
 
-    async def _emulationstation_scan(self, target: str, options: dict = None) -> List[TextContent]:
+    async def _emulationstation_scan(self, target: str, options: Optional[dict] = None) -> List[TextContent]:
         """Handle EmulationStation scanning operations."""
         try:
             if target == "gamelists":
@@ -546,7 +547,7 @@ class GamingSystemTools(BaseTool):
         except Exception as e:
             return self.format_error(f"Controller detection failed: {e!s}")
 
-    async def _controller_setup(self, target: str, options: dict = None) -> List[TextContent]:
+    async def _controller_setup(self, target: str, options: Optional[dict] = None) -> List[TextContent]:
         """Handle controller setup operations."""
         try:
             if not target:
@@ -581,7 +582,7 @@ class GamingSystemTools(BaseTool):
         except Exception as e:
             return self.format_error(f"Controller setup failed: {e!s}")
 
-    async def _controller_test(self, target: str, options: dict = None) -> List[TextContent]:
+    async def _controller_test(self, target: str, options: Optional[dict] = None) -> List[TextContent]:
         """Handle controller testing operations."""
         try:
             if not target:
@@ -619,7 +620,7 @@ class GamingSystemTools(BaseTool):
         except Exception as e:
             return self.format_error(f"Controller test failed: {e!s}")
 
-    async def _controller_configure(self, target: str, options: dict = None) -> List[TextContent]:
+    async def _controller_configure(self, target: str, options: Optional[dict] = None) -> List[TextContent]:
         """Handle controller configuration operations."""
         try:
             if target == "mapping":
@@ -651,7 +652,7 @@ class GamingSystemTools(BaseTool):
 
     # ROM component methods
 
-    async def _roms_scan(self, target: str, options: dict = None) -> List[TextContent]:
+    async def _roms_scan(self, target: str, options: Optional[dict] = None) -> List[TextContent]:
         """Handle ROM scanning operations."""
         try:
             if not target:
@@ -716,7 +717,7 @@ class GamingSystemTools(BaseTool):
         # For now, list is the same as scan
         return await self._roms_scan(target, options)
 
-    async def _roms_configure(self, target: str, options: dict = None) -> List[TextContent]:
+    async def _roms_configure(self, target: str, options: Optional[dict] = None) -> List[TextContent]:
         """Handle ROM configuration operations."""
         try:
             if target == "permissions":
@@ -747,24 +748,24 @@ class GamingSystemTools(BaseTool):
 
     # Emulator component methods
 
-    async def _emulator_install(self, target: str, options: Dict[str, Any] = None) -> List[TextContent]:
+    async def _emulator_install(self, target: str, options: Optional[Dict[str, Any]] = None) -> List[TextContent]:
         """Handle emulator installation operations."""
         # Delegate to RetroPie install with emulator target
         return await self._retropie_install("emulator", {"emulator": target})
 
-    async def _emulator_configure(self, target: str, options: Dict[str, Any] = None) -> List[TextContent]:
+    async def _emulator_configure(self, target: str, options: Optional[Dict[str, Any]] = None) -> List[TextContent]:
         """Handle emulator configuration operations."""
         return self.format_info(
             f"Emulator configuration for {target} not yet implemented"
         )
 
-    async def _emulator_test(self, target: str, options: Dict[str, Any] = None) -> List[TextContent]:
+    async def _emulator_test(self, target: str, options: Optional[Dict[str, Any]] = None) -> List[TextContent]:
         """Handle emulator testing operations."""
         return self.format_info(f"Emulator testing for {target} not yet implemented")
 
     # Audio component methods
 
-    async def _audio_configure(self, target: str, options: Dict[str, Any] = None) -> List[TextContent]:
+    async def _audio_configure(self, target: str, options: Optional[Dict[str, Any]] = None) -> List[TextContent]:
         """Handle audio configuration operations."""
         try:
             if target == "hdmi":
@@ -811,7 +812,7 @@ class GamingSystemTools(BaseTool):
         except Exception as e:
             return self.format_error(f"Audio configuration failed: {e!s}")
 
-    async def _audio_test(self, target: str, options: Dict[str, Any] = None) -> List[TextContent]:
+    async def _audio_test(self, target: str, options: Optional[Dict[str, Any]] = None) -> List[TextContent]:
         """Handle audio testing operations."""
         return self.format_info(f"Audio testing for {target} not yet implemented")
 
@@ -863,6 +864,6 @@ class GamingSystemTools(BaseTool):
         except Exception as e:
             return self.format_error(f"Video configuration failed: {e!s}")
 
-    async def _video_test(self, target: str, options: Dict[str, Any] = None) -> List[TextContent]:
+    async def _video_test(self, target: str, options: Optional[Dict[str, Any]] = None) -> List[TextContent]:
         """Handle video testing operations."""
         return self.format_info(f"Video testing for {target} not yet implemented")

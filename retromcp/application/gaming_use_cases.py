@@ -87,11 +87,11 @@ class ListRomsUseCase:
         min_rom_count: Optional[int] = None
     ) -> List[RomDirectory]:
         """List ROM directories with optional filtering and sorting.
-        
+
         Args:
             system_filter: Optional system name to filter by
             min_rom_count: Optional minimum ROM count filter
-            
+
         Returns:
             List of ROM directories sorted by ROM count (descending)
         """

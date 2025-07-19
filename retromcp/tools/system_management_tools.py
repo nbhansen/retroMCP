@@ -22,7 +22,7 @@ from .system_update_tools import SystemUpdateTools
 class SystemManagementTools(BaseTool):
     """Consolidated system management tools using focused sub-tools."""
 
-    def __init__(self, container):
+    def __init__(self, container) -> None:
         """Initialize with container and create sub-tools."""
         super().__init__(container)
 

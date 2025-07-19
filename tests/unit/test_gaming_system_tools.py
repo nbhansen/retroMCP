@@ -1540,3 +1540,569 @@ class TestGamingSystemTools:
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "controller configuration failed" in result[0].text.lower()
+
+    # Error Message Validation Tests (from test_gaming_system_tools_error_messages.py)
+
+    @pytest.mark.asyncio
+    async def test_retropie_setup_invalid_target_shows_valid_options(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test RetroPie setup with invalid target shows valid options."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {"component": "retropie", "action": "setup", "target": "invalid"},
+        )
+
+        assert len(result) == 1
+        assert "Unknown RetroPie setup target: invalid" in result[0].text
+        assert "Valid targets: update" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_controller_setup_no_target_shows_valid_options(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller setup without target shows valid options."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming", {"component": "controller", "action": "setup"}
+        )
+
+        assert len(result) == 1
+        assert "Controller type is required for setup" in result[0].text
+        assert "Valid targets: xbox, ps3, ps4, 8bitdo, generic" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_controller_setup_invalid_target_shows_valid_options(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller setup with invalid target shows valid options."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {"component": "controller", "action": "setup", "target": "nintendo"},
+        )
+
+        assert len(result) == 1
+        assert "Invalid controller type: nintendo" in result[0].text
+        assert "Valid targets: xbox, ps3, ps4, 8bitdo, generic" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_audio_configure_invalid_target_shows_valid_options(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test audio configure with invalid target shows valid options."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {"component": "audio", "action": "configure", "target": "bluetooth"},
+        )
+
+        assert len(result) == 1
+        assert "Unknown audio configuration target: bluetooth" in result[0].text
+        assert "Valid targets: hdmi, analog" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_roms_scan_no_target_shows_helpful_message(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test ROM scan without target shows helpful message."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming", {"component": "roms", "action": "scan"}
+        )
+
+        assert len(result) == 1
+        assert "ROM system target is required for scanning" in result[0].text
+        assert "Valid targets: nes, snes, genesis, arcade, etc." in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_video_configure_invalid_target_shows_valid_options(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test video configure with invalid target shows valid options."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {"component": "video", "action": "configure", "target": "4k"},
+        )
+
+        assert len(result) == 1
+        assert "Unknown video configuration target: 4k" in result[0].text
+        assert "Valid targets: resolution, refresh, crt" in result[0].text
+
+    def test_tool_description_is_helpful(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test that tool description includes component and action information."""
+        tools = gaming_system_tools.get_tools()
+        assert len(tools) == 1
+
+        tool = tools[0]
+        assert "retropie (setup/install/configure)" in tool.description
+        assert "controller (detect/setup/test/configure)" in tool.description
+        assert "error messages will show valid targets" in tool.description
+
+    def test_target_parameter_description(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test that target parameter description includes examples."""
+        tools = gaming_system_tools.get_tools()
+        tool = tools[0]
+
+        target_desc = tool.inputSchema["properties"]["target"]["description"]
+        assert "controller setup: 'xbox', 'ps3', 'ps4'" in target_desc
+        assert "audio configure: 'hdmi', 'analog'" in target_desc
+        assert "roms scan: system name (e.g., 'nes', 'arcade')" in target_desc
+
+    # Extended Tests (from test_gaming_system_tools_extended.py)
+
+    @pytest.mark.asyncio
+    async def test_roms_scan_no_roms_found(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test ROM scan with no ROMs found."""
+        # Mock no ROMs found
+        gaming_system_tools.container.list_roms_use_case.execute.return_value = []
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "roms",
+                "action": "scan",
+                "target": "n64",
+            },
+        )
+
+        # Verify result shows no ROMs
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "no n64 roms found" in result[0].text.lower()
+        assert "place n64 rom files" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_roms_scan_with_system_filtering(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test ROM scan with system filtering logic."""
+        # Mock ROMs with different systems
+        mock_roms = [
+            {
+                "name": "Mario 64",
+                "path": "/home/retro/RetroPie/roms/n64/mario64.z64",
+                "system": "n64",
+            },
+            {
+                "name": "Sonic",
+                "path": "/home/retro/RetroPie/roms/genesis/sonic.gen",
+                "system": "genesis",
+            },
+            {
+                "name": "Zelda",
+                "path": "/home/retro/RetroPie/roms/n64/zelda.z64",
+                # Missing system field - should be inferred from path
+            },
+        ]
+        gaming_system_tools.container.list_roms_use_case.execute.return_value = (
+            mock_roms
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "roms",
+                "action": "scan",
+                "target": "n64",
+            },
+        )
+
+        # Verify result shows only N64 ROMs
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "mario 64" in result[0].text.lower()
+        assert "zelda" in result[0].text.lower()
+        assert "sonic" not in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_roms_list_delegates_to_scan(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test ROM list delegates to scan method."""
+        # Mock ROMs
+        mock_roms = [
+            {
+                "name": "Test ROM",
+                "path": "/home/retro/RetroPie/roms/n64/test.z64",
+                "system": "n64",
+            },
+        ]
+        gaming_system_tools.container.list_roms_use_case.execute.return_value = (
+            mock_roms
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "roms",
+                "action": "list",
+                "target": "n64",
+            },
+        )
+
+        # Verify result (should be same as scan)
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "test rom" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulator_install_delegates_to_retropie(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test emulator install delegates to RetroPie install."""
+        # Mock successful emulator installation
+        mock_result = CommandResult(
+            command="sudo ./retropie_setup.sh lr-mupen64plus install",
+            exit_code=0,
+            stdout="Emulator lr-mupen64plus installed successfully",
+            stderr="",
+            success=True,
+            execution_time=120.0,
+        )
+        gaming_system_tools.container.install_emulator_use_case.execute.return_value = (
+            mock_result
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulator",
+                "action": "install",
+                "target": "lr-mupen64plus",
+            },
+        )
+
+        # Verify result
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "installed successfully" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulator_configure_not_implemented(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test emulator configure not yet implemented."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulator",
+                "action": "configure",
+                "target": "lr-mupen64plus",
+            },
+        )
+
+        # Verify info message
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "not yet implemented" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_emulator_test_not_implemented(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test emulator test not yet implemented."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "emulator",
+                "action": "test",
+                "target": "lr-mupen64plus",
+            },
+        )
+
+        # Verify info message
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "not yet implemented" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_audio_configure_analog_success(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test audio analog configuration success."""
+        # Mock successful configuration
+        gaming_system_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                command="sudo raspi-config nonint do_audio 1",
+                exit_code=0,
+                stdout="Audio configured to analog",
+                stderr="",
+                success=True,
+                execution_time=5.0,
+            )
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "audio",
+                "action": "configure",
+                "target": "analog",
+            },
+        )
+
+        # Verify success
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "analog" in result[0].text.lower()
+        assert "3.5mm" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_audio_test_not_implemented(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test audio test not yet implemented."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "audio",
+                "action": "test",
+                "target": "hdmi",
+            },
+        )
+
+        # Verify info message
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "not yet implemented" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_video_configure_supported_resolutions(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test video configuration with all supported resolutions."""
+        supported_resolutions = ["1920x1080", "1280x720", "1024x768", "800x600"]
+
+        for resolution in supported_resolutions:
+            # Mock successful configuration
+            gaming_system_tools.container.retropie_client.execute_command.return_value = CommandResult(
+                command="sudo raspi-config nonint do_resolution 2 82",
+                exit_code=0,
+                stdout=f"Resolution set to {resolution}",
+                stderr="",
+                success=True,
+                execution_time=5.0,
+            )
+
+            result = await gaming_system_tools.handle_tool_call(
+                "manage_gaming",
+                {
+                    "component": "video",
+                    "action": "configure",
+                    "target": "resolution",
+                    "options": {"resolution": resolution},
+                },
+            )
+
+            # Verify success
+            assert len(result) == 1
+            assert isinstance(result[0], TextContent)
+            assert resolution in result[0].text.lower()
+            assert "reboot required" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_video_configure_unsupported_resolution(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test video configuration with unsupported resolution."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "video",
+                "action": "configure",
+                "target": "resolution",
+                "options": {"resolution": "4096x2160"},
+            },
+        )
+
+        # Verify error
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "unsupported resolution" in result[0].text.lower()
+        assert "1920x1080" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_video_test_not_implemented(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test video test not yet implemented."""
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "video",
+                "action": "test",
+                "target": "resolution",
+            },
+        )
+
+        # Verify info message
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "not yet implemented" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_test_device_path_handling(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller test with different device path formats."""
+        # Mock successful test
+        gaming_system_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                command="jstest /dev/input/js0 --event",
+                exit_code=0,
+                stdout="Controller test successful",
+                stderr="",
+                success=True,
+                execution_time=5.0,
+            )
+        )
+
+        # Test with full device path
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "test",
+                "target": "/dev/input/js0",
+            },
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "test completed" in result[0].text.lower()
+
+        # Test with short device name
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "test",
+                "target": "js0",
+            },
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "test completed" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_controller_configure_mapping_success(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test controller configuration mapping success path."""
+        # Mock successful configuration
+        gaming_system_tools.container.retropie_client.execute_command.return_value = (
+            CommandResult(
+                command="emulationstation --force-input-config",
+                exit_code=0,
+                stdout="Configuration started",
+                stderr="",
+                success=True,
+                execution_time=10.0,
+            )
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "controller",
+                "action": "configure",
+                "target": "mapping",
+            },
+        )
+
+        # Verify success
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "controller mapping configuration started" in result[0].text.lower()
+        assert "follow the on-screen prompts" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_roms_scan_with_none_roms(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test ROM scan when use case returns None."""
+        # Mock None return
+        gaming_system_tools.container.list_roms_use_case.execute.return_value = None
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "roms",
+                "action": "scan",
+                "target": "n64",
+            },
+        )
+
+        # Verify result shows no ROMs
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "no n64 roms found" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_roms_scan_with_non_list_roms(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test ROM scan when use case returns non-list data."""
+        # Mock non-list return
+        gaming_system_tools.container.list_roms_use_case.execute.return_value = (
+            "not a list"
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "roms",
+                "action": "scan",
+                "target": "n64",
+            },
+        )
+
+        # Verify result shows no ROMs
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "no n64 roms found" in result[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_roms_scan_with_missing_name_or_path(
+        self, gaming_system_tools: GamingSystemTools
+    ) -> None:
+        """Test ROM scan with ROMs missing name or path fields."""
+        # Mock ROM data with missing fields
+        mock_roms = [
+            {
+                "name": "Game 1",
+                # Missing path
+                "system": "nes",
+            },
+            {
+                # Missing name
+                "path": "/home/retro/RetroPie/roms/nes/game2.nes",
+                "system": "nes",
+            },
+            {
+                "name": "Game 3",
+                "path": "/home/retro/RetroPie/roms/nes/game3.nes",
+                "system": "nes",
+            },
+        ]
+        gaming_system_tools.container.list_roms_use_case.execute.return_value = (
+            mock_roms
+        )
+
+        result = await gaming_system_tools.handle_tool_call(
+            "manage_gaming",
+            {
+                "component": "roms",
+                "action": "scan",
+                "target": "nes",
+            },
+        )
+
+        # Verify result shows ROMs with "Unknown" for missing fields
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "unknown" in result[0].text.lower()  # Should appear for missing fields

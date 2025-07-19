@@ -78,7 +78,7 @@ class SystemInfoTools(BaseTool):
     def _format_complete_system_info(self, system_info) -> str:
         """Format complete system information."""
         return f"""System Information:
-        
+
 🖥️ Hardware:
 - Hostname: {system_info.hostname}
 - CPU Temperature: {system_info.cpu_temperature}°C
