@@ -5,8 +5,14 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from typing import Dict
+from typing import Generic
 from typing import List
 from typing import Optional
+from typing import TypeVar
+
+# Type variables for Result pattern
+T = TypeVar("T")
+E = TypeVar("E")
 
 
 class CommandExecutionMode(Enum):
@@ -685,3 +691,91 @@ class SystemNote:
     action: str
     description: str
     user: str
+
+
+# Unified Result Pattern and Domain Error Hierarchy
+
+
+@dataclass(frozen=True)
+class Result(Generic[T, E]):
+    """Unified result type for all operations."""
+
+    _value: T | None = None
+    _error: E | None = None
+
+    @classmethod
+    def success(cls, value: T) -> "Result[T, E]":
+        """Create a successful result."""
+        return cls(_value=value, _error=None)
+
+    @classmethod
+    def error(cls, error: E) -> "Result[T, E]":
+        """Create a failed result."""
+        return cls(_value=None, _error=error)
+
+    def is_success(self) -> bool:
+        """Check if result is successful."""
+        return self._error is None
+
+    def is_error(self) -> bool:
+        """Check if result is an error."""
+        return self._error is not None
+
+    @property
+    def value(self) -> T | None:
+        """Get the success value safely, returns None for error results."""
+        return self._value
+
+    @property
+    def success_value(self) -> T:
+        """Get the success value."""
+        if self._error is not None:
+            raise ValueError("Cannot get value from error result")
+        return self._value
+
+    @property
+    def error_value(self) -> E:
+        """Get the error value."""
+        if self._error is None:
+            raise ValueError("Cannot get error from success result")
+        return self._error
+
+    @property
+    def error_or_none(self) -> E | None:
+        """Get the error value safely, returns None for success results."""
+        return self._error
+
+
+@dataclass(frozen=True)
+class DomainError:
+    """Base domain error type."""
+
+    code: str
+    message: str
+    details: Optional[Dict[str, Any]] = None
+
+
+@dataclass(frozen=True)
+class ValidationError(DomainError):
+    """Input validation failures."""
+
+    pass
+
+
+@dataclass(frozen=True)
+class ConnectionError(DomainError):
+    """SSH/network connectivity issues."""
+
+    pass
+
+
+@dataclass(frozen=True)
+class ExecutionError:
+    """Command execution failures."""
+
+    code: str
+    message: str
+    command: str
+    exit_code: int
+    stderr: str
+    details: Optional[Dict[str, Any]] = None
