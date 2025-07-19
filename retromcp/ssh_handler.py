@@ -9,6 +9,8 @@ from typing import Tuple
 
 import paramiko
 
+from .timeout_config import get_timeout_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +24,7 @@ class SSHHandler:
         password: Optional[str] = None,
         key_path: Optional[str] = None,
         port: int = 22,
+        command_timeout: Optional[int] = None,
     ) -> None:
         """Initialize SSH handler.
 
@@ -31,12 +34,15 @@ class SSHHandler:
             password: SSH password (if using password auth)
             key_path: Path to SSH private key (if using key auth)
             port: SSH port (default 22)
+            command_timeout: Command execution timeout in seconds (uses timeout config if None)
         """
         self.host = host
         self.username = username
         self.password = password
         self.key_path = key_path
         self.port = port
+        self.timeout_config = get_timeout_config()
+        self.command_timeout = command_timeout or self.timeout_config.ssh_command_default
         self.client: Optional[paramiko.SSHClient] = None
 
     def connect(self) -> bool:
@@ -79,30 +85,73 @@ class SSHHandler:
             self.client = None
             logger.info(f"Disconnected from {self.host}")
 
-    def execute_command(self, command: str) -> Tuple[int, str, str]:
-        """Execute a command on the remote host.
+    def execute_command(self, command: str, custom_timeout: Optional[int] = None) -> Tuple[int, str, str]:
+        """Execute a command on the remote host with intelligent timeout protection.
 
         Args:
             command: Command to execute
+            custom_timeout: Custom timeout override (uses smart detection if None)
 
         Returns:
             Tuple of (exit_code, stdout, stderr)
+            
+        Raises:
+            RuntimeError: If not connected or command times out
         """
         if not self.client:
             raise RuntimeError("Not connected to SSH server")
 
+        # Determine appropriate timeout for this command
+        timeout = custom_timeout or self.timeout_config.get_timeout_for_command(command)
+
         try:
-            stdin, stdout, stderr = self.client.exec_command(command)
+            # Set timeout for command execution to prevent hanging
+            stdin, stdout, stderr = self.client.exec_command(
+                command, timeout=timeout
+            )
+
+            # Get exit status with timeout protection
             exit_code = stdout.channel.recv_exit_status()
 
             stdout_text = stdout.read().decode("utf-8").strip()
             stderr_text = stderr.read().decode("utf-8").strip()
 
+            logger.debug(f"Command executed with {timeout}s timeout: {command[:50]}...")
             return exit_code, stdout_text, stderr_text
+
+        except paramiko.SSHException as e:
+            if "Timeout" in str(e):
+                raise RuntimeError(
+                    f"Command execution timeout after {timeout}s: {command}"
+                ) from e
+            logger.error(f"SSH error executing command '{command}': {e}")
+            raise
 
         except Exception as e:
             logger.error(f"Failed to execute command '{command}': {e}")
             raise
+
+    def execute_command_safe(self, command: str, custom_timeout: Optional[int] = None) -> Tuple[int, str, str]:
+        """Execute a command with timeout wrapper to prevent hanging on interactive commands.
+
+        This method automatically wraps commands with the 'timeout' utility to ensure
+        they terminate even if they would normally hang waiting for user input.
+
+        Args:
+            command: Command to execute
+            custom_timeout: Custom timeout override (uses smart detection if None)
+
+        Returns:
+            Tuple of (exit_code, stdout, stderr)
+            
+        Raises:
+            RuntimeError: If not connected or command times out
+        """
+        # Use timeout config to wrap command with appropriate timeout
+        safe_command = self.timeout_config.wrap_command_with_timeout(command, custom_timeout)
+
+        # Execute the wrapped command
+        return self.execute_command(safe_command, custom_timeout)
 
     def test_connection(self) -> bool:
         """Test if connection is active.
