@@ -9,6 +9,13 @@ from typing import List
 from typing import Optional
 
 
+class CommandExecutionMode(Enum):
+    """Command execution modes for different types of operations."""
+
+    NORMAL = "normal"
+    MONITORING = "monitoring"
+
+
 class ControllerType(Enum):
     """Supported controller types."""
 
@@ -197,6 +204,7 @@ class ExecuteCommandRequest:
     use_sudo: bool = False
     working_directory: Optional[str] = None
     timeout: Optional[int] = None
+    mode: CommandExecutionMode = CommandExecutionMode.NORMAL
 
 
 @dataclass(frozen=True)

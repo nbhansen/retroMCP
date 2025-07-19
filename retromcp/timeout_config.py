@@ -26,10 +26,10 @@ class TimeoutConfig:
 
     def get_timeout_for_command(self, command: str) -> int:
         """Get appropriate timeout for a specific command.
-        
+
         Args:
             command: The command to get timeout for
-            
+
         Returns:
             Timeout in seconds
         """
@@ -98,13 +98,54 @@ class TimeoutConfig:
         # Default timeout
         return self.ssh_command_default
 
+    def is_monitoring_command(self, command: str) -> bool:
+        """Check if a command is a monitoring command that runs indefinitely.
+
+        Args:
+            command: The command to check
+
+        Returns:
+            True if the command is a monitoring command, False otherwise
+        """
+        command_lower = command.lower().strip()
+
+        # Watch commands
+        if "watch" in command_lower and command_lower.split()[0] in ["watch", "sudo"] and "watch" in command_lower:
+            return True
+
+        # Tail follow commands
+        if "tail" in command_lower and ("-f" in command_lower or "-F" in command_lower or "--follow" in command_lower):
+            return True
+
+        # Top/htop/iotop commands
+        top_commands = ["top", "htop", "iotop"]
+        command_words = command_lower.split()
+        if any(cmd in command_words for cmd in top_commands):
+            return True
+
+        # Journalctl follow commands
+        return bool("journalctl" in command_lower and ("-f" in command_lower or "--follow" in command_lower))
+
+    def get_timeout_for_monitoring_command(self, command: str) -> Optional[int]:
+        """Get timeout for monitoring commands (should be None for no timeout).
+
+        Args:
+            command: The command to get timeout for
+
+        Returns:
+            None for monitoring commands (no timeout)
+        """
+        if self.is_monitoring_command(command):
+            return None
+        return self.get_timeout_for_command(command)
+
     def wrap_command_with_timeout(self, command: str, custom_timeout: Optional[int] = None) -> str:
         """Wrap a command with timeout if it doesn't already have one.
-        
+
         Args:
             command: The command to wrap
             custom_timeout: Custom timeout to use instead of auto-detection
-            
+
         Returns:
             Command wrapped with timeout
         """
@@ -119,10 +160,10 @@ class TimeoutConfig:
 
     def get_safe_retropie_command(self, action: str) -> str:
         """Get a safe RetroPie-Setup command with timeout and non-interactive flags.
-        
+
         Args:
             action: The RetroPie action to perform
-            
+
         Returns:
             Safe command string
         """
@@ -141,7 +182,7 @@ DEFAULT_TIMEOUTS = TimeoutConfig()
 
 def get_timeout_config() -> TimeoutConfig:
     """Get the global timeout configuration.
-    
+
     Returns:
         TimeoutConfig instance
     """
@@ -150,7 +191,7 @@ def get_timeout_config() -> TimeoutConfig:
 
 def set_timeout_config(config: TimeoutConfig) -> None:
     """Set a custom global timeout configuration.
-    
+
     Args:
         config: New timeout configuration
     """

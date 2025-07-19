@@ -1,8 +1,8 @@
 """System-related use cases for RetroMCP."""
 
 import re
-import shlex
 
+from ..domain.models import CommandExecutionMode
 from ..domain.models import CommandResult
 from ..domain.models import ConnectionInfo
 from ..domain.models import ExecuteCommandRequest
@@ -63,6 +63,10 @@ class ExecuteCommandUseCase:
         """Execute a command on the system."""
         # Validate command for security
         self._validate_command_security(request.command)
+
+        # Handle monitoring commands differently
+        if request.mode == CommandExecutionMode.MONITORING:
+            return self._execute_monitoring_command(request)
 
         # Build final command with proper escaping
         final_command = self._build_secure_command(request)
@@ -155,8 +159,31 @@ class ExecuteCommandUseCase:
         if request.timeout:
             command = f"timeout {request.timeout} {command}"
 
-        # Quote the entire command to prevent injection
-        return shlex.quote(command) if request.escape_args else command
+        # Return the command (escaping handled at infrastructure layer)
+        return command
+
+    def _execute_monitoring_command(self, request: ExecuteCommandRequest) -> CommandResult:
+        """Execute a monitoring command with appropriate handling.
+
+        Args:
+            request: Command execution request with monitoring mode
+
+        Returns:
+            CommandResult with guidance on termination
+        """
+        # Monitoring commands get special handling - delegate to client
+        try:
+            result = self._client.execute_monitoring_command(request.command)
+            return result
+        except Exception as e:
+            return CommandResult(
+                command=request.command,
+                exit_code=1,
+                stdout="",
+                stderr=f"Monitoring command execution failed: {e!s}",
+                success=False,
+                execution_time=0.0,
+            )
 
 
 class WriteFileUseCase:

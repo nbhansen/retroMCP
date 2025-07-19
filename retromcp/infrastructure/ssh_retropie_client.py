@@ -73,3 +73,34 @@ class SSHRetroPieClient(RetroPieClient):
                 success=False,
                 execution_time=execution_time,
             )
+
+    def execute_monitoring_command(self, command: str) -> CommandResult:
+        """Execute a monitoring command that runs indefinitely.
+
+        This method delegates to the SSH handler's specialized monitoring
+        command execution which provides user guidance on termination.
+        """
+        start_time = time.time()
+
+        try:
+            exit_code, stdout, stderr = self._ssh.execute_monitoring_command(command)
+            execution_time = time.time() - start_time
+
+            return CommandResult(
+                command=command,
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+                success=exit_code == 0,
+                execution_time=execution_time,
+            )
+        except Exception as e:
+            execution_time = time.time() - start_time
+            return CommandResult(
+                command=command,
+                exit_code=1,
+                stdout="",
+                stderr=str(e),
+                success=False,
+                execution_time=execution_time,
+            )

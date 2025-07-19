@@ -46,6 +46,14 @@ class RetroPieClient(ABC):
     def execute_command(self, command: str, use_sudo: bool = False) -> CommandResult:
         """Execute a command on the RetroPie system."""
 
+    @abstractmethod
+    def execute_monitoring_command(self, command: str) -> CommandResult:
+        """Execute a monitoring command that runs indefinitely.
+
+        This method is for commands like 'watch', 'tail -f', 'top', etc.
+        that are intended to run continuously. Returns guidance on termination.
+        """
+
 
 class SystemRepository(ABC):
     """Interface for system-level operations."""

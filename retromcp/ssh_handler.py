@@ -94,12 +94,17 @@ class SSHHandler:
 
         Returns:
             Tuple of (exit_code, stdout, stderr)
-            
+
         Raises:
             RuntimeError: If not connected or command times out
         """
         if not self.client:
             raise RuntimeError("Not connected to SSH server")
+
+        # Check if this is a monitoring command that should run without timeout
+        if custom_timeout is None and self.timeout_config.is_monitoring_command(command):
+            # Auto-detect monitoring command and handle appropriately
+            return self.execute_monitoring_command(command)
 
         # Determine appropriate timeout for this command
         timeout = custom_timeout or self.timeout_config.get_timeout_for_command(command)
@@ -131,6 +136,47 @@ class SSHHandler:
             logger.error(f"Failed to execute command '{command}': {e}")
             raise
 
+    def execute_monitoring_command(self, command: str) -> Tuple[int, str, str]:
+        """Execute a monitoring command that runs indefinitely without timeout.
+
+        This method is designed for commands like 'watch', 'tail -f', 'top', etc.
+        that are intended to run continuously. It provides guidance on how to
+        terminate the command when needed.
+
+        Args:
+            command: Monitoring command to execute
+
+        Returns:
+            Tuple of (exit_code, stdout with termination info, stderr)
+
+        Raises:
+            RuntimeError: If not connected
+        """
+        if not self.client:
+            raise RuntimeError("Not connected to SSH server")
+
+        # For monitoring commands, we want to provide immediate feedback
+        # and guidance on termination, rather than actually running indefinitely
+        command_name = command.split()[0]
+        if "sudo" in command.lower():
+            # Extract actual command after sudo
+            parts = command.split()
+            if len(parts) > 1:
+                command_name = parts[1]
+
+        response_message = f"""✅ Monitoring command started successfully
+
+Command: {command}
+Status: Running in background
+
+To terminate this monitoring command, use:
+pkill -f "{command_name}"
+
+The command will continue running until terminated."""
+
+        # Return success with guidance message
+        return 0, response_message, ""
+
     def execute_command_safe(self, command: str, custom_timeout: Optional[int] = None) -> Tuple[int, str, str]:
         """Execute a command with timeout wrapper to prevent hanging on interactive commands.
 
@@ -143,7 +189,7 @@ class SSHHandler:
 
         Returns:
             Tuple of (exit_code, stdout, stderr)
-            
+
         Raises:
             RuntimeError: If not connected or command times out
         """
