@@ -14,7 +14,7 @@ async def test_mcp_server():
     print("🧪 Testing MCP server functionality...")
 
     # Create server with minimal config
-    config = RetroPieConfig(host='192.168.1.100', username='test')
+    config = RetroPieConfig(host="192.168.1.100", username="test")
     server_config = ServerConfig()
     server = RetroMCPServer(config, server_config)
 
@@ -29,13 +29,16 @@ async def test_mcp_server():
     # Test tool call (should fail gracefully)
     print("\n🔧 Testing tool call...")
     try:
-        result = await server.call_tool('manage_system', {'resource': 'connection', 'action': 'test'})
+        result = await server.call_tool(
+            "manage_system", {"resource": "connection", "action": "test"}
+        )
         print(f"✅ Tool call completed: {result[0].text[:80]}...")
     except Exception as e:
         print(f"❌ Tool call failed: {e}")
 
     print("\n🎉 MCP server test completed!")
     return True
+
 
 if __name__ == "__main__":
     success = asyncio.run(test_mcp_server())

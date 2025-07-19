@@ -27,9 +27,7 @@ class TestCacheEntry:
     def test_cache_entry_immutability(self) -> None:
         """Test that CacheEntry is immutable."""
         entry = CacheEntry(
-            data={"test": "value"},
-            timestamp=datetime.now(),
-            ttl_seconds=300
+            data={"test": "value"}, timestamp=datetime.now(), ttl_seconds=300
         )
 
         # Test that entry is frozen
@@ -39,9 +37,7 @@ class TestCacheEntry:
     def test_is_expired_fresh_entry(self) -> None:
         """Test that fresh entry is not expired."""
         entry = CacheEntry(
-            data={"test": "value"},
-            timestamp=datetime.now(),
-            ttl_seconds=300
+            data={"test": "value"}, timestamp=datetime.now(), ttl_seconds=300
         )
 
         assert not entry.is_expired()
@@ -50,9 +46,7 @@ class TestCacheEntry:
         """Test that old entry is expired."""
         old_timestamp = datetime.now() - timedelta(seconds=400)
         entry = CacheEntry(
-            data={"test": "value"},
-            timestamp=old_timestamp,
-            ttl_seconds=300
+            data={"test": "value"}, timestamp=old_timestamp, ttl_seconds=300
         )
 
         assert entry.is_expired()
@@ -60,9 +54,7 @@ class TestCacheEntry:
     def test_is_expired_zero_ttl(self) -> None:
         """Test that zero TTL always expires immediately."""
         entry = CacheEntry(
-            data={"test": "value"},
-            timestamp=datetime.now(),
-            ttl_seconds=0
+            data={"test": "value"}, timestamp=datetime.now(), ttl_seconds=0
         )
 
         assert entry.is_expired()
@@ -190,10 +182,12 @@ class TestSystemCache:
             disk_used=8000000000,
             disk_free=24000000000,
             load_average=[0.5, 0.3, 0.2],
-            uptime=86400
+            uptime=86400,
         )
 
-    def test_cache_system_info(self, cache: SystemCache, sample_system_info: SystemInfo) -> None:
+    def test_cache_system_info(
+        self, cache: SystemCache, sample_system_info: SystemInfo
+    ) -> None:
         """Test caching system information."""
         cache.cache_system_info(sample_system_info)
 
@@ -207,7 +201,7 @@ class TestSystemCache:
         hardware_data = {
             "model": "Raspberry Pi 5",
             "gpio_usage": {"614": "fan_control"},
-            "cooling_active": True
+            "cooling_active": True,
         }
 
         cache.cache_hardware_scan(hardware_data)
@@ -220,12 +214,7 @@ class TestSystemCache:
     def test_cache_network_scan(self, cache: SystemCache) -> None:
         """Test caching network scan results."""
         network_data = [
-            {
-                "name": "eth0",
-                "ip": "192.168.1.100",
-                "status": "up",
-                "speed": "1000Mbps"
-            }
+            {"name": "eth0", "ip": "192.168.1.100", "status": "up", "speed": "1000Mbps"}
         ]
 
         cache.cache_network_scan(network_data)
@@ -238,11 +227,7 @@ class TestSystemCache:
     def test_cache_service_status(self, cache: SystemCache) -> None:
         """Test caching service status."""
         services_data = [
-            {
-                "name": "docker.service",
-                "status": "running",
-                "enabled": True
-            }
+            {"name": "docker.service", "status": "running", "enabled": True}
         ]
 
         cache.cache_service_status(services_data)
@@ -252,7 +237,9 @@ class TestSystemCache:
         assert len(result) == 1
         assert result[0]["name"] == "docker.service"
 
-    def test_cache_expiration_system_info(self, cache: SystemCache, sample_system_info: SystemInfo) -> None:
+    def test_cache_expiration_system_info(
+        self, cache: SystemCache, sample_system_info: SystemInfo
+    ) -> None:
         """Test that system info cache expires."""
         # Override TTL for testing
         cache.system_info_ttl = 0.1
@@ -265,7 +252,9 @@ class TestSystemCache:
 
         assert cache.get_system_info() is None
 
-    def test_cache_invalidation(self, cache: SystemCache, sample_system_info: SystemInfo) -> None:
+    def test_cache_invalidation(
+        self, cache: SystemCache, sample_system_info: SystemInfo
+    ) -> None:
         """Test cache invalidation functionality."""
         hardware_data = {"model": "Pi 5"}
 
@@ -300,10 +289,16 @@ class TestSystemCache:
 
         # Cache hit
         sample_info = SystemInfo(
-            hostname="test", cpu_temperature=60.0, memory_total=8000000000,
-            memory_used=2000000000, memory_free=6000000000, disk_total=32000000000,
-            disk_used=8000000000, disk_free=24000000000, load_average=[0.1, 0.2, 0.3],
-            uptime=3600
+            hostname="test",
+            cpu_temperature=60.0,
+            memory_total=8000000000,
+            memory_used=2000000000,
+            memory_free=6000000000,
+            disk_total=32000000000,
+            disk_used=8000000000,
+            disk_free=24000000000,
+            load_average=[0.1, 0.2, 0.3],
+            uptime=3600,
         )
         cache.cache_system_info(sample_info)
         result = cache.get_system_info()

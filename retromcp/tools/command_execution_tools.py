@@ -81,7 +81,9 @@ class CommandExecutionTools(BaseTool):
 
             for pattern in dangerous_patterns:
                 if pattern in command:
-                    return self.format_error("Security validation failed: Command contains dangerous pattern")
+                    return self.format_error(
+                        "Security validation failed: Command contains dangerous pattern"
+                    )
 
             # Get the client from container
             client = self.container.retropie_client

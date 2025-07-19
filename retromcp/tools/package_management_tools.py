@@ -26,7 +26,14 @@ class PackageManagementTools(BaseTool):
                     "properties": {
                         "action": {
                             "type": "string",
-                            "enum": ["install", "remove", "update", "list", "search", "check"],
+                            "enum": [
+                                "install",
+                                "remove",
+                                "update",
+                                "list",
+                                "search",
+                                "check",
+                            ],
                             "description": "Action to perform on packages",
                         },
                         "packages": {
@@ -70,37 +77,71 @@ class PackageManagementTools(BaseTool):
 
             if action == "install":
                 if not packages:
-                    return self.format_error("Package names are required for install action")
+                    return self.format_error(
+                        "Package names are required for install action"
+                    )
                 # Use the InstallPackagesUseCase for install
                 use_case = self.container.install_packages_use_case
-                result = use_case.execute(packages)
+                install_result = use_case.execute(packages)
+
+                # Handle Result pattern from use case
+                if install_result.is_error():
+                    error = install_result.error_or_none
+                    return self.format_error(
+                        f"Package installation failed: {error.message}"
+                    )
+
+                result = install_result.value
             elif action == "remove":
                 if not packages:
-                    return self.format_error("Package names are required for remove action")
+                    return self.format_error(
+                        "Package names are required for remove action"
+                    )
                 # Use direct command for remove
                 package_list = " ".join(packages)
-                result = client.execute_command(f"sudo apt-get remove -y {package_list}")
+                result = client.execute_command(
+                    f"sudo apt-get remove -y {package_list}"
+                )
             elif action == "update":
                 if packages:
                     # Update specific packages
                     package_list = " ".join(packages)
-                    result = client.execute_command(f"sudo apt-get update && sudo apt-get upgrade -y {package_list}")
+                    result = client.execute_command(
+                        f"sudo apt-get update && sudo apt-get upgrade -y {package_list}"
+                    )
                 else:
                     # Update all packages using system use case
                     use_case = self.container.update_system_use_case
-                    result = use_case.execute()
+                    update_result = use_case.execute()
+
+                    # Handle Result pattern from use case
+                    if update_result.is_error():
+                        error = update_result.error_or_none
+                        return self.format_error(
+                            f"System update failed: {error.message}"
+                        )
+
+                    result = update_result.value
             elif action == "list":
-                result = client.execute_command("dpkg --get-selections | grep -v deinstall")
+                result = client.execute_command(
+                    "dpkg --get-selections | grep -v deinstall"
+                )
             elif action == "search":
                 if not query:
-                    return self.format_error("Search query is required for search action")
+                    return self.format_error(
+                        "Search query is required for search action"
+                    )
                 result = client.execute_command(f"apt-cache search {query}")
             elif action == "check":
                 if not packages:
-                    return self.format_error("Package names are required for check action")
+                    return self.format_error(
+                        "Package names are required for check action"
+                    )
                 # Check if packages are installed
                 package_list = " ".join(packages)
-                result = client.execute_command(f"dpkg -l {package_list} 2>/dev/null | grep '^ii'")
+                result = client.execute_command(
+                    f"dpkg -l {package_list} 2>/dev/null | grep '^ii'"
+                )
             else:
                 return self.format_error(f"Unknown action: {action}")
 
@@ -109,20 +150,24 @@ class PackageManagementTools(BaseTool):
                     # Parse package check output for better formatting
                     if result.stdout.strip():
                         formatted_output = "Package Status Check:\n"
-                        for line in result.stdout.strip().split('\n'):
-                            if line.startswith('ii '):
+                        for line in result.stdout.strip().split("\n"):
+                            if line.startswith("ii "):
                                 # Extract package name from dpkg output
                                 parts = line.split()
                                 if len(parts) >= 2:
                                     package_name = parts[1]
-                                    formatted_output += f"✅ {package_name}: Installed\n"
+                                    formatted_output += (
+                                        f"✅ {package_name}: Installed\n"
+                                    )
                         return [TextContent(type="text", text=formatted_output.strip())]
                     else:
                         return self.format_error("No packages found")
                 else:
                     return self.format_success(f"Package {action}: {result.stdout}")
             else:
-                return self.format_error(f"Failed to {action} packages: {result.stderr}")
+                return self.format_error(
+                    f"Failed to {action} packages: {result.stderr}"
+                )
 
         except Exception as e:
             return self.format_error(f"Package management error: {e!s}")

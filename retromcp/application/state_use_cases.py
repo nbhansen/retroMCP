@@ -146,10 +146,10 @@ class ManageStateUseCase:
             known_issues=[],  # TODO: Detect known issues
             # v2.0 enhanced fields - TODO: populate from enhanced data collection
             hardware=None,  # Will be populated when enhanced data collection is implemented
-            network=None,   # Will be populated when enhanced data collection is implemented
+            network=None,  # Will be populated when enhanced data collection is implemented
             software=None,  # Will be populated when enhanced data collection is implemented
             services=None,  # Will be populated when enhanced data collection is implemented
-            notes=None,     # Will be populated when enhanced data collection is implemented
+            notes=None,  # Will be populated when enhanced data collection is implemented
         )
 
     def _update_state(self, path: Optional[str], value: Any) -> StateManagementResult:  # noqa: ANN401

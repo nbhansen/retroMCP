@@ -26,7 +26,14 @@ class ServiceManagementTools(BaseTool):
                     "properties": {
                         "action": {
                             "type": "string",
-                            "enum": ["start", "stop", "restart", "enable", "disable", "status"],
+                            "enum": [
+                                "start",
+                                "stop",
+                                "restart",
+                                "enable",
+                                "disable",
+                                "status",
+                            ],
                             "description": "Action to perform on the service",
                         },
                         "name": {
@@ -67,20 +74,30 @@ class ServiceManagementTools(BaseTool):
             elif action == "stop":
                 result = client.execute_command(f"sudo systemctl stop {service_name}")
             elif action == "restart":
-                result = client.execute_command(f"sudo systemctl restart {service_name}")
+                result = client.execute_command(
+                    f"sudo systemctl restart {service_name}"
+                )
             elif action == "enable":
                 result = client.execute_command(f"sudo systemctl enable {service_name}")
             elif action == "disable":
-                result = client.execute_command(f"sudo systemctl disable {service_name}")
+                result = client.execute_command(
+                    f"sudo systemctl disable {service_name}"
+                )
             elif action == "status":
-                result = client.execute_command(f"systemctl status {service_name} --no-pager")
+                result = client.execute_command(
+                    f"systemctl status {service_name} --no-pager"
+                )
             else:
                 return self.format_error(f"Unknown action: {action}")
 
             if result.success:
-                return self.format_success(f"Service {service_name} {action}: {result.stdout}")
+                return self.format_success(
+                    f"Service {service_name} {action}: {result.stdout}"
+                )
             else:
-                return self.format_error(f"Failed to {action} service {service_name}: {result.stderr}")
+                return self.format_error(
+                    f"Failed to {action} service {service_name}: {result.stderr}"
+                )
 
         except Exception as e:
             return self.format_error(f"Service management error: {e!s}")

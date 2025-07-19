@@ -41,17 +41,16 @@ class TestEndToEndArchitecture:
                 server.container.retropie_client, "get_connection_info"
             ) as mock_connection_info:
                 from retromcp.domain.models import ConnectionInfo
+
                 mock_connection_info.return_value = ConnectionInfo(
                     connected=True,
                     host="integration-test",
                     port=22,
-                    username="test-user"
+                    username="test-user",
                 )
 
                 # Execute tool call through server (simulates MCP request)
-                result = await server.call_tool(
-                    "manage_connection", {"action": "test"}
-                )
+                result = await server.call_tool("manage_connection", {"action": "test"})
 
                 # Verify complete chain executed
                 assert len(result) == 1
@@ -80,11 +79,12 @@ class TestEndToEndArchitecture:
                 # Setup different responses for different tools
                 from retromcp.domain.models import ConnectionInfo
                 from retromcp.domain.models import SystemInfo
+
                 mock_connection_info.return_value = ConnectionInfo(
                     connected=True,
                     host="integration-test",
                     port=22,
-                    username="test-user"
+                    username="test-user",
                 )
 
                 mock_system_info.return_value = SystemInfo(
@@ -97,7 +97,7 @@ class TestEndToEndArchitecture:
                     disk_used=5000000,
                     disk_free=5000000,
                     load_average=[1.0],
-                    uptime=3600
+                    uptime=3600,
                 )
 
                 # Test system tool
@@ -133,17 +133,16 @@ class TestEndToEndArchitecture:
                 server.container.retropie_client, "get_connection_info"
             ) as mock_connection_info:
                 from retromcp.domain.models import ConnectionInfo
+
                 mock_connection_info.return_value = ConnectionInfo(
                     connected=False,
                     host="integration-test",
                     port=22,
-                    username="test-user"
+                    username="test-user",
                 )
 
                 # Error should be caught and returned as proper MCP response
-                result = await server.call_tool(
-                    "manage_connection", {"action": "test"}
-                )
+                result = await server.call_tool("manage_connection", {"action": "test"})
 
                 assert len(result) == 1
                 assert isinstance(result[0], TextContent)
@@ -166,11 +165,12 @@ class TestEndToEndArchitecture:
             ) as mock_system_info:
                 from retromcp.domain.models import ConnectionInfo
                 from retromcp.domain.models import SystemInfo
+
                 mock_connection_info.return_value = ConnectionInfo(
                     connected=True,
                     host="integration-test",
                     port=22,
-                    username="test-user"
+                    username="test-user",
                 )
                 mock_system_info.return_value = SystemInfo(
                     hostname="integration-test",
@@ -182,16 +182,12 @@ class TestEndToEndArchitecture:
                     disk_used=5000000,
                     disk_free=5000000,
                     load_average=[1.0],
-                    uptime=3600
+                    uptime=3600,
                 )
 
                 # Call multiple tools - they should share the same container instance
-                await server.call_tool(
-                    "manage_connection", {"action": "test"}
-                )
-                await server.call_tool(
-                    "get_system_info", {"category": "all"}
-                )
+                await server.call_tool("manage_connection", {"action": "test"})
+                await server.call_tool("get_system_info", {"category": "all"})
 
                 # Tools should have used same client instance
                 assert mock_connection_info.call_count >= 1
@@ -288,17 +284,16 @@ class TestEndToEndArchitecture:
                 server.container.retropie_client, "get_connection_info"
             ) as mock_connection_info:
                 from retromcp.domain.models import ConnectionInfo
+
                 mock_connection_info.return_value = ConnectionInfo(
                     connected=True,
                     host=test_config.host,
                     port=test_config.port,
-                    username=test_config.username
+                    username=test_config.username,
                 )
 
                 # Execute tool that uses configuration
-                result = await server.call_tool(
-                    "manage_connection", {"action": "test"}
-                )
+                result = await server.call_tool("manage_connection", {"action": "test"})
 
                 # Result should reflect the configuration
                 assert len(result) == 1
@@ -321,11 +316,12 @@ class TestEndToEndArchitecture:
             ) as mock_system_info:
                 from retromcp.domain.models import ConnectionInfo
                 from retromcp.domain.models import SystemInfo
+
                 mock_connection_info.return_value = ConnectionInfo(
                     connected=True,
                     host="integration-test",
                     port=22,
-                    username="test-user"
+                    username="test-user",
                 )
                 mock_system_info.return_value = SystemInfo(
                     hostname="integration-test",
@@ -337,7 +333,7 @@ class TestEndToEndArchitecture:
                     disk_used=5000000,
                     disk_free=5000000,
                     load_average=[1.0],
-                    uptime=3600
+                    uptime=3600,
                 )
 
                 # First request
@@ -347,9 +343,7 @@ class TestEndToEndArchitecture:
                 assert len(result1) == 1
 
                 # Second request - should reuse same container state
-                result2 = await server.call_tool(
-                    "get_system_info", {"category": "all"}
-                )
+                result2 = await server.call_tool("get_system_info", {"category": "all"})
                 assert len(result2) == 1
 
                 # Container should maintain singleton behavior
@@ -392,11 +386,12 @@ class TestEndToEndArchitecture:
                 server.container.retropie_client, "get_connection_info"
             ) as mock_connection_info:
                 from retromcp.domain.models import ConnectionInfo
+
                 mock_connection_info.return_value = ConnectionInfo(
                     connected=True,
                     host="integration-test",
                     port=22,
-                    username="test-user"
+                    username="test-user",
                 )
 
                 # Multiple calls should reuse resources appropriately
@@ -518,10 +513,11 @@ class TestArchitecturalConstraints:
 
         # Get actual methods and exclude properties and known DI methods
         container_business_methods = [
-            method for method in container_methods
-            if not method.startswith(("get_", "test_")) and
-               not method.endswith(("_repository", "_use_case", "_client")) and
-               method not in ["connect", "disconnect", "config"]
+            method
+            for method in container_methods
+            if not method.startswith(("get_", "test_"))
+            and not method.endswith(("_repository", "_use_case", "_client"))
+            and method not in ["connect", "disconnect", "config"]
         ]
 
         for method in container_business_methods:

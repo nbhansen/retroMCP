@@ -79,7 +79,7 @@ class TestSystemManagementTools:
             "execute_command",
             "manage_connection",
             "get_system_info",
-            "update_system"
+            "update_system",
         ]
         assert set(tool_names) == set(expected_tools)
 

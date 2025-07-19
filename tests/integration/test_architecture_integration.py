@@ -86,6 +86,7 @@ class TestArchitecturalIntegration:
 
         # Mock the controller repository with the actual repository instance
         from unittest.mock import Mock
+
         mock_repo = Mock()
         mock_repo.detect_controllers.return_value = [
             Controller(
@@ -236,6 +237,7 @@ class TestArchitecturalIntegration:
         with patch.object(server.container, "connect", return_value=True):
             # Replace the retropie_client with a mock
             from unittest.mock import Mock
+
             mock_client = Mock()
             mock_execute = mock_client.execute_command
             server.container._instances["retropie_client"] = mock_client
@@ -249,9 +251,7 @@ class TestArchitecturalIntegration:
             )
 
             # Execute a tool call through the server
-            result = await server.call_tool(
-                "manage_connection", {"action": "test"}
-            )
+            result = await server.call_tool("manage_connection", {"action": "test"})
 
             # Verify result structure
             assert len(result) == 1
@@ -301,6 +301,7 @@ class TestArchitecturalIntegration:
 
         # Mock repository to raise exception by replacing the instance
         from unittest.mock import Mock
+
         mock_client = Mock()
         mock_client.execute_command.side_effect = Exception("SSH connection failed")
         container._instances["retropie_client"] = mock_client
@@ -315,7 +316,9 @@ class TestArchitecturalIntegration:
         import asyncio
 
         async def test_exception_propagation():
-            result = await system_tools.handle_tool_call("manage_connection", {"action": "test"})
+            result = await system_tools.handle_tool_call(
+                "manage_connection", {"action": "test"}
+            )
             # Should return error response, not raise exception
             assert len(result) == 1
             assert "❌" in result[0].text or "error" in result[0].text.lower()

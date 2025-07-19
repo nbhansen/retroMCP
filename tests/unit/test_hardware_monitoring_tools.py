@@ -1422,7 +1422,9 @@ class TestHardwareMonitoringTools:
     # Additional Edge Cases and Coverage Tests
 
     @pytest.mark.asyncio
-    async def test_temperature_check_empty_stdout(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_temperature_check_empty_stdout(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test temperature check with empty stdout."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
@@ -1460,7 +1462,9 @@ class TestHardwareMonitoringTools:
         assert "❌ Failed to read temperature" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_temperature_check_malformed_temp_output(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_temperature_check_malformed_temp_output(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test temperature check with malformed temp output."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
@@ -1498,7 +1502,9 @@ class TestHardwareMonitoringTools:
         assert "❓ Unable to read temperature" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_temperature_check_malformed_throttled_output(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_temperature_check_malformed_throttled_output(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test temperature check with malformed throttled output."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
@@ -1539,7 +1545,9 @@ class TestHardwareMonitoringTools:
         assert "throttled=" not in result[0].text.lower()
 
     @pytest.mark.asyncio
-    async def test_fan_check_empty_temperature(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_fan_check_empty_temperature(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test fan check with empty temperature output."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
@@ -1571,7 +1579,9 @@ class TestHardwareMonitoringTools:
         assert "Current Temperature:" not in result[0].text
 
     @pytest.mark.asyncio
-    async def test_fan_check_malformed_temperature(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_fan_check_malformed_temperature(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test fan check with malformed temperature output."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
@@ -1603,7 +1613,9 @@ class TestHardwareMonitoringTools:
         assert "Current Temperature:" not in result[0].text
 
     @pytest.mark.asyncio
-    async def test_power_check_malformed_throttled_value(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_power_check_malformed_throttled_value(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test power check with malformed throttled value."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
@@ -1636,7 +1648,9 @@ class TestHardwareMonitoringTools:
         assert "UNDER-VOLTAGE" not in result[0].text
 
     @pytest.mark.asyncio
-    async def test_power_check_empty_throttled_output(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_power_check_empty_throttled_output(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test power check with empty throttled output."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
@@ -1666,7 +1680,9 @@ class TestHardwareMonitoringTools:
         assert "Power Supply Status" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_gpio_test_pin_validation_negative(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_gpio_test_pin_validation_negative(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test GPIO pin validation with negative pin number."""
         result = await hardware_monitoring_tools.handle_tool_call(
             "manage_hardware", {"component": "gpio", "action": "test", "pin": -1}
@@ -1678,7 +1694,9 @@ class TestHardwareMonitoringTools:
         assert "between 0 and 40" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_gpio_test_pin_validation_string(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_gpio_test_pin_validation_string(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test GPIO pin validation with string pin number."""
         result = await hardware_monitoring_tools.handle_tool_call(
             "manage_hardware", {"component": "gpio", "action": "test", "pin": "invalid"}
@@ -1690,7 +1708,9 @@ class TestHardwareMonitoringTools:
         assert "between 0 and 40" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_gpio_test_empty_stdout(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_gpio_test_empty_stdout(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test GPIO pin test with empty stdout."""
         hardware_monitoring_tools.container.retropie_client.execute_command.return_value = CommandResult(
             command="gpio read 18",
@@ -1708,10 +1728,14 @@ class TestHardwareMonitoringTools:
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "GPIO Pin 18 Test" in result[0].text
-        assert "❌ Failed to read GPIO pin 18" in result[0].text  # Empty stdout fails the condition
+        assert (
+            "❌ Failed to read GPIO pin 18" in result[0].text
+        )  # Empty stdout fails the condition
 
     @pytest.mark.asyncio
-    async def test_errors_check_command_failures(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_errors_check_command_failures(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test error checking with both command failures."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
@@ -1742,7 +1766,9 @@ class TestHardwareMonitoringTools:
         assert "✅ No hardware errors detected" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_errors_check_only_dmesg_errors(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_errors_check_only_dmesg_errors(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test error checking with only dmesg errors."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
@@ -1774,7 +1800,9 @@ class TestHardwareMonitoringTools:
         assert "Journal Errors" not in result[0].text
 
     @pytest.mark.asyncio
-    async def test_errors_check_only_journal_errors(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_errors_check_only_journal_errors(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test error checking with only journal errors."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
@@ -1806,7 +1834,9 @@ class TestHardwareMonitoringTools:
         assert "System Log Errors" not in result[0].text
 
     @pytest.mark.asyncio
-    async def test_all_check_partial_failures(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_all_check_partial_failures(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test comprehensive hardware check with partial failures."""
         call_count = [0]
 
@@ -1838,7 +1868,9 @@ class TestHardwareMonitoringTools:
         assert "62.1°C" in result[0].text  # GPU temp succeeded
 
     @pytest.mark.asyncio
-    async def test_all_check_complete_failure(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_all_check_complete_failure(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test comprehensive hardware check with complete failure."""
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = Exception(
             "Complete system failure"
@@ -1856,12 +1888,16 @@ class TestHardwareMonitoringTools:
 
     # Boundary and Edge Case Tests for Helper Methods
 
-    def test_parse_throttling_status_empty_string(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    def test_parse_throttling_status_empty_string(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test parsing throttling status with empty string."""
         status = hardware_monitoring_tools._parse_throttling_status("")
         assert "❓ Unable to parse" in status
 
-    def test_parse_throttling_status_none(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    def test_parse_throttling_status_none(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test parsing throttling status with None value."""
         # None will be passed as string "None" or cause TypeError
         try:
@@ -1871,7 +1907,9 @@ class TestHardwareMonitoringTools:
             # This is also acceptable since int(None, 16) would raise TypeError
             pass
 
-    def test_parse_throttling_status_max_flags(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    def test_parse_throttling_status_max_flags(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test parsing throttling status with all flags set."""
         status = hardware_monitoring_tools._parse_throttling_status("0xfffff")
         assert "🔥 Under-voltage detected" in status
@@ -1883,17 +1921,23 @@ class TestHardwareMonitoringTools:
         assert "🟡 Throttling occurred" in status
         assert "🟡 Soft temperature limit occurred" in status
 
-    def test_get_temperature_status_extreme_low(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    def test_get_temperature_status_extreme_low(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test temperature status for extremely low temperature."""
         status = hardware_monitoring_tools._get_temperature_status(-10.0)
         assert status == "✅ NORMAL"
 
-    def test_get_temperature_status_extreme_high(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    def test_get_temperature_status_extreme_high(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test temperature status for extremely high temperature."""
         status = hardware_monitoring_tools._get_temperature_status(150.0)
         assert status == "🔥 CRITICAL"
 
-    def test_get_temperature_status_fractional_boundaries(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    def test_get_temperature_status_fractional_boundaries(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test temperature status at fractional boundaries."""
         assert hardware_monitoring_tools._get_temperature_status(59.9) == "✅ NORMAL"
         assert hardware_monitoring_tools._get_temperature_status(60.1) == "🟡 WARM"
@@ -1905,7 +1949,9 @@ class TestHardwareMonitoringTools:
     # Component Method Not Implemented Tests
 
     @pytest.mark.asyncio
-    async def test_temperature_actions_not_implemented(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_temperature_actions_not_implemented(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test all not-implemented temperature actions."""
         # Test all valid but not implemented actions
         for action in ["configure", "inspect"]:
@@ -1917,7 +1963,9 @@ class TestHardwareMonitoringTools:
             assert "not yet implemented" in result[0].text.lower()
 
     @pytest.mark.asyncio
-    async def test_fan_actions_not_implemented(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_fan_actions_not_implemented(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test all not-implemented fan actions."""
         # Test all valid but not implemented actions
         for action in ["monitor", "configure", "test"]:
@@ -1929,7 +1977,9 @@ class TestHardwareMonitoringTools:
             assert "not yet implemented" in result[0].text.lower()
 
     @pytest.mark.asyncio
-    async def test_power_actions_not_implemented(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_power_actions_not_implemented(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test all not-implemented power actions."""
         # Test all valid but not implemented actions
         for action in ["monitor", "inspect"]:
@@ -1941,7 +1991,9 @@ class TestHardwareMonitoringTools:
             assert "not yet implemented" in result[0].text.lower()
 
     @pytest.mark.asyncio
-    async def test_gpio_actions_not_implemented(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_gpio_actions_not_implemented(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test all not-implemented GPIO actions."""
         # Test configure action
         result = await hardware_monitoring_tools.handle_tool_call(
@@ -1952,7 +2004,9 @@ class TestHardwareMonitoringTools:
         assert "not yet implemented" in result[0].text.lower()
 
     @pytest.mark.asyncio
-    async def test_errors_actions_not_implemented(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_errors_actions_not_implemented(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test all not-implemented error actions."""
         # Test inspect action
         result = await hardware_monitoring_tools.handle_tool_call(
@@ -1963,7 +2017,9 @@ class TestHardwareMonitoringTools:
         assert "not yet implemented" in result[0].text.lower()
 
     @pytest.mark.asyncio
-    async def test_all_actions_not_implemented(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_all_actions_not_implemented(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test all not-implemented all component actions."""
         # Test inspect action
         result = await hardware_monitoring_tools.handle_tool_call(
@@ -1976,7 +2032,9 @@ class TestHardwareMonitoringTools:
     # Additional Validation Tests
 
     @pytest.mark.asyncio
-    async def test_monitor_temperature_default_threshold(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_monitor_temperature_default_threshold(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test temperature monitoring with default threshold."""
         # Mock temperature command results
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
@@ -2007,7 +2065,8 @@ class TestHardwareMonitoringTools:
         ]
 
         result = await hardware_monitoring_tools.handle_tool_call(
-            "manage_hardware", {"component": "temperature", "action": "monitor"}  # No threshold specified
+            "manage_hardware",
+            {"component": "temperature", "action": "monitor"},  # No threshold specified
         )
 
         assert len(result) == 1
@@ -2018,7 +2077,9 @@ class TestHardwareMonitoringTools:
     # Comprehensive GPIO Pin Boundary Tests
 
     @pytest.mark.asyncio
-    async def test_gpio_test_pin_boundary_0(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_gpio_test_pin_boundary_0(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test GPIO pin 0 (valid boundary)."""
         hardware_monitoring_tools.container.retropie_client.execute_command.return_value = CommandResult(
             command="gpio read 0",
@@ -2039,7 +2100,9 @@ class TestHardwareMonitoringTools:
         assert "HIGH" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_gpio_test_pin_boundary_40(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_gpio_test_pin_boundary_40(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test GPIO pin 40 (valid boundary)."""
         hardware_monitoring_tools.container.retropie_client.execute_command.return_value = CommandResult(
             command="gpio read 40",
@@ -2060,7 +2123,9 @@ class TestHardwareMonitoringTools:
         assert "LOW" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_gpio_test_pin_boundary_41(self, hardware_monitoring_tools: HardwareMonitoringTools) -> None:
+    async def test_gpio_test_pin_boundary_41(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
         """Test GPIO pin 41 (invalid boundary)."""
         result = await hardware_monitoring_tools.handle_tool_call(
             "manage_hardware", {"component": "gpio", "action": "test", "pin": 41}

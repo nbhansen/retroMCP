@@ -98,7 +98,9 @@ class TestSSHConnectionIntegration:
             hardware_tools = HardwareMonitoringTools(container)
 
             # Attempt operation that might timeout
-            result = await hardware_tools.handle_tool_call("manage_hardware", {"component": "temperature", "action": "check"})
+            result = await hardware_tools.handle_tool_call(
+                "manage_hardware", {"component": "temperature", "action": "check"}
+            )
 
             # Verify timeout is handled gracefully using MCP-compliant response
             assert isinstance(result, list), "Should return MCP-compliant list"
@@ -189,7 +191,7 @@ class TestErrorRecoveryIntegration:
                         stdout="",
                         stderr="Temporary failure",
                         success=False,
-                        execution_time=0.1
+                        execution_time=0.1,
                     )
                 else:
                     # Second call succeeds
@@ -199,7 +201,7 @@ class TestErrorRecoveryIntegration:
                         stdout="success output",
                         stderr="",
                         success=True,
-                        execution_time=0.1
+                        execution_time=0.1,
                     )
 
             mock_ssh.execute_command = AsyncMock(side_effect=mock_execute_command)
@@ -241,7 +243,7 @@ class TestErrorRecoveryIntegration:
                 disk_used=8000,
                 disk_free=8000,
                 load_average=[0.5, 0.3, 0.2],
-                uptime=3600
+                uptime=3600,
             )
             mock_ssh_class.return_value = mock_ssh
 
@@ -305,7 +307,7 @@ class TestConcurrentOperationsIntegration:
                 disk_used=8000,
                 disk_free=8000,
                 load_average=[0.2, 0.1, 0.1],
-                uptime=7200
+                uptime=7200,
             )
             mock_ssh.execute_command.return_value = CommandResult(
                 command="vcgencmd measure_temp",
@@ -313,7 +315,7 @@ class TestConcurrentOperationsIntegration:
                 stdout="temp=45.0'C",
                 stderr="",
                 success=True,
-                execution_time=0.1
+                execution_time=0.1,
             )
             mock_ssh_class.return_value = mock_ssh
 
@@ -328,7 +330,9 @@ class TestConcurrentOperationsIntegration:
             # Run operations concurrently
             tasks = [
                 system_tools.handle_tool_call("get_system_info", {}),
-                hardware_tools.handle_tool_call("manage_hardware", {"component": "temperature", "action": "check"}),
+                hardware_tools.handle_tool_call(
+                    "manage_hardware", {"component": "temperature", "action": "check"}
+                ),
                 system_tools.handle_tool_call("get_system_info", {}),  # Duplicate
             ]
 
@@ -457,7 +461,7 @@ class TestEndToEndErrorScenarios:
                         stdout="MALFORMED_OUTPUT_###",
                         stderr="",
                         success=True,
-                        execution_time=0.1
+                        execution_time=0.1,
                     )
                 elif "vcgencmd" in command:
                     return CommandResult(
@@ -466,7 +470,7 @@ class TestEndToEndErrorScenarios:
                         stdout="invalid_temp_format",
                         stderr="",
                         success=True,
-                        execution_time=0.1
+                        execution_time=0.1,
                     )
                 elif "free" in command:
                     return CommandResult(
@@ -475,7 +479,7 @@ class TestEndToEndErrorScenarios:
                         stdout="completely unexpected output format",
                         stderr="",
                         success=True,
-                        execution_time=0.1
+                        execution_time=0.1,
                     )
                 else:
                     return CommandResult(
@@ -484,7 +488,7 @@ class TestEndToEndErrorScenarios:
                         stdout="???",
                         stderr="",
                         success=True,
-                        execution_time=0.1
+                        execution_time=0.1,
                     )
 
             mock_ssh.execute_command = AsyncMock(side_effect=mock_execute_command)

@@ -166,7 +166,7 @@ class StateTools(BaseTool):
                 response_text += f"  🏷️ Hostname: {state.system['hostname']}\n"
 
             if "cpu_temperature" in state.system:
-                temp = state.system['cpu_temperature']
+                temp = state.system["cpu_temperature"]
                 temp_emoji = "🌡️" if temp < 60 else "🔥" if temp > 80 else "🌡️"
                 response_text += f"  {temp_emoji} CPU Temperature: {temp}°C\n"
 
@@ -178,7 +178,9 @@ class StateTools(BaseTool):
                 if "memory_used" in state.system and "memory_free" in state.system:
                     memory_used_gb = state.system["memory_used"] / (1024 * 1024 * 1024)
                     memory_free_gb = state.system["memory_free"] / (1024 * 1024 * 1024)
-                    usage_percent = (state.system["memory_used"] / state.system["memory_total"]) * 100
+                    usage_percent = (
+                        state.system["memory_used"] / state.system["memory_total"]
+                    ) * 100
                     memory_info += f" ({memory_used_gb:.1f}GB used, {memory_free_gb:.1f}GB free, {usage_percent:.1f}% used)"
 
                 response_text += f"  {memory_info}\n"
@@ -191,7 +193,9 @@ class StateTools(BaseTool):
                 if "disk_used" in state.system and "disk_free" in state.system:
                     disk_used_gb = state.system["disk_used"] / (1024 * 1024 * 1024)
                     disk_free_gb = state.system["disk_free"] / (1024 * 1024 * 1024)
-                    usage_percent = (state.system["disk_used"] / state.system["disk_total"]) * 100
+                    usage_percent = (
+                        state.system["disk_used"] / state.system["disk_total"]
+                    ) * 100
                     disk_info += f" ({disk_used_gb:.1f}GB used, {disk_free_gb:.1f}GB free, {usage_percent:.1f}% used)"
 
                 response_text += f"  {disk_info}\n"
@@ -219,7 +223,9 @@ class StateTools(BaseTool):
             if installed:
                 response_text += f"  🎯 Installed Emulators: {len(installed)}\n"
                 for emulator in installed:
-                    preferred_systems = [k for k, v in preferred.items() if v == emulator]
+                    preferred_systems = [
+                        k for k, v in preferred.items() if v == emulator
+                    ]
                     if preferred_systems:
                         response_text += f"    • {emulator} (preferred for: {', '.join(preferred_systems)})\n"
                     else:
@@ -231,12 +237,22 @@ class StateTools(BaseTool):
             response_text += "\n🎯 Input Controllers:\n"
             response_text += "━" * 40 + "\n"
             if state.controllers:
-                response_text += f"  🎮 Detected Controllers: {len(state.controllers)}\n"
+                response_text += (
+                    f"  🎮 Detected Controllers: {len(state.controllers)}\n"
+                )
                 for controller in state.controllers:
                     status_emoji = "✅" if controller.get("configured") else "❌"
-                    status_text = "Configured" if controller.get("configured") else "Not configured"
-                    controller_type = controller['type'].replace('_', ' ').title()
-                    device_name = controller['device'].split('/')[-1] if '/' in controller['device'] else controller['device']
+                    status_text = (
+                        "Configured"
+                        if controller.get("configured")
+                        else "Not configured"
+                    )
+                    controller_type = controller["type"].replace("_", " ").title()
+                    device_name = (
+                        controller["device"].split("/")[-1]
+                        if "/" in controller["device"]
+                        else controller["device"]
+                    )
 
                     response_text += f"    {status_emoji} {controller_type}\n"
                     response_text += f"      📱 Device: {device_name}\n"
@@ -252,15 +268,21 @@ class StateTools(BaseTool):
 
             if rom_systems:
                 total_roms = sum(rom_counts.values())
-                response_text += f"  🎲 Total ROMs: {total_roms} across {len(rom_systems)} systems\n"
+                response_text += (
+                    f"  🎲 Total ROMs: {total_roms} across {len(rom_systems)} systems\n"
+                )
 
                 # Sort systems by ROM count for better presentation
-                sorted_systems = sorted(rom_systems, key=lambda x: rom_counts.get(x, 0), reverse=True)
+                sorted_systems = sorted(
+                    rom_systems, key=lambda x: rom_counts.get(x, 0), reverse=True
+                )
 
                 for system in sorted_systems:
                     count = rom_counts.get(system, 0)
                     count_emoji = "🎯" if count > 10 else "📦" if count > 0 else "📭"
-                    response_text += f"    {count_emoji} {system.upper()}: {count} ROMs\n"
+                    response_text += (
+                        f"    {count_emoji} {system.upper()}: {count} ROMs\n"
+                    )
             else:
                 response_text += "  📭 No ROM directories found\n"
 
@@ -270,7 +292,9 @@ class StateTools(BaseTool):
                 response_text += "━" * 40 + "\n"
 
                 if state.custom_configs:
-                    response_text += f"  🔧 Custom Configurations: {len(state.custom_configs)}\n"
+                    response_text += (
+                        f"  🔧 Custom Configurations: {len(state.custom_configs)}\n"
+                    )
                     for config in state.custom_configs:
                         response_text += f"    • {config}\n"
 
@@ -280,7 +304,7 @@ class StateTools(BaseTool):
                         response_text += f"    • {issue}\n"
 
             # v2.0 Enhanced Fields Display
-            if hasattr(state, 'hardware') and state.hardware:
+            if hasattr(state, "hardware") and state.hardware:
                 response_text += "\n🔧 Hardware Details:\n"
                 response_text += "━" * 40 + "\n"
                 hw = state.hardware
@@ -292,20 +316,28 @@ class StateTools(BaseTool):
                         response_text += f"    • {storage.device}: {storage.mount}\n"
                 if hw.gpio_usage:
                     response_text += f"  🔌 GPIO Usage: {len(hw.gpio_usage)} pins\n"
-                response_text += f"  🌪️ Cooling Active: {'Yes' if hw.cooling_active else 'No'}\n"
+                response_text += (
+                    f"  🌪️ Cooling Active: {'Yes' if hw.cooling_active else 'No'}\n"
+                )
 
-            if hasattr(state, 'network') and state.network:
+            if hasattr(state, "network") and state.network:
                 response_text += "\n🌐 Network Interfaces:\n"
                 response_text += "━" * 40 + "\n"
                 for interface in state.network:
                     status_emoji = "🟢" if interface.status.value == "up" else "🔴"
-                    response_text += f"  {status_emoji} {interface.name} ({interface.ip})\n"
+                    response_text += (
+                        f"  {status_emoji} {interface.name} ({interface.ip})\n"
+                    )
                     response_text += f"    🚀 Speed: {interface.speed}\n"
                     if interface.ssid:
-                        signal_bars = "📶" if (interface.signal_strength or 0) > 50 else "📵"
-                        response_text += f"    📡 WiFi: {interface.ssid} {signal_bars}\n"
+                        signal_bars = (
+                            "📶" if (interface.signal_strength or 0) > 50 else "📵"
+                        )
+                        response_text += (
+                            f"    📡 WiFi: {interface.ssid} {signal_bars}\n"
+                        )
 
-            if hasattr(state, 'software') and state.software:
+            if hasattr(state, "software") and state.software:
                 response_text += "\n💿 Software Environment:\n"
                 response_text += "━" * 40 + "\n"
                 sw = state.software

@@ -30,7 +30,9 @@ class SSHSystemRepository(SystemRepository):
         self._config = config
         self._cache = cache
 
-    def get_system_info(self) -> Result[SystemInfo, ConnectionError | ExecutionError | ValidationError]:
+    def get_system_info(
+        self,
+    ) -> Result[SystemInfo, ConnectionError | ExecutionError | ValidationError]:
         """Get system information."""
         try:
             # Check cache first
@@ -41,13 +43,15 @@ class SSHSystemRepository(SystemRepository):
             # Get hostname
             hostname_result = self._client.execute_command("hostname")
             if not hostname_result.success:
-                return Result.error(ExecutionError(
-                    code="HOSTNAME_COMMAND_FAILED",
-                    message=f"Failed to get hostname: {hostname_result.stderr}",
-                    command=hostname_result.command,
-                    exit_code=hostname_result.exit_code,
-                    stderr=hostname_result.stderr
-                ))
+                return Result.error(
+                    ExecutionError(
+                        code="HOSTNAME_COMMAND_FAILED",
+                        message=f"Failed to get hostname: {hostname_result.stderr}",
+                        command=hostname_result.command,
+                        exit_code=hostname_result.exit_code,
+                        stderr=hostname_result.stderr,
+                    )
+                )
             hostname = hostname_result.stdout.strip() or "unknown"
 
             # Get CPU temperature
@@ -59,11 +63,13 @@ class SSHSystemRepository(SystemRepository):
                 if temp_match:
                     cpu_temperature = float(temp_match.group(1))
                 else:
-                    return Result.error(ValidationError(
-                        code="INVALID_TEMPERATURE_FORMAT",
-                        message=f"Invalid temperature format: {temp_str}",
-                        details={"raw_output": temp_str}
-                    ))
+                    return Result.error(
+                        ValidationError(
+                            code="INVALID_TEMPERATURE_FORMAT",
+                            message=f"Invalid temperature format: {temp_str}",
+                            details={"raw_output": temp_str},
+                        )
+                    )
 
             # Get memory info
             mem_result = self._client.execute_command("free -b")
@@ -125,11 +131,13 @@ class SSHSystemRepository(SystemRepository):
             return Result.success(system_info)
 
         except Exception as e:
-            return Result.error(ConnectionError(
-                code="CONNECTION_FAILED",
-                message=f"Failed to get system info: {e!s}",
-                details={"exception_type": type(e).__name__}
-            ))
+            return Result.error(
+                ConnectionError(
+                    code="CONNECTION_FAILED",
+                    message=f"Failed to get system info: {e!s}",
+                    details={"exception_type": type(e).__name__},
+                )
+            )
 
     def get_packages(self) -> Result[List[Package], ExecutionError]:
         """Get list of installed packages."""
@@ -138,13 +146,15 @@ class SSHSystemRepository(SystemRepository):
         )
 
         if not result.success:
-            return Result.error(ExecutionError(
-                code="PACKAGE_QUERY_FAILED",
-                message=f"Failed to get packages: {result.stderr}",
-                command=result.command,
-                exit_code=result.exit_code,
-                stderr=result.stderr
-            ))
+            return Result.error(
+                ExecutionError(
+                    code="PACKAGE_QUERY_FAILED",
+                    message=f"Failed to get packages: {result.stderr}",
+                    command=result.command,
+                    exit_code=result.exit_code,
+                    stderr=result.stderr,
+                )
+            )
 
         packages = []
         for line in result.stdout.strip().split("\n"):
@@ -166,14 +176,18 @@ class SSHSystemRepository(SystemRepository):
 
         return Result.success(packages)
 
-    def install_packages(self, packages: List[str] | None) -> Result[CommandResult, ValidationError | ExecutionError]:
+    def install_packages(
+        self, packages: List[str] | None
+    ) -> Result[CommandResult, ValidationError | ExecutionError]:
         """Install system packages."""
         if packages is None:
-            return Result.error(ValidationError(
-                code="INVALID_INPUT",
-                message="Packages parameter cannot be None",
-                details={"parameter": "packages"}
-            ))
+            return Result.error(
+                ValidationError(
+                    code="INVALID_INPUT",
+                    message="Packages parameter cannot be None",
+                    details={"parameter": "packages"},
+                )
+            )
 
         if not packages:
             no_op_result = CommandResult(
@@ -191,13 +205,15 @@ class SSHSystemRepository(SystemRepository):
         result = self._client.execute_command(command, use_sudo=True)
 
         if not result.success:
-            return Result.error(ExecutionError(
-                code="PACKAGE_INSTALL_FAILED",
-                message=f"Failed to install packages: {result.stderr}",
-                command=result.command,
-                exit_code=result.exit_code,
-                stderr=result.stderr
-            ))
+            return Result.error(
+                ExecutionError(
+                    code="PACKAGE_INSTALL_FAILED",
+                    message=f"Failed to install packages: {result.stderr}",
+                    command=result.command,
+                    exit_code=result.exit_code,
+                    stderr=result.stderr,
+                )
+            )
 
         return Result.success(result)
 

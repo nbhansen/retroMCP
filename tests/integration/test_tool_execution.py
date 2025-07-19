@@ -39,15 +39,11 @@ class TestToolExecution:
             tool_names = [tool.name for tool in tools]
 
             # Mock tool handlers to return success
-            with patch(
-                "retromcp.server.SystemManagementTools"
-            ) as mock_system, patch(
+            with patch("retromcp.server.SystemManagementTools") as mock_system, patch(
                 "retromcp.server.GamingSystemTools"
             ) as mock_gaming, patch(
                 "retromcp.server.HardwareMonitoringTools"
-            ) as mock_hw, patch(
-                "retromcp.server.StateTools"
-            ) as mock_state, patch(
+            ) as mock_hw, patch("retromcp.server.StateTools") as mock_state, patch(
                 "retromcp.server.DockerTools"
             ) as mock_docker:
                 # Setup mocks
@@ -61,16 +57,25 @@ class TestToolExecution:
                     mock_instance = mock_class.return_value
                     mock_instance.handle_tool_call = AsyncMock(
                         return_value=[
-                            TextContent(type="text", text="✅ Tool executed successfully")
+                            TextContent(
+                                type="text", text="✅ Tool executed successfully"
+                            )
                         ]
                     )
                     # Make get_tools return appropriate tools for each class
                     if mock_class == mock_system:
                         mock_instance.get_tools.return_value = [
-                            t for t in tools if t.name in [
-                                "manage_connection", "manage_service", "manage_package",
-                                "manage_file", "execute_command", "get_system_info",
-                                "update_system"
+                            t
+                            for t in tools
+                            if t.name
+                            in [
+                                "manage_connection",
+                                "manage_service",
+                                "manage_package",
+                                "manage_file",
+                                "execute_command",
+                                "get_system_info",
+                                "update_system",
                             ]
                         ]
                     elif mock_class == mock_gaming:
@@ -123,9 +128,7 @@ class TestToolExecution:
 
         with patch.object(server.container, "connect", return_value=True), patch(
             "retromcp.server.HardwareMonitoringTools"
-        ) as mock_hw, patch(
-            "retromcp.server.GamingSystemTools"
-        ) as mock_gaming, patch(
+        ) as mock_hw, patch("retromcp.server.GamingSystemTools") as mock_gaming, patch(
             "retromcp.server.StateTools"
         ) as mock_state:
             # Map tool names to their mocks
@@ -141,8 +144,7 @@ class TestToolExecution:
                 mock_instance.handle_tool_call = AsyncMock(
                     return_value=[
                         TextContent(
-                            type="text",
-                            text=f"✅ {tool_name} executed successfully"
+                            type="text", text=f"✅ {tool_name} executed successfully"
                         )
                     ]
                 )

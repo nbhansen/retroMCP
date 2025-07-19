@@ -28,9 +28,7 @@ class TestResultRepositoryConversion:
         )
         self.mock_client = Mock(spec=RetroPieClient)
         self.cache = SystemCache()
-        self.repository = SSHSystemRepository(
-            self.mock_client, self.config, self.cache
-        )
+        self.repository = SSHSystemRepository(self.mock_client, self.config, self.cache)
 
     def test_get_system_info_returns_result_success_when_data_available(self):
         """Test that get_system_info returns Result.success when data is available."""

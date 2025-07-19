@@ -26,7 +26,14 @@ class SystemInfoTools(BaseTool):
                     "properties": {
                         "category": {
                             "type": "string",
-                            "enum": ["all", "hardware", "network", "storage", "processes", "services"],
+                            "enum": [
+                                "all",
+                                "hardware",
+                                "network",
+                                "storage",
+                                "processes",
+                                "services",
+                            ],
                             "description": "Category of system information to retrieve",
                             "default": "all",
                         },
@@ -53,7 +60,14 @@ class SystemInfoTools(BaseTool):
 
             # Get the use case from container
             use_case = self.container.get_system_info_use_case
-            system_info = use_case.execute()
+            system_info_result = use_case.execute()
+
+            # Handle Result pattern from use case
+            if system_info_result.is_error():
+                error = system_info_result.error_or_none
+                return self.format_error(f"Failed to get system info: {error.message}")
+
+            system_info = system_info_result.value
 
             if category == "all":
                 info_text = self._format_complete_system_info(system_info)

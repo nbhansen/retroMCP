@@ -25,7 +25,7 @@ class SSHControllerRepository(ControllerRepository):
         cached_data = self._cache.get_hardware_scan()
         if cached_data is not None and "controllers" in cached_data:
             return cached_data["controllers"]
-        
+
         # Use ls to check /dev/input/js* devices
         js_result = self._client.execute_command("ls -la /dev/input/js* 2>/dev/null")
 
@@ -74,7 +74,10 @@ class SSHControllerRepository(ControllerRepository):
                             "playstation" in name_lower
                             or "ps4" in name_lower
                             or "dualshock" in name_lower
-                            or ("sony" in name_lower and "wireless controller" in name_lower)
+                            or (
+                                "sony" in name_lower
+                                and "wireless controller" in name_lower
+                            )
                         ):
                             controller_type = ControllerType.PS4
                         elif "nintendo" in name_lower or "switch pro" in name_lower:
@@ -139,7 +142,7 @@ class SSHControllerRepository(ControllerRepository):
 
         # Cache the result
         self._cache.cache_hardware_scan({"controllers": controllers})
-        
+
         return controllers
 
     def setup_controller(self, controller: Controller) -> CommandResult:

@@ -45,7 +45,7 @@ class TestRunner:
         coverage: bool = True,
         verbose: bool = True,
         quick: bool = False,
-        extra_args: Optional[List[str]] = None
+        extra_args: Optional[List[str]] = None,
     ) -> bool:
         """Run tests with specified options."""
         cmd = self.base_cmd.copy()
@@ -61,11 +61,9 @@ class TestRunner:
 
         # Add coverage
         if coverage and not quick:
-            cmd.extend([
-                "--cov=retromcp",
-                "--cov-report=term-missing",
-                "--cov-report=html"
-            ])
+            cmd.extend(
+                ["--cov=retromcp", "--cov-report=term-missing", "--cov-report=html"]
+            )
         elif quick:
             cmd.append("--no-cov")
 
@@ -88,7 +86,11 @@ class TestRunner:
         if quick:
             desc_parts.append("quick mode")
 
-        description = f"Running tests ({', '.join(desc_parts)})" if desc_parts else "Running all tests"
+        description = (
+            f"Running tests ({', '.join(desc_parts)})"
+            if desc_parts
+            else "Running all tests"
+        )
 
         return self.run_command(cmd, description)
 
@@ -109,51 +111,81 @@ Examples:
   %(prog)s --unit --tools           # Run unit tests for tools only
   %(prog)s --security --contract    # Run security and contract tests
   %(prog)s --path tests/unit/test_hardware_monitoring_tools.py  # Run specific file
-        """
+        """,
     )
 
     # Component markers
     parser.add_argument("--tools", action="store_true", help="Run tool tests")
-    parser.add_argument("--infrastructure", action="store_true", help="Run infrastructure tests")
-    parser.add_argument("--application", action="store_true", help="Run application tests")
+    parser.add_argument(
+        "--infrastructure", action="store_true", help="Run infrastructure tests"
+    )
+    parser.add_argument(
+        "--application", action="store_true", help="Run application tests"
+    )
     parser.add_argument("--domain", action="store_true", help="Run domain tests")
 
     # Tool-specific markers
-    parser.add_argument("--hardware", action="store_true", help="Run hardware monitoring tests")
+    parser.add_argument(
+        "--hardware", action="store_true", help="Run hardware monitoring tests"
+    )
     parser.add_argument("--gaming", action="store_true", help="Run gaming system tests")
-    parser.add_argument("--state", action="store_true", help="Run state management tests")
-    parser.add_argument("--system", action="store_true", help="Run system management tests")
+    parser.add_argument(
+        "--state", action="store_true", help="Run state management tests"
+    )
+    parser.add_argument(
+        "--system", action="store_true", help="Run system management tests"
+    )
     parser.add_argument("--docker", action="store_true", help="Run docker tool tests")
 
     # Infrastructure-specific markers
     parser.add_argument("--ssh", action="store_true", help="Run SSH repository tests")
-    parser.add_argument("--controller", action="store_true", help="Run controller repository tests")
-    parser.add_argument("--emulator", action="store_true", help="Run emulator repository tests")
+    parser.add_argument(
+        "--controller", action="store_true", help="Run controller repository tests"
+    )
+    parser.add_argument(
+        "--emulator", action="store_true", help="Run emulator repository tests"
+    )
 
     # Special markers
     parser.add_argument("--security", action="store_true", help="Run security tests")
-    parser.add_argument("--contract", action="store_true", help="Run contract/MCP compliance tests")
+    parser.add_argument(
+        "--contract", action="store_true", help="Run contract/MCP compliance tests"
+    )
     parser.add_argument("--unit", action="store_true", help="Run unit tests only")
-    parser.add_argument("--integration", action="store_true", help="Run integration tests only")
+    parser.add_argument(
+        "--integration", action="store_true", help="Run integration tests only"
+    )
 
     # Execution options
-    parser.add_argument("--no-coverage", action="store_true", help="Skip coverage reporting")
-    parser.add_argument("--quick", action="store_true", help="Quick mode (no coverage, fail fast)")
+    parser.add_argument(
+        "--no-coverage", action="store_true", help="Skip coverage reporting"
+    )
+    parser.add_argument(
+        "--quick", action="store_true", help="Quick mode (no coverage, fail fast)"
+    )
     parser.add_argument("--quiet", action="store_true", help="Reduce output verbosity")
     parser.add_argument("--path", action="append", help="Add specific test path")
     parser.add_argument("--extra", action="append", help="Extra pytest arguments")
 
     # Predefined test suites
-    parser.add_argument("--dev", action="store_true", help="Development suite (unit + tools)")
-    parser.add_argument("--ci", action="store_true", help="CI suite (all tests with coverage)")
-    parser.add_argument("--smoke", action="store_true", help="Smoke test suite (critical tests only)")
+    parser.add_argument(
+        "--dev", action="store_true", help="Development suite (unit + tools)"
+    )
+    parser.add_argument(
+        "--ci", action="store_true", help="CI suite (all tests with coverage)"
+    )
+    parser.add_argument(
+        "--smoke", action="store_true", help="Smoke test suite (critical tests only)"
+    )
 
     args = parser.parse_args()
 
     # Check if virtual environment exists
     runner = TestRunner()
     if not runner.venv_python.exists():
-        print("❌ Virtual environment not found. Please run 'python -m venv venv' and install dependencies.")
+        print(
+            "❌ Virtual environment not found. Please run 'python -m venv venv' and install dependencies."
+        )
         sys.exit(1)
 
     # Build markers list
@@ -224,7 +256,7 @@ Examples:
         coverage=coverage,
         verbose=verbose,
         quick=args.quick,
-        extra_args=extra_args
+        extra_args=extra_args,
     )
 
     if not success:

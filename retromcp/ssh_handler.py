@@ -42,7 +42,9 @@ class SSHHandler:
         self.key_path = key_path
         self.port = port
         self.timeout_config = get_timeout_config()
-        self.command_timeout = command_timeout or self.timeout_config.ssh_command_default
+        self.command_timeout = (
+            command_timeout or self.timeout_config.ssh_command_default
+        )
         self.client: Optional[paramiko.SSHClient] = None
 
     def connect(self) -> bool:
@@ -85,7 +87,9 @@ class SSHHandler:
             self.client = None
             logger.info(f"Disconnected from {self.host}")
 
-    def execute_command(self, command: str, custom_timeout: Optional[int] = None) -> Tuple[int, str, str]:
+    def execute_command(
+        self, command: str, custom_timeout: Optional[int] = None
+    ) -> Tuple[int, str, str]:
         """Execute a command on the remote host with intelligent timeout protection.
 
         Args:
@@ -102,7 +106,9 @@ class SSHHandler:
             raise RuntimeError("Not connected to SSH server")
 
         # Check if this is a monitoring command that should run without timeout
-        if custom_timeout is None and self.timeout_config.is_monitoring_command(command):
+        if custom_timeout is None and self.timeout_config.is_monitoring_command(
+            command
+        ):
             # Auto-detect monitoring command and handle appropriately
             return self.execute_monitoring_command(command)
 
@@ -111,9 +117,7 @@ class SSHHandler:
 
         try:
             # Set timeout for command execution to prevent hanging
-            stdin, stdout, stderr = self.client.exec_command(
-                command, timeout=timeout
-            )
+            stdin, stdout, stderr = self.client.exec_command(command, timeout=timeout)
 
             # Get exit status with timeout protection
             exit_code = stdout.channel.recv_exit_status()
@@ -177,7 +181,9 @@ The command will continue running until terminated."""
         # Return success with guidance message
         return 0, response_message, ""
 
-    def execute_command_safe(self, command: str, custom_timeout: Optional[int] = None) -> Tuple[int, str, str]:
+    def execute_command_safe(
+        self, command: str, custom_timeout: Optional[int] = None
+    ) -> Tuple[int, str, str]:
         """Execute a command with timeout wrapper to prevent hanging on interactive commands.
 
         This method automatically wraps commands with the 'timeout' utility to ensure
@@ -194,7 +200,9 @@ The command will continue running until terminated."""
             RuntimeError: If not connected or command times out
         """
         # Use timeout config to wrap command with appropriate timeout
-        safe_command = self.timeout_config.wrap_command_with_timeout(command, custom_timeout)
+        safe_command = self.timeout_config.wrap_command_with_timeout(
+            command, custom_timeout
+        )
 
         # Execute the wrapped command
         return self.execute_command(safe_command, custom_timeout)

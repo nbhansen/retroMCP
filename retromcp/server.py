@@ -298,7 +298,9 @@ class RetroMCPServer:
                     if "action" not in arguments:
                         arguments = {"action": "test"}
 
-                result = await tool_instance.handle_tool_call(actual_tool_name, arguments)
+                result = await tool_instance.handle_tool_call(
+                    actual_tool_name, arguments
+                )
                 logging.debug(f"Tool {name} completed successfully")
 
                 # Update profile with any new information learned

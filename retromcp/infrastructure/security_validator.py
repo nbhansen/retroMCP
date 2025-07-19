@@ -2,6 +2,7 @@
 
 Implements whitelist-based validation to replace regex blacklist approaches.
 """
+
 from __future__ import annotations
 
 import re
@@ -12,8 +13,8 @@ from pathlib import Path
 from typing import Generic
 from typing import TypeVar
 
-T = TypeVar('T')
-E = TypeVar('E')
+T = TypeVar("T")
+E = TypeVar("E")
 
 
 @dataclass(frozen=True)
@@ -68,51 +69,97 @@ class SecurityValidator:
         """Build comprehensive whitelist of allowed command patterns."""
         return {
             # System information commands
-            "hostname", "uptime", "free", "df", "du", "ps", "top", "htop", "iotop",
-            "cat", "head", "tail", "grep", "awk", "sed", "sort", "uniq", "cut",
-
+            "hostname",
+            "uptime",
+            "free",
+            "df",
+            "du",
+            "ps",
+            "top",
+            "htop",
+            "iotop",
+            "cat",
+            "head",
+            "tail",
+            "grep",
+            "awk",
+            "sed",
+            "sort",
+            "uniq",
+            "cut",
             # File operations (safe subset)
-            "ls", "wc", "file", "stat", "pwd", "echo",
-
+            "ls",
+            "wc",
+            "file",
+            "stat",
+            "pwd",
+            "echo",
             # Text processing and shell utilities
-            "test", "true", "false", "expr", "basename", "dirname",
-
+            "test",
+            "true",
+            "false",
+            "expr",
+            "basename",
+            "dirname",
             # Find operations (restricted to safe paths)
             "find",
-
             # Service management (read-only)
             "systemctl",
-
             # Docker operations (safe subset)
             "docker",
-
             # RetroPie specific
-            "vcgencmd", "emulationstation",
-
+            "vcgencmd",
+            "emulationstation",
             # Network tools (safe subset)
-            "ping", "dig", "nslookup", "curl", "wget",
-
+            "ping",
+            "dig",
+            "nslookup",
+            "curl",
+            "wget",
             # Package management (read-only)
-            "dpkg-query", "apt", "apt-cache", "npm",
-
+            "dpkg-query",
+            "apt",
+            "apt-cache",
+            "npm",
             # Git operations (safe subset)
             "git",
-
             # Archive operations
-            "tar", "unzip", "zip", "gzip", "gunzip",
-
+            "tar",
+            "unzip",
+            "zip",
+            "gzip",
+            "gunzip",
             # Process management (read-only)
-            "pgrep", "pidof", "jobs", "which", "whereis", "type", "killall",
-
+            "pgrep",
+            "pidof",
+            "jobs",
+            "which",
+            "whereis",
+            "type",
+            "killall",
             # Environment
-            "env", "printenv", "whoami", "id", "groups", "date",
-
+            "env",
+            "printenv",
+            "whoami",
+            "id",
+            "groups",
+            "date",
             # Hardware monitoring
-            "lscpu", "lshw", "lsusb", "lspci", "lsblk",
-            "sensors", "iwconfig", "ifconfig", "dmidecode",
-
+            "lscpu",
+            "lshw",
+            "lsusb",
+            "lspci",
+            "lsblk",
+            "sensors",
+            "iwconfig",
+            "ifconfig",
+            "dmidecode",
             # System paths that should be readable
-            "/opt/retropie", "/usr/bin", "/usr/local/bin", "/bin", "/sbin",
+            "/opt/retropie",
+            "/usr/bin",
+            "/usr/local/bin",
+            "/bin",
+            "/sbin",
         }
 
     def _build_safe_path_patterns(self) -> list[re.Pattern[str]]:
@@ -121,24 +168,19 @@ class SecurityValidator:
             # Home directory paths
             r"^/home/[^/]+/.*",
             r"^~/.*",
-
             # RetroPie specific paths
             r"^/opt/retropie/.*",
             r"^/home/[^/]+/RetroPie/.*",
             r"^/home/[^/]+/\.emulationstation/.*",
-
             # Config directories
             r"^/usr/local/.*",
             r"^/etc/[^/]+\.conf$",
             r"^/etc/[^/]+\.cfg$",
-
             # Log files
             r"^/var/log/[^/]+\.log$",
-
             # Relative paths (current directory)
             r"^[^/]+.*",
             r"^\./.*",
-
             # Temp directories
             r"^/tmp/[^/]+.*",
             r"^/var/tmp/[^/]+.*",
@@ -330,10 +372,21 @@ class SecurityValidator:
     def _is_critical_system_path(self, path: str) -> bool:
         """Check if path accesses critical system directories that should be blocked."""
         critical_paths = [
-            "/etc/passwd", "/etc/shadow", "/etc/hosts", "/etc/sudoers",
-            "/root/", "/boot/", "/sys/", "/proc/", "/dev/",
-            "/etc/ssh/", "/var/log/auth.log", "/var/log/secure",
-            "/etc/crontab", "/etc/cron.d/", "/etc/systemd/",
+            "/etc/passwd",
+            "/etc/shadow",
+            "/etc/hosts",
+            "/etc/sudoers",
+            "/root/",
+            "/boot/",
+            "/sys/",
+            "/proc/",
+            "/dev/",
+            "/etc/ssh/",
+            "/var/log/auth.log",
+            "/var/log/secure",
+            "/etc/crontab",
+            "/etc/cron.d/",
+            "/etc/systemd/",
         ]
 
         # Direct matches
@@ -344,7 +397,12 @@ class SecurityValidator:
         # Special case: check for critical filenames regardless of directory
         # This catches paths like /home/etc/passwd from traversal attempts
         critical_filenames = [
-            "passwd", "shadow", "sudoers", "hosts", "auth.log", "secure"
+            "passwd",
+            "shadow",
+            "sudoers",
+            "hosts",
+            "auth.log",
+            "secure",
         ]
         path_filename = path.split("/")[-1]
         return path_filename in critical_filenames
@@ -367,13 +425,13 @@ class SecurityValidator:
 
         # Define dangerous characters that should be removed/escaped
         dangerous_chars = {
-            ';': '',  # Remove command separators
-            '|': '',  # Remove pipes
-            '`': '',  # Remove backticks
-            '$': '',  # Remove variable expansion
-            '\n': ' ',  # Replace newlines with spaces
-            '\r': ' ',  # Replace carriage returns with spaces
-            '\t': ' ',  # Replace tabs with spaces
+            ";": "",  # Remove command separators
+            "|": "",  # Remove pipes
+            "`": "",  # Remove backticks
+            "$": "",  # Remove variable expansion
+            "\n": " ",  # Replace newlines with spaces
+            "\r": " ",  # Replace carriage returns with spaces
+            "\t": " ",  # Replace tabs with spaces
         }
 
         sanitized = input_str
@@ -381,7 +439,7 @@ class SecurityValidator:
             sanitized = sanitized.replace(char, replacement)
 
         # Collapse multiple spaces
-        sanitized = re.sub(r'\s+', ' ', sanitized).strip()
+        sanitized = re.sub(r"\s+", " ", sanitized).strip()
 
         # Check if sanitization was necessary
         if sanitized != input_str:

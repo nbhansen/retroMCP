@@ -28,7 +28,9 @@ class TestMonitoringCommandDetection:
         for cmd in monitoring_commands:
             # This method doesn't exist yet - test should fail initially (RED)
             is_monitoring = config.is_monitoring_command(cmd)
-            assert is_monitoring is True, f"Command '{cmd}' should be detected as monitoring"
+            assert is_monitoring is True, (
+                f"Command '{cmd}' should be detected as monitoring"
+            )
 
     def test_tail_follow_command_detection(self) -> None:
         """Test that tail -f commands are detected as monitoring commands."""
@@ -44,7 +46,9 @@ class TestMonitoringCommandDetection:
 
         for cmd in monitoring_commands:
             is_monitoring = config.is_monitoring_command(cmd)
-            assert is_monitoring is True, f"Command '{cmd}' should be detected as monitoring"
+            assert is_monitoring is True, (
+                f"Command '{cmd}' should be detected as monitoring"
+            )
 
     def test_top_commands_detection(self) -> None:
         """Test that top/htop commands are detected as monitoring commands."""
@@ -61,7 +65,9 @@ class TestMonitoringCommandDetection:
 
         for cmd in monitoring_commands:
             is_monitoring = config.is_monitoring_command(cmd)
-            assert is_monitoring is True, f"Command '{cmd}' should be detected as monitoring"
+            assert is_monitoring is True, (
+                f"Command '{cmd}' should be detected as monitoring"
+            )
 
     def test_journalctl_follow_detection(self) -> None:
         """Test that journalctl -f commands are detected as monitoring commands."""
@@ -77,7 +83,9 @@ class TestMonitoringCommandDetection:
 
         for cmd in monitoring_commands:
             is_monitoring = config.is_monitoring_command(cmd)
-            assert is_monitoring is True, f"Command '{cmd}' should be detected as monitoring"
+            assert is_monitoring is True, (
+                f"Command '{cmd}' should be detected as monitoring"
+            )
 
     def test_normal_commands_not_detected_as_monitoring(self) -> None:
         """Test that normal commands are NOT detected as monitoring commands."""
@@ -97,7 +105,9 @@ class TestMonitoringCommandDetection:
 
         for cmd in normal_commands:
             is_monitoring = config.is_monitoring_command(cmd)
-            assert is_monitoring is False, f"Command '{cmd}' should NOT be detected as monitoring"
+            assert is_monitoring is False, (
+                f"Command '{cmd}' should NOT be detected as monitoring"
+            )
 
 
 class TestCommandExecutionModeEnum:
@@ -122,8 +132,7 @@ class TestExecuteCommandRequestWithMode:
         """Test creating request with monitoring mode."""
         # This will fail initially because mode parameter doesn't exist (RED)
         request = ExecuteCommandRequest(
-            command="watch -n 1 ps aux",
-            mode=CommandExecutionMode.MONITORING
+            command="watch -n 1 ps aux", mode=CommandExecutionMode.MONITORING
         )
 
         assert request.command == "watch -n 1 ps aux"
@@ -141,8 +150,7 @@ class TestExecuteCommandRequestWithMode:
     def test_request_with_explicit_normal_mode(self) -> None:
         """Test creating request with explicit normal mode."""
         request = ExecuteCommandRequest(
-            command="echo test",
-            mode=CommandExecutionMode.NORMAL
+            command="echo test", mode=CommandExecutionMode.NORMAL
         )
 
         assert request.command == "echo test"
@@ -151,8 +159,7 @@ class TestExecuteCommandRequestWithMode:
     def test_request_immutability(self) -> None:
         """Test that request objects remain immutable."""
         request = ExecuteCommandRequest(
-            command="watch ps aux",
-            mode=CommandExecutionMode.MONITORING
+            command="watch ps aux", mode=CommandExecutionMode.MONITORING
         )
 
         # Should not be able to modify frozen dataclass
@@ -176,7 +183,9 @@ class TestSSHHandlerMonitoringExecution:
 
         # Setup for monitoring command (returns initial output, then continues)
         mock_stdout.channel.recv_exit_status.return_value = 0
-        mock_stdout.read.return_value = b"Initial output from monitoring command\nPID: 12345"
+        mock_stdout.read.return_value = (
+            b"Initial output from monitoring command\nPID: 12345"
+        )
         mock_stderr.read.return_value = b""
 
         mock_client.exec_command.return_value = (mock_stdin, mock_stdout, mock_stderr)
@@ -189,10 +198,14 @@ class TestSSHHandlerMonitoringExecution:
         handler.client = mock_ssh_client
         return handler
 
-    def test_monitoring_command_execution_no_timeout(self, ssh_handler: SSHHandler, mock_ssh_client: Mock) -> None:
+    def test_monitoring_command_execution_no_timeout(
+        self, ssh_handler: SSHHandler, mock_ssh_client: Mock
+    ) -> None:
         """Test that monitoring commands are executed without timeout."""
         # Execute a monitoring command
-        exit_code, stdout, stderr = ssh_handler.execute_monitoring_command("watch -n 1 ps aux")
+        exit_code, stdout, stderr = ssh_handler.execute_monitoring_command(
+            "watch -n 1 ps aux"
+        )
 
         # Monitoring commands should return success and guidance, not call exec_command
         assert exit_code == 0
@@ -200,16 +213,22 @@ class TestSSHHandlerMonitoringExecution:
         # exec_command should NOT be called for monitoring commands (they provide guidance instead)
         mock_ssh_client.exec_command.assert_not_called()
 
-    def test_monitoring_command_returns_process_info(self, ssh_handler: SSHHandler) -> None:
+    def test_monitoring_command_returns_process_info(
+        self, ssh_handler: SSHHandler
+    ) -> None:
         """Test that monitoring commands return process information for termination."""
-        exit_code, stdout, stderr = ssh_handler.execute_monitoring_command("watch -n 1 ps aux")
+        exit_code, stdout, stderr = ssh_handler.execute_monitoring_command(
+            "watch -n 1 ps aux"
+        )
 
         # Should return info about how to terminate the process
         stdout_lower = stdout.lower()
         assert "background" in stdout_lower
         assert "terminate" in stdout_lower or "pkill" in stdout_lower
 
-    def test_auto_detect_monitoring_mode(self, ssh_handler: SSHHandler, mock_ssh_client: Mock) -> None:
+    def test_auto_detect_monitoring_mode(
+        self, ssh_handler: SSHHandler, mock_ssh_client: Mock
+    ) -> None:
         """Test that monitoring commands are auto-detected and handled appropriately."""
         # Execute command that should be auto-detected as monitoring
         exit_code, stdout, stderr = ssh_handler.execute_command("watch -n 1 ps aux")
@@ -232,7 +251,7 @@ class TestMonitoringCommandResponse:
             "running in background",
             "terminate",
             "pkill -f",
-            command
+            command,
         ]
 
         # This would be generated by the actual implementation
@@ -279,7 +298,7 @@ class TestTimeoutConfigMonitoringIntegration:
             "tail -f /var/log/syslog",
             "top",
             "htop",
-            "journalctl -f"
+            "journalctl -f",
         ]
 
         for cmd in monitoring_commands:
@@ -300,4 +319,6 @@ class TestTimeoutConfigMonitoringIntegration:
 
         for cmd, expected_timeout in normal_commands:
             timeout = config.get_timeout_for_command(cmd)
-            assert timeout == expected_timeout, f"Normal command '{cmd}' should get timeout {expected_timeout}"
+            assert timeout == expected_timeout, (
+                f"Normal command '{cmd}' should get timeout {expected_timeout}"
+            )

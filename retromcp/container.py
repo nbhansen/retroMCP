@@ -112,7 +112,9 @@ class Container:
         self._ensure_discovery()
         return self._get_or_create(
             "system_repository",
-            lambda: SSHSystemRepository(self.retropie_client, self.config, self.system_cache),
+            lambda: SSHSystemRepository(
+                self.retropie_client, self.config, self.system_cache
+            ),
         )
 
     @property
@@ -165,7 +167,7 @@ class Container:
         """Get system info use case."""
         return self._get_or_create(
             "get_system_info_use_case",
-            lambda: GetSystemInfoUseCase(self.retropie_client),
+            lambda: GetSystemInfoUseCase(self.system_repository),
         )
 
     @property
@@ -173,7 +175,7 @@ class Container:
         """Get install packages use case."""
         return self._get_or_create(
             "install_packages_use_case",
-            lambda: InstallPackagesUseCase(self.retropie_client),
+            lambda: InstallPackagesUseCase(self.system_repository),
         )
 
     @property
@@ -181,7 +183,7 @@ class Container:
         """Get update system use case."""
         return self._get_or_create(
             "update_system_use_case",
-            lambda: UpdateSystemUseCase(self.retropie_client),
+            lambda: UpdateSystemUseCase(self.system_repository),
         )
 
     @property

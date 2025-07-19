@@ -17,13 +17,7 @@ class TestTimeoutConfig:
         """Test that quick commands get short timeouts."""
         config = TimeoutConfig()
 
-        quick_commands = [
-            "echo test",
-            "pwd",
-            "whoami",
-            "date",
-            "hostname"
-        ]
+        quick_commands = ["echo test", "pwd", "whoami", "date", "hostname"]
 
         for cmd in quick_commands:
             timeout = config.get_timeout_for_command(cmd)
@@ -34,12 +28,7 @@ class TestTimeoutConfig:
         """Test that system info commands get appropriate timeouts."""
         config = TimeoutConfig()
 
-        system_commands = [
-            "vcgencmd measure_temp",
-            "free -m",
-            "df -h",
-            "lscpu"
-        ]
+        system_commands = ["vcgencmd measure_temp", "free -m", "df -h", "lscpu"]
 
         for cmd in system_commands:
             timeout = config.get_timeout_for_command(cmd)
@@ -54,7 +43,7 @@ class TestTimeoutConfig:
         package_commands = [
             "sudo apt-get install package",
             "dpkg -i package.deb",
-            "pip install package"
+            "pip install package",
         ]
 
         for cmd in package_commands:
@@ -71,7 +60,7 @@ class TestTimeoutConfig:
             "apt update",
             "sudo apt-get update",
             "apt upgrade",
-            "sudo apt-get upgrade -y"
+            "sudo apt-get upgrade -y",
         ]
 
         for cmd in update_commands:
@@ -85,7 +74,7 @@ class TestTimeoutConfig:
 
         retropie_commands = [
             "/home/pi/RetroPie-Setup/retropie_setup.sh",
-            "retropie_setup update"
+            "retropie_setup update",
         ]
 
         for cmd in retropie_commands:
@@ -97,10 +86,7 @@ class TestTimeoutConfig:
         """Test that controller tests get short timeout."""
         config = TimeoutConfig()
 
-        controller_commands = [
-            "jstest /dev/input/js0",
-            "evtest /dev/input/event0"
-        ]
+        controller_commands = ["jstest /dev/input/js0", "evtest /dev/input/event0"]
 
         for cmd in controller_commands:
             timeout = config.get_timeout_for_command(cmd)
@@ -161,7 +147,9 @@ class TestSSHHandlerTimeout:
         handler.client = mock_ssh_client
         return handler
 
-    def test_execute_command_with_timeout(self, ssh_handler: SSHHandler, mock_ssh_client: Mock) -> None:
+    def test_execute_command_with_timeout(
+        self, ssh_handler: SSHHandler, mock_ssh_client: Mock
+    ) -> None:
         """Test that commands are executed with appropriate timeouts."""
         # Execute a quick command
         ssh_handler.execute_command("echo test")
@@ -176,7 +164,9 @@ class TestSSHHandlerTimeout:
         expected_timeout = timeout_config.get_timeout_for_command("echo test")
         assert kwargs["timeout"] == expected_timeout
 
-    def test_execute_command_custom_timeout(self, ssh_handler: SSHHandler, mock_ssh_client: Mock) -> None:
+    def test_execute_command_custom_timeout(
+        self, ssh_handler: SSHHandler, mock_ssh_client: Mock
+    ) -> None:
         """Test that custom timeouts override automatic detection."""
         # Execute with custom timeout
         ssh_handler.execute_command("echo test", custom_timeout=123)
@@ -185,7 +175,9 @@ class TestSSHHandlerTimeout:
         args, kwargs = mock_ssh_client.exec_command.call_args
         assert kwargs["timeout"] == 123
 
-    def test_timeout_exception_handling(self, ssh_handler: SSHHandler, mock_ssh_client: Mock) -> None:
+    def test_timeout_exception_handling(
+        self, ssh_handler: SSHHandler, mock_ssh_client: Mock
+    ) -> None:
         """Test that timeout exceptions are properly handled."""
         # Mock a timeout exception
         mock_ssh_client.exec_command.side_effect = SSHException("Timeout")
@@ -197,7 +189,9 @@ class TestSSHHandlerTimeout:
         assert "timeout" in str(exc_info.value).lower()
         assert "echo test" in str(exc_info.value)
 
-    def test_execute_command_safe_wrapping(self, ssh_handler: SSHHandler, mock_ssh_client: Mock) -> None:
+    def test_execute_command_safe_wrapping(
+        self, ssh_handler: SSHHandler, mock_ssh_client: Mock
+    ) -> None:
         """Test that execute_command_safe wraps commands with timeout."""
         # Execute a potentially hanging command
         ssh_handler.execute_command_safe("jstest /dev/input/js0")
@@ -216,7 +210,9 @@ class TestSSHHandlerTimeout:
         with pytest.raises(RuntimeError, match="Not connected"):
             handler.execute_command("echo test")
 
-    def test_different_command_types_get_different_timeouts(self, ssh_handler: SSHHandler, mock_ssh_client: Mock) -> None:
+    def test_different_command_types_get_different_timeouts(
+        self, ssh_handler: SSHHandler, mock_ssh_client: Mock
+    ) -> None:
         """Test that different command types get appropriately different timeouts."""
         test_cases = [
             ("echo test", 10),  # Quick command
@@ -236,13 +232,15 @@ class TestSSHHandlerTimeout:
 
             # Check timeout
             args, kwargs = mock_ssh_client.exec_command.call_args
-            assert kwargs["timeout"] == expected_timeout, f"Command '{command}' got wrong timeout"
+            assert kwargs["timeout"] == expected_timeout, (
+                f"Command '{command}' got wrong timeout"
+            )
 
     def test_timeout_config_integration(self, ssh_handler: SSHHandler) -> None:
         """Test that SSH handler properly integrates with timeout config."""
         # Verify handler has access to timeout config
         assert ssh_handler.timeout_config is not None
-        assert hasattr(ssh_handler.timeout_config, 'get_timeout_for_command')
+        assert hasattr(ssh_handler.timeout_config, "get_timeout_for_command")
 
         # Test that config methods work
         timeout = ssh_handler.timeout_config.get_timeout_for_command("echo test")

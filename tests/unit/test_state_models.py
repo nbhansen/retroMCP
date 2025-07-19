@@ -206,7 +206,7 @@ class TestV2StateModels:
             mount="/",
             size="500GB",
             used="45GB",
-            filesystem_type="ext4"
+            filesystem_type="ext4",
         )
 
         hardware = HardwareInfo(
@@ -219,7 +219,7 @@ class TestV2StateModels:
             gpio_usage={"614": "fan_control", "573": "argon_button"},
             cooling_active=True,
             case_type="Argon Neo V5",
-            fan_speed=65
+            fan_speed=65,
         )
 
         # Test that hardware is frozen
@@ -234,7 +234,7 @@ class TestV2StateModels:
             status=NetworkStatus.UP,
             speed="1000Mbps",
             ssid=None,
-            signal_strength=None
+            signal_strength=None,
         )
 
         # Test that interface is frozen
@@ -252,7 +252,7 @@ class TestV2StateModels:
             docker_version="28.3.2",
             docker_status=ServiceStatus.RUNNING,
             retropie_version="4.8.5",
-            retropie_status=ServiceStatus.STOPPED
+            retropie_status=ServiceStatus.STOPPED,
         )
 
         # Test that software is frozen
@@ -265,13 +265,12 @@ class TestV2StateModels:
             name="docker.service",
             status=ServiceStatus.RUNNING,
             enabled=True,
-            description="Docker Application Container Engine"
+            description="Docker Application Container Engine",
         )
 
         # Test that service is frozen
         with pytest.raises(AttributeError):
             service.status = ServiceStatus.STOPPED  # type: ignore
-
 
     def test_system_note_immutability(self) -> None:
         """Test that SystemNote is immutable."""
@@ -279,7 +278,7 @@ class TestV2StateModels:
             date="2025-07-17T16:50:00",
             action="install_mealie",
             description="Installed Mealie recipe manager via Docker on port 9925",
-            user="nbhansen"
+            user="nbhansen",
         )
 
         # Test that note is frozen
@@ -299,7 +298,7 @@ class TestV2StateModels:
             mount="/",
             size="500GB",
             used="45GB",
-            filesystem_type="ext4"
+            filesystem_type="ext4",
         )
 
         # Test that storage is frozen
@@ -320,13 +319,13 @@ class TestV2StateModels:
                     mount="/",
                     size="500GB",
                     used="45GB",
-                    filesystem_type="ext4"
+                    filesystem_type="ext4",
                 )
             ],
             gpio_usage={"614": "fan_control"},
             cooling_active=True,
             case_type="Argon Neo V5",
-            fan_speed=65
+            fan_speed=65,
         )
 
         network = [
@@ -336,7 +335,7 @@ class TestV2StateModels:
                 status=NetworkStatus.UP,
                 speed="1000Mbps",
                 ssid=None,
-                signal_strength=None
+                signal_strength=None,
             )
         ]
 
@@ -349,7 +348,7 @@ class TestV2StateModels:
             docker_version="28.3.2",
             docker_status=ServiceStatus.RUNNING,
             retropie_version="4.8.5",
-            retropie_status=ServiceStatus.STOPPED
+            retropie_status=ServiceStatus.STOPPED,
         )
 
         services = [
@@ -357,7 +356,7 @@ class TestV2StateModels:
                 name="docker.service",
                 status=ServiceStatus.RUNNING,
                 enabled=True,
-                description="Docker Application Container Engine"
+                description="Docker Application Container Engine",
             )
         ]
 
@@ -366,7 +365,7 @@ class TestV2StateModels:
                 date="2025-07-17T16:50:00",
                 action="install_mealie",
                 description="Installed Mealie recipe manager via Docker on port 9925",
-                user="nbhansen"
+                user="nbhansen",
             )
         ]
 
@@ -374,7 +373,10 @@ class TestV2StateModels:
             schema_version="2.0",
             last_updated="2025-07-17T16:56:11",
             system={"hostname": "raspberrypi", "uptime": "2 days, 14:23:45"},
-            emulators={"installed": ["mupen64plus"], "preferred": {"n64": "mupen64plus"}},
+            emulators={
+                "installed": ["mupen64plus"],
+                "preferred": {"n64": "mupen64plus"},
+            },
             controllers=[],
             roms={"systems": [], "counts": {}},
             custom_configs=[],
@@ -383,7 +385,7 @@ class TestV2StateModels:
             network=network,
             software=software,
             services=services,
-            notes=notes
+            notes=notes,
         )
 
         # Test that state is frozen
@@ -411,8 +413,13 @@ class TestSchemaVersionMigration:
             schema_version="1.0",
             last_updated="2025-07-17T16:56:11",
             system={"hostname": "raspberrypi", "cpu_temperature": 46.6},
-            emulators={"installed": ["mupen64plus"], "preferred": {"n64": "mupen64plus"}},
-            controllers=[{"type": "xbox", "device": "/dev/input/js0", "configured": True}],
+            emulators={
+                "installed": ["mupen64plus"],
+                "preferred": {"n64": "mupen64plus"},
+            },
+            controllers=[
+                {"type": "xbox", "device": "/dev/input/js0", "configured": True}
+            ],
             roms={"systems": ["n64"], "counts": {"n64": 45}},
             custom_configs=["shaders"],
             known_issues=["audio crackling"],
@@ -501,7 +508,10 @@ class TestSchemaVersionMigration:
             schema_version="1.0",
             last_updated="2025-07-17T16:56:11",
             system={"hostname": "raspberrypi"},
-            emulators={"installed": ["mupen64plus"], "preferred": {"n64": "mupen64plus"}},
+            emulators={
+                "installed": ["mupen64plus"],
+                "preferred": {"n64": "mupen64plus"},
+            },
             controllers=[],
             roms={"systems": [], "counts": {}},
             custom_configs=[],
@@ -513,6 +523,7 @@ class TestSchemaVersionMigration:
 
         # Verify JSON structure
         import json
+
         data = json.loads(json_str)
         assert data["schema_version"] == "2.0"
         assert data["last_updated"] == v1_state.last_updated

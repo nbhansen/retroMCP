@@ -228,7 +228,7 @@ class TestRetroMCPServer:
         # Make one of the tool initializations fail
         with patch(
             "retromcp.server.SystemManagementTools",
-            side_effect=Exception("Error connecting to RetroPie")
+            side_effect=Exception("Error connecting to RetroPie"),
         ):
             tools = await server.list_tools()
 
@@ -242,7 +242,7 @@ class TestRetroMCPServer:
         # Make one of the tool initializations fail
         with patch(
             "retromcp.server.SystemManagementTools",
-            side_effect=Exception("Connection failed")
+            side_effect=Exception("Connection failed"),
         ):
             tools = await server.list_tools()
 
@@ -473,9 +473,9 @@ class TestRetroMCPServer:
 
         with patch("retromcp.server.SystemManagementTools") as mock_system, patch(
             "retromcp.server.GamingSystemTools"
-        ) as mock_gaming, patch("retromcp.server.HardwareMonitoringTools") as mock_hw, patch(
-            "retromcp.server.StateTools"
-        ) as mock_state:
+        ) as mock_gaming, patch(
+            "retromcp.server.HardwareMonitoringTools"
+        ) as mock_hw, patch("retromcp.server.StateTools") as mock_state:
             # Setup mocks
             for mock in [mock_system, mock_gaming, mock_hw, mock_state]:
                 mock.return_value.handle_tool_call = AsyncMock(

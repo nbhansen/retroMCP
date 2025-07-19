@@ -14,14 +14,14 @@ class TimeoutConfig:
 
     # Command-specific timeouts
     quick_commands: int = 10  # echo, test, pwd, etc.
-    system_info: int = 30     # temperature, memory, disk usage
+    system_info: int = 30  # temperature, memory, disk usage
     package_operations: int = 300  # apt install, update (5 minutes)
-    retropie_setup: int = 1800     # RetroPie-Setup operations (30 minutes)
-    emulator_install: int = 3600   # Emulator compilation (1 hour)
-    controller_test: int = 15      # Controller testing
+    retropie_setup: int = 1800  # RetroPie-Setup operations (30 minutes)
+    emulator_install: int = 3600  # Emulator compilation (1 hour)
+    controller_test: int = 15  # Controller testing
 
     # Long-running operations
-    system_update: int = 1800      # System updates (30 minutes)
+    system_update: int = 1800  # System updates (30 minutes)
     backup_operations: int = 3600  # Backup/restore (1 hour)
 
     def get_timeout_for_command(self, command: str) -> int:
@@ -35,30 +35,43 @@ class TimeoutConfig:
         """
         # System info commands (check first to avoid conflicts with quick commands)
         system_info_commands = [
-            "vcgencmd", "free", "df", "lscpu", "lsusb", "iwconfig",
-            "ifconfig", "/opt/vc/bin/vcgencmd", "cat /proc/meminfo"
+            "vcgencmd",
+            "free",
+            "df",
+            "lscpu",
+            "lsusb",
+            "iwconfig",
+            "ifconfig",
+            "/opt/vc/bin/vcgencmd",
+            "cat /proc/meminfo",
         ]
 
         # Quick commands
         quick_commands = [
-            "echo", "pwd", "whoami", "date", "uptime", "hostname",
-            "test", "which", "ps", "ls", "cat /proc/version"
+            "echo",
+            "pwd",
+            "whoami",
+            "date",
+            "uptime",
+            "hostname",
+            "test",
+            "which",
+            "ps",
+            "ls",
+            "cat /proc/version",
         ]
 
         # Package operations
-        package_commands = [
-            "apt-get", "apt", "dpkg", "pip", "pip3"
-        ]
+        package_commands = ["apt-get", "apt", "dpkg", "pip", "pip3"]
 
         # RetroPie specific
         retropie_commands = [
-            "retropie_setup", "/home/pi/RetroPie-Setup/retropie_setup.sh"
+            "retropie_setup",
+            "/home/pi/RetroPie-Setup/retropie_setup.sh",
         ]
 
         # Controller testing
-        controller_commands = [
-            "jstest", "evtest", "/dev/input"
-        ]
+        controller_commands = ["jstest", "evtest", "/dev/input"]
 
         # Check command type and return appropriate timeout
         command_lower = command.lower().strip()
@@ -92,7 +105,9 @@ class TimeoutConfig:
             # Command already has timeout wrapper, use default
             return self.ssh_command_default
 
-        if "sudo" in command_lower and ("install" in command_lower or "build" in command_lower):
+        if "sudo" in command_lower and (
+            "install" in command_lower or "build" in command_lower
+        ):
             return self.emulator_install
 
         # Default timeout
@@ -110,11 +125,19 @@ class TimeoutConfig:
         command_lower = command.lower().strip()
 
         # Watch commands
-        if "watch" in command_lower and command_lower.split()[0] in ["watch", "sudo"] and "watch" in command_lower:
+        if (
+            "watch" in command_lower
+            and command_lower.split()[0] in ["watch", "sudo"]
+            and "watch" in command_lower
+        ):
             return True
 
         # Tail follow commands
-        if "tail" in command_lower and ("-f" in command_lower or "-F" in command_lower or "--follow" in command_lower):
+        if "tail" in command_lower and (
+            "-f" in command_lower
+            or "-F" in command_lower
+            or "--follow" in command_lower
+        ):
             return True
 
         # Top/htop/iotop commands
@@ -124,7 +147,10 @@ class TimeoutConfig:
             return True
 
         # Journalctl follow commands
-        return bool("journalctl" in command_lower and ("-f" in command_lower or "--follow" in command_lower))
+        return bool(
+            "journalctl" in command_lower
+            and ("-f" in command_lower or "--follow" in command_lower)
+        )
 
     def get_timeout_for_monitoring_command(self, command: str) -> Optional[int]:
         """Get timeout for monitoring commands (should be None for no timeout).
@@ -139,7 +165,9 @@ class TimeoutConfig:
             return None
         return self.get_timeout_for_command(command)
 
-    def wrap_command_with_timeout(self, command: str, custom_timeout: Optional[int] = None) -> str:
+    def wrap_command_with_timeout(
+        self, command: str, custom_timeout: Optional[int] = None
+    ) -> str:
         """Wrap a command with timeout if it doesn't already have one.
 
         Args:

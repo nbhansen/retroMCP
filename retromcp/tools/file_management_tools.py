@@ -26,7 +26,17 @@ class FileManagementTools(BaseTool):
                     "properties": {
                         "action": {
                             "type": "string",
-                            "enum": ["read", "write", "append", "copy", "move", "delete", "create", "permissions", "download"],
+                            "enum": [
+                                "read",
+                                "write",
+                                "append",
+                                "copy",
+                                "move",
+                                "delete",
+                                "create",
+                                "permissions",
+                                "download",
+                            ],
                             "description": "Action to perform on the file/directory",
                         },
                         "path": {
@@ -105,7 +115,11 @@ class FileManagementTools(BaseTool):
 
             if action == "read":
                 if lines:
-                    cmd = f"head -n {lines} {path}" if lines > 0 else f"tail -n {abs(lines)} {path}"
+                    cmd = (
+                        f"head -n {lines} {path}"
+                        if lines > 0
+                        else f"tail -n {abs(lines)} {path}"
+                    )
                 else:
                     cmd = f"cat {path}"
                 result = client.execute_command(cmd)
@@ -134,7 +148,9 @@ class FileManagementTools(BaseTool):
                 if result.success:
                     return self.format_success(f"Content appended to {path}")
                 else:
-                    return self.format_error(f"Failed to append to file: {result.stderr}")
+                    return self.format_error(
+                        f"Failed to append to file: {result.stderr}"
+                    )
             elif action == "copy":
                 if not destination:
                     return self.format_error("Destination is required for copy action")
@@ -164,7 +180,9 @@ class FileManagementTools(BaseTool):
                     if result.success:
                         return self.format_success(f"Directory created: {path}")
                     else:
-                        return self.format_error(f"Failed to create directory: {result.stderr}")
+                        return self.format_error(
+                            f"Failed to create directory: {result.stderr}"
+                        )
                 else:
                     # Create file with optional parent directories
                     if create_parents:
@@ -177,7 +195,9 @@ class FileManagementTools(BaseTool):
                     if result.success:
                         return self.format_success(f"File created: {path}")
                     else:
-                        return self.format_error(f"Failed to create file: {result.stderr}")
+                        return self.format_error(
+                            f"Failed to create file: {result.stderr}"
+                        )
             elif action == "permissions":
                 commands = []
                 if mode:
@@ -190,7 +210,9 @@ class FileManagementTools(BaseTool):
                 for cmd in commands:
                     result = client.execute_command(cmd)
                     if not result.success:
-                        return self.format_error(f"Failed to set permissions: {result.stderr}")
+                        return self.format_error(
+                            f"Failed to set permissions: {result.stderr}"
+                        )
                 return self.format_success(f"Permissions updated for {path}")
             elif action == "download":
                 if not url:
@@ -199,7 +221,9 @@ class FileManagementTools(BaseTool):
                 if result.success:
                     return self.format_success(f"File downloaded to {path}")
                 else:
-                    return self.format_error(f"Failed to download file: {result.stderr}")
+                    return self.format_error(
+                        f"Failed to download file: {result.stderr}"
+                    )
             else:
                 return self.format_error(f"Unknown action: {action}")
 

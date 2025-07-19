@@ -4,9 +4,13 @@ import re
 
 from ..domain.models import CommandExecutionMode
 from ..domain.models import CommandResult
+from ..domain.models import ConnectionError
 from ..domain.models import ConnectionInfo
 from ..domain.models import ExecuteCommandRequest
+from ..domain.models import ExecutionError
+from ..domain.models import Result
 from ..domain.models import SystemInfo
+from ..domain.models import ValidationError
 from ..domain.models import WriteFileRequest
 from ..domain.ports import RetroPieClient
 from ..domain.ports import SystemRepository
@@ -31,25 +35,29 @@ class TestConnectionUseCase:
 class GetSystemInfoUseCase:
     """Use case for getting system information."""
 
-    def __init__(self, client: RetroPieClient) -> None:
-        """Initialize with RetroPie client."""
-        self._client = client
+    def __init__(self, system_repo: SystemRepository) -> None:
+        """Initialize with system repository."""
+        self._system_repo = system_repo
 
-    def execute(self) -> SystemInfo:
+    def execute(
+        self,
+    ) -> Result[SystemInfo, ConnectionError | ExecutionError | ValidationError]:
         """Get system information."""
-        return self._client.get_system_info()
+        return self._system_repo.get_system_info()
 
 
 class UpdateSystemUseCase:
     """Use case for updating the system."""
 
-    def __init__(self, client: RetroPieClient) -> None:
-        """Initialize with RetroPie client."""
-        self._client = client
+    def __init__(self, system_repo: SystemRepository) -> None:
+        """Initialize with system repository."""
+        self._system_repo = system_repo
 
-    def execute(self) -> CommandResult:
+    def execute(
+        self,
+    ) -> Result[CommandResult, ConnectionError | ExecutionError | ValidationError]:
         """Update the system."""
-        return self._client.update_system()
+        return self._system_repo.update_system()
 
 
 class ExecuteCommandUseCase:
@@ -143,7 +151,9 @@ class ExecuteCommandUseCase:
                 r"^.*\s+\|\s+uniq\s+",  # Piping to uniq
             ]
 
-            if not any(re.match(pattern, command, re.IGNORECASE) for pattern in safe_patterns):
+            if not any(
+                re.match(pattern, command, re.IGNORECASE) for pattern in safe_patterns
+            ):
                 raise ValueError("Command contains potentially dangerous operators")
 
     def _build_secure_command(self, request: ExecuteCommandRequest) -> str:
@@ -162,7 +172,9 @@ class ExecuteCommandUseCase:
         # Return the command (escaping handled at infrastructure layer)
         return command
 
-    def _execute_monitoring_command(self, request: ExecuteCommandRequest) -> CommandResult:
+    def _execute_monitoring_command(
+        self, request: ExecuteCommandRequest
+    ) -> CommandResult:
         """Execute a monitoring command with appropriate handling.
 
         Args:
@@ -223,7 +235,10 @@ class WriteFileUseCase:
         ]
 
         for sensitive_path in sensitive_paths:
-            if path.startswith(sensitive_path) or sensitive_path.replace("*", "") in path:
+            if (
+                path.startswith(sensitive_path)
+                or sensitive_path.replace("*", "") in path
+            ):
                 raise ValueError(f"Writing to sensitive path is not allowed: {path}")
 
         # Require absolute paths

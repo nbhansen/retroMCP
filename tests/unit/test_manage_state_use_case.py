@@ -183,9 +183,9 @@ class TestManageStateUseCase:
         assert len(saved_state.controllers) == 1
         assert saved_state.roms["counts"]["nes"] == 150
         # Verify v2.0 enhanced fields are present (even if None for now)
-        assert hasattr(saved_state, 'hardware')
-        assert hasattr(saved_state, 'network')
-        assert hasattr(saved_state, 'software')
+        assert hasattr(saved_state, "hardware")
+        assert hasattr(saved_state, "network")
+        assert hasattr(saved_state, "software")
 
     def test_update_state_field(
         self, use_case: ManageStateUseCase, mock_state_repository: Mock
