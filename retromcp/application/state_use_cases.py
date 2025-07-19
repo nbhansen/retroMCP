@@ -4,11 +4,15 @@ from datetime import datetime
 from typing import Any
 from typing import Optional
 
+from ..domain.models import ConnectionError
 from ..domain.models import EmulatorStatus
+from ..domain.models import ExecutionError
+from ..domain.models import Result
 from ..domain.models import StateAction
 from ..domain.models import StateManagementRequest
 from ..domain.models import StateManagementResult
 from ..domain.models import SystemState
+from ..domain.models import ValidationError
 from ..domain.ports import ControllerRepository
 from ..domain.ports import EmulatorRepository
 from ..domain.ports import StateRepository
@@ -31,7 +35,11 @@ class ManageStateUseCase:
         self._emulator_repository = emulator_repository
         self._controller_repository = controller_repository
 
-    def execute(self, request: StateManagementRequest) -> StateManagementResult:
+    def execute(
+        self, request: StateManagementRequest
+    ) -> Result[
+        StateManagementResult, ValidationError | ConnectionError | ExecutionError
+    ]:
         """Execute state management action."""
         try:
             if request.action == StateAction.LOAD:
@@ -43,47 +51,81 @@ class ManageStateUseCase:
             elif request.action == StateAction.COMPARE:
                 return self._compare_state()
             else:
-                return StateManagementResult(
-                    success=False,
-                    action=request.action,
-                    message=f"Unknown action: {request.action.value}",
+                return Result.error(
+                    ValidationError(
+                        code="UNKNOWN_ACTION",
+                        message=f"Unknown action: {request.action if isinstance(request.action, str) else request.action.value}",
+                        details={"action": str(request.action)},
+                    )
                 )
+        except OSError as e:
+            return Result.error(
+                ConnectionError(
+                    code="STATE_CONNECTION_FAILED",
+                    message=f"Failed to connect to state system: {e}",
+                    details={"error": str(e)},
+                )
+            )
         except Exception as e:
-            return StateManagementResult(
-                success=False,
-                action=request.action,
-                message=f"Error: {e!s}",
+            return Result.error(
+                ExecutionError(
+                    code="STATE_OPERATION_FAILED",
+                    message="Failed to execute state operation",
+                    command=f"state {request.action.value if hasattr(request.action, 'value') else request.action}",
+                    exit_code=1,
+                    stderr=str(e),
+                )
             )
 
-    def _load_state(self) -> StateManagementResult:
+    def _load_state(self) -> Result[StateManagementResult, ValidationError]:
         """Load state from storage."""
         try:
             state = self._state_repository.load_state()
-            return StateManagementResult(
+            result = StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
                 message="State loaded successfully",
                 state=state,
             )
+            return Result.success(result)
         except FileNotFoundError:
-            return StateManagementResult(
-                success=False,
-                action=StateAction.LOAD,
-                message="State file not found - run save first",
+            return Result.error(
+                ValidationError(
+                    code="STATE_FILE_NOT_FOUND",
+                    message="State file not found - run save first",
+                    details={"action": StateAction.LOAD.value},
+                )
             )
 
-    def _save_state(self, force_scan: bool = True) -> StateManagementResult:  # noqa: ARG002
+    def _save_state(
+        self, force_scan: bool = True
+    ) -> Result[
+        StateManagementResult, ValidationError | ConnectionError | ExecutionError
+    ]:  # noqa: ARG002
         """Save current system state."""
         # Build current state from system
-        state = self._build_current_state()
+        state_result = self._build_current_state()
+        if state_result.is_error():
+            return state_result
+
+        state = state_result.value
 
         # Save to repository
-        return self._state_repository.save_state(state)
+        return Result.success(self._state_repository.save_state(state))
 
-    def _build_current_state(self) -> SystemState:
+    def _build_current_state(
+        self,
+    ) -> Result[SystemState, ConnectionError | ExecutionError]:
         """Build current system state by scanning the system."""
         # Get system info
-        system_info = self._system_repository.get_system_info()
+        system_info_result = self._system_repository.get_system_info()
+        if isinstance(system_info_result, Result):
+            if system_info_result.is_error():
+                return system_info_result  # Return the error
+            system_info = system_info_result.value
+        else:
+            # Backward compatibility for repositories not yet returning Result
+            system_info = system_info_result
 
         # Get emulators
         emulators = self._emulator_repository.get_emulators()
@@ -118,7 +160,7 @@ class ManageStateUseCase:
         rom_counts = {d.system: d.rom_count for d in rom_dirs}
 
         # Build enhanced v2.0 state with additional system information
-        return SystemState(
+        state = SystemState(
             schema_version="2.0",
             last_updated=datetime.now().isoformat(),
             system={
@@ -151,39 +193,58 @@ class ManageStateUseCase:
             services=None,  # Will be populated when enhanced data collection is implemented
             notes=None,  # Will be populated when enhanced data collection is implemented
         )
+        return Result.success(state)
 
-    def _update_state(self, path: Optional[str], value: Any) -> StateManagementResult:  # noqa: ANN401
+    def _update_state(
+        self, path: Optional[str], value: Any
+    ) -> Result[StateManagementResult, ValidationError]:  # noqa: ANN401
         """Update specific field in state."""
         if not path or value is None:
-            return StateManagementResult(
-                success=False,
-                action=StateAction.UPDATE,
-                message="Path and value required for update",
+            return Result.error(
+                ValidationError(
+                    code="MISSING_UPDATE_PARAMS",
+                    message="Path and value required for update",
+                    details={
+                        "path": path,
+                        "value": str(value) if value is not None else None,
+                    },
+                )
             )
 
-        return self._state_repository.update_state_field(path, value)
+        return Result.success(self._state_repository.update_state_field(path, value))
 
-    def _compare_state(self) -> StateManagementResult:
+    def _compare_state(
+        self,
+    ) -> Result[
+        StateManagementResult, ValidationError | ConnectionError | ExecutionError
+    ]:
         """Compare current state with stored state."""
         try:
             # Load stored state
             self._state_repository.load_state()
 
             # Get current state
-            current_state = self._build_current_state()
+            current_state_result = self._build_current_state()
+            if current_state_result.is_error():
+                return current_state_result
+
+            current_state = current_state_result.value
 
             # Compare states
             diff = self._state_repository.compare_state(current_state)
 
-            return StateManagementResult(
+            result = StateManagementResult(
                 success=True,
                 action=StateAction.COMPARE,
                 message="State comparison complete",
                 diff=diff,
             )
+            return Result.success(result)
         except FileNotFoundError:
-            return StateManagementResult(
-                success=False,
-                action=StateAction.COMPARE,
-                message="No stored state to compare against",
+            return Result.error(
+                ValidationError(
+                    code="NO_STORED_STATE",
+                    message="No stored state to compare against",
+                    details={"action": StateAction.COMPARE.value},
+                )
             )
