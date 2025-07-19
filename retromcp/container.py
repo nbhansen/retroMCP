@@ -30,6 +30,7 @@ from .infrastructure import SSHControllerRepository
 from .infrastructure import SSHEmulatorRepository
 from .infrastructure import SSHRetroPieClient
 from .infrastructure import SSHSystemRepository
+from .infrastructure.cache_system import SystemCache
 from .infrastructure.ssh_docker_repository import SSHDockerRepository
 from .infrastructure.ssh_state_repository import SSHStateRepository
 from .ssh_handler import RetroPieSSH
@@ -98,12 +99,20 @@ class Container:
         )
 
     @property
+    def system_cache(self) -> SystemCache:
+        """Get system cache instance."""
+        return self._get_or_create(
+            "system_cache",
+            lambda: SystemCache(),
+        )
+
+    @property
     def system_repository(self) -> SystemRepository:
         """Get system repository instance."""
         self._ensure_discovery()
         return self._get_or_create(
             "system_repository",
-            lambda: SSHSystemRepository(self.retropie_client, self.config),
+            lambda: SSHSystemRepository(self.retropie_client, self.config, self.system_cache),
         )
 
     @property
@@ -112,7 +121,7 @@ class Container:
         self._ensure_discovery()
         return self._get_or_create(
             "controller_repository",
-            lambda: SSHControllerRepository(self.retropie_client),
+            lambda: SSHControllerRepository(self.retropie_client, self.system_cache),
         )
 
     @property

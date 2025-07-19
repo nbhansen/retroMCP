@@ -8,17 +8,24 @@ from ..domain.models import Controller
 from ..domain.models import ControllerType
 from ..domain.ports import ControllerRepository
 from ..domain.ports import RetroPieClient
+from .cache_system import SystemCache
 
 
 class SSHControllerRepository(ControllerRepository):
     """SSH implementation of controller repository interface."""
 
-    def __init__(self, client: RetroPieClient) -> None:
-        """Initialize with RetroPie client."""
+    def __init__(self, client: RetroPieClient, cache: SystemCache) -> None:
+        """Initialize with RetroPie client and cache."""
         self._client = client
+        self._cache = cache
 
     def detect_controllers(self) -> List[Controller]:
         """Detect connected controllers."""
+        # Check cache first
+        cached_data = self._cache.get_hardware_scan()
+        if cached_data is not None and "controllers" in cached_data:
+            return cached_data["controllers"]
+        
         # Use ls to check /dev/input/js* devices
         js_result = self._client.execute_command("ls -la /dev/input/js* 2>/dev/null")
 
@@ -130,6 +137,9 @@ class SSHControllerRepository(ControllerRepository):
                     )
                 )
 
+        # Cache the result
+        self._cache.cache_hardware_scan({"controllers": controllers})
+        
         return controllers
 
     def setup_controller(self, controller: Controller) -> CommandResult:

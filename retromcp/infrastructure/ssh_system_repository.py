@@ -12,18 +12,25 @@ from ..domain.models import SystemInfo
 from ..domain.models import SystemService
 from ..domain.ports import RetroPieClient
 from ..domain.ports import SystemRepository
+from .cache_system import SystemCache
 
 
 class SSHSystemRepository(SystemRepository):
     """SSH implementation of system repository interface."""
 
-    def __init__(self, client: RetroPieClient, config: RetroPieConfig) -> None:
-        """Initialize with RetroPie client and configuration."""
+    def __init__(self, client: RetroPieClient, config: RetroPieConfig, cache: SystemCache) -> None:
+        """Initialize with RetroPie client, configuration, and cache."""
         self._client = client
         self._config = config
+        self._cache = cache
 
     def get_system_info(self) -> SystemInfo:
         """Get system information."""
+        # Check cache first
+        cached_info = self._cache.get_system_info()
+        if cached_info is not None:
+            return cached_info
+        
         # Get hostname
         hostname_result = self._client.execute_command("hostname")
         hostname = (
@@ -77,7 +84,7 @@ class SSHSystemRepository(SystemRepository):
             uptime_str = uptime_result.stdout.strip().split()[0]
             uptime = int(float(uptime_str))
 
-        return SystemInfo(
+        system_info = SystemInfo(
             hostname=hostname,
             cpu_temperature=cpu_temperature,
             memory_total=memory_total,
@@ -89,6 +96,11 @@ class SSHSystemRepository(SystemRepository):
             load_average=load_average,
             uptime=uptime,
         )
+        
+        # Cache the result
+        self._cache.cache_system_info(system_info)
+        
+        return system_info
 
     def get_packages(self) -> List[Package]:
         """Get list of installed packages."""
