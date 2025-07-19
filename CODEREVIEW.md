@@ -357,7 +357,233 @@ The codebase has achieved **significantly improved developer experience** with 8
 1. **~~Address security vulnerabilities~~** ✅ **COMPLETED: SecurityValidator with whitelist validation**
 2. **~~Implement comprehensive test coverage~~** ✅ **COMPLETED: 93% achieved**
 3. **Integrate unused cache system** (performance optimization)
-4. **Standardize error handling** (Result pattern consistency)
+4. **✅ Phase 1-3 COMPLETED: Standardize error handling** (Result pattern consistency)
+   - ✅ **Phase 1:** Unified Result[T,E] pattern and domain error hierarchy
+   - ✅ **Phase 2:** Repository layer returns Result types  
+   - ✅ **Phase 3:** Use case layer handles Result patterns (GetSystemInfoUseCase, UpdateSystemUseCase, InstallPackagesUseCase converted)
+   - 🔄 **Phase 4 PLANNED:** Complete remaining use cases (see detailed plan below)
+
+---
+
+## 🔧 **Error Handling Standardization Plan (Phase 4)**
+
+### **Executive Summary**
+Complete the Result pattern implementation across all remaining use cases to achieve:
+- **~160 fewer lines of code** while improving error handling quality
+- **Unified error handling** replacing 4 inconsistent patterns  
+- **Type-safe error propagation** with compile-time guarantees
+- **Simplified testing** with Result objects instead of exception mocking
+
+### **Current Progress Status**
+- ✅ **Phase 1 COMPLETED:** Result[T,E] pattern and domain error hierarchy (DomainError → ValidationError, ConnectionError, ExecutionError)
+- ✅ **Phase 2 COMPLETED:** Repository layer returns Result types (SystemRepository, ControllerRepository) 
+- ✅ **Phase 3 COMPLETED:** Initial use case conversions (GetSystemInfoUseCase, UpdateSystemUseCase, InstallPackagesUseCase)
+- 🔄 **Phase 4 PLANNED:** Complete remaining 9 use cases + tools integration
+
+### **Implementation Plan Overview**
+
+#### **Phase 4.1: Gaming Use Cases (Estimated: 2-3 hours)**
+**Target:** `retromcp/application/gaming_use_cases.py`
+- **Use Cases to Convert:** 6 classes
+  - `DetectControllersUseCase` → Result[List[Controller], ConnectionError | ExecutionError]
+  - `SetupControllerUseCase` → Result[CommandResult, ValidationError | ExecutionError]  
+  - `InstallEmulatorUseCase` → Result[CommandResult, ValidationError | ExecutionError]
+  - `ListRomsUseCase` → Result[List[Rom], ConnectionError | ExecutionError]
+  - Plus 2 additional gaming-related use cases
+- **Repository Dependencies:** Already using ControllerRepository, EmulatorRepository (Result-compatible)
+- **TDD Approach:** Create comprehensive test suite first, then implement
+- **Tool Updates:** Update `gaming_system_tools.py` to handle Result patterns
+
+#### **Phase 4.2: Docker Use Cases (Estimated: 1-2 hours)**  
+**Target:** `retromcp/application/docker_use_cases.py`
+- **Use Cases to Convert:** 1 class
+  - `ManageDockerUseCase` → Result[CommandResult, ValidationError | ExecutionError]
+- **Repository Dependencies:** DockerRepository (needs Result conversion)
+- **Special Considerations:** Docker operations have complex error scenarios
+
+#### **Phase 4.3: State Management Use Cases (Estimated: 2-3 hours)**
+**Target:** `retromcp/application/state_use_cases.py`
+- **Use Cases to Convert:** 1 complex class  
+  - `ManageStateUseCase` → Result[StateOperationResult, ValidationError | ExecutionError]
+- **Repository Dependencies:** StateRepository, SystemRepository, EmulatorRepository, ControllerRepository
+- **Complexity:** High - manages multiple repository interactions
+
+#### **Phase 4.4: Command Execution Use Cases (Estimated: 1 hour)**
+**Target:** `retromcp/application/system_use_cases.py`
+- **Use Cases to Convert:** 2 remaining classes
+  - `ExecuteCommandUseCase` → Result[CommandResult, ValidationError | ExecutionError] 
+  - `WriteFileUseCase` → Result[CommandResult, ValidationError | ExecutionError]
+- **Repository Dependencies:** SystemRepository (already Result-compatible)
+
+#### **Phase 4.5: Tools Layer Integration (Estimated: 3-4 hours)**
+**Target:** All tool classes that use converted use cases
+- **Files to Update:** 6 tool classes
+  - `gaming_system_tools.py` (largest impact)
+  - `docker_tools.py`
+  - `state_tools.py` 
+  - `command_execution_tools.py`
+  - `file_management_tools.py`
+  - Any remaining tools using converted use cases
+- **Pattern:** Standardize Result unwrapping across all tools
+
+### **Detailed Technical Implementation**
+
+#### **Standard Conversion Pattern**
+```python
+# BEFORE: Direct repository calls with exceptions
+class SomeUseCase:
+    def __init__(self, client: RetroPieClient) -> None:
+        self._client = client
+    
+    def execute(self, params) -> SomeResult:
+        try:
+            return self._client.some_operation(params)
+        except Exception as e:
+            # Custom error handling (5-15 lines)
+            raise CustomError(f"Failed: {e}")
+
+# AFTER: Result pattern propagation  
+class SomeUseCase:
+    def __init__(self, repository: SomeRepository) -> None:
+        self._repository = repository
+    
+    def execute(self, params) -> Result[SomeResult, ValidationError | ExecutionError | ConnectionError]:
+        # Validation if needed
+        if not self._validate_params(params):
+            return Result.error(ValidationError(...))
+        
+        return self._repository.some_operation(params)  # Already returns Result
+```
+
+#### **Tools Layer Update Pattern**
+```python
+# BEFORE: Direct use case calls
+result = use_case.execute(params)
+return self.format_success(result)
+
+# AFTER: Result pattern handling
+result = use_case.execute(params)
+if result.is_error():
+    error = result.error_or_none
+    return self.format_error(f"Operation failed: {error.message}")
+return self.format_success(result.value)
+```
+
+### **Test-Driven Development Strategy**
+
+#### **1. Red Phase (Write Failing Tests)**
+For each use case:
+```python
+def test_execute_returns_result_success_when_operation_succeeds(self):
+    # Arrange: Mock repository to return Result.success
+    # Act: Call use case execute  
+    # Assert: Result.is_success() and correct value type
+
+def test_execute_returns_result_error_when_repository_fails(self):
+    # Arrange: Mock repository to return Result.error
+    # Act: Call use case execute
+    # Assert: Result.is_error() and correct error propagation
+
+def test_execute_returns_validation_error_for_invalid_input(self):
+    # Arrange: Invalid parameters
+    # Act: Call use case execute
+    # Assert: Result.error with ValidationError
+```
+
+#### **2. Green Phase (Implement Minimum Code)**
+- Convert use case constructor to take repository instead of client
+- Update execute method signature to return Result type
+- Implement Result propagation logic
+- Update container dependency injection
+
+#### **3. Refactor Phase (Clean Implementation)**
+- Ensure proper error codes and messages
+- Verify type annotations are complete
+- Run formatting with `ruff format`
+- Validate no regressions in existing tests
+
+### **Container Updates Required**
+
+```python
+# Update dependency injection for converted use cases
+@property
+def some_use_case(self) -> SomeUseCase:
+    return self._get_or_create(
+        "some_use_case",
+        lambda: SomeUseCase(self.some_repository),  # Changed from client
+    )
+```
+
+### **Quality Assurance Checklist**
+
+#### **Per Use Case Conversion:**
+- [ ] TDD tests written and initially failing
+- [ ] Use case converted to Result pattern
+- [ ] Container dependency injection updated
+- [ ] Tool layer updated to handle Result
+- [ ] All new tests passing
+- [ ] No regressions in existing functionality
+- [ ] Proper error codes and messages
+- [ ] Type annotations complete
+
+#### **Phase Completion Criteria:**
+- [ ] All use cases in phase converted
+- [ ] All tools using those use cases updated
+- [ ] Full test suite passing (maintain 93%+ coverage)
+- [ ] `ruff check` and `ruff format` clean
+- [ ] Integration tests passing
+- [ ] Documentation updated
+
+### **Risk Mitigation**
+
+#### **Potential Issues:**
+1. **Breaking Changes:** Tools layer expects direct values, not Result types
+   - **Mitigation:** Update tools in same commit as use case conversion
+   
+2. **Complex Error Scenarios:** Some use cases have intricate error handling
+   - **Mitigation:** Start with simplest use cases, build confidence
+   
+3. **Integration Test Failures:** End-to-end tests may break during transition
+   - **Mitigation:** Run full test suite after each phase completion
+
+4. **Performance Impact:** Result pattern adds slight overhead
+   - **Mitigation:** Negligible for this use case, benefits outweigh costs
+
+### **Timeline Estimation**
+
+| Phase | Duration | Effort | Priority |
+|-------|----------|--------|----------|
+| **Phase 4.1** Gaming Use Cases | 2-3 hours | Medium | High |
+| **Phase 4.2** Docker Use Cases | 1-2 hours | Low | Medium |  
+| **Phase 4.3** State Management | 2-3 hours | High | High |
+| **Phase 4.4** Command Execution | 1 hour | Low | Medium |
+| **Phase 4.5** Tools Integration | 3-4 hours | Medium | High |
+| **Testing & QA** | 2 hours | Medium | Critical |
+| **Total** | **11-15 hours** | | |
+
+### **Success Metrics**
+
+#### **Quantitative:**
+- **Code Reduction:** ~160 fewer lines of error handling boilerplate
+- **Error Pattern Consolidation:** 4 patterns → 1 unified pattern  
+- **Test Coverage:** Maintain 93%+ coverage
+- **Type Safety:** 100% of use cases return typed Result objects
+
+#### **Qualitative:**
+- **Developer Experience:** Consistent error handling patterns
+- **Maintainability:** Centralized error logic in repositories
+- **Debugging:** Clear error propagation with detailed messages
+- **Testing:** Simplified test setup with Result objects vs exception mocking
+
+### **Phase 4 Implementation Order**
+
+1. **Start with Gaming Use Cases** (highest impact, good learning case)
+2. **Command Execution Use Cases** (simplest, build confidence)  
+3. **Docker Use Cases** (medium complexity)
+4. **State Management** (most complex, handle last)
+5. **Tools Integration** (comprehensive update across all tools)
+
+This plan ensures **systematic, test-driven conversion** of all remaining use cases to the Result pattern, achieving **significant code reduction** while **dramatically improving error handling quality** across the entire RetroMCP codebase.
 
 ---
 
