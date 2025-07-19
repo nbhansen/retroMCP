@@ -1,18 +1,41 @@
 """SSH implementation of RetroPie client."""
 
 import time
-from typing import Optional
+from typing import Optional, Protocol, Tuple
 
 from ..domain.models import CommandResult
 from ..domain.models import ConnectionInfo
 from ..domain.ports import RetroPieClient
-from ..ssh_handler import RetroPieSSH
+
+
+class SSHHandler(Protocol):
+    """Protocol for SSH handlers to ensure compatibility."""
+    
+    host: str
+    port: int
+    username: str
+    
+    def connect(self) -> bool:
+        """Establish SSH connection."""
+        ...
+    
+    def disconnect(self) -> None:
+        """Close SSH connection."""
+        ...
+    
+    def test_connection(self) -> bool:
+        """Test if connection is active."""
+        ...
+    
+    def execute_command(self, command: str, use_sudo: bool = False) -> Tuple[int, str, str]:
+        """Execute command and return (exit_code, stdout, stderr)."""
+        ...
 
 
 class SSHRetroPieClient(RetroPieClient):
     """SSH implementation of RetroPie client interface."""
 
-    def __init__(self, ssh_handler: RetroPieSSH) -> None:
+    def __init__(self, ssh_handler: SSHHandler) -> None:
         """Initialize with SSH handler."""
         self._ssh = ssh_handler
         self._last_connected: Optional[str] = None
@@ -48,11 +71,8 @@ class SSHRetroPieClient(RetroPieClient):
         start_time = time.time()
 
         try:
-            # Handle sudo if needed
-            if use_sudo and not command.startswith("sudo "):
-                command = f"sudo {command}"
-
-            exit_code, stdout, stderr = self._ssh.execute_command(command)
+            # Use the secure handler's built-in sudo support
+            exit_code, stdout, stderr = self._ssh.execute_command(command, use_sudo=use_sudo)
             execution_time = time.time() - start_time
 
             return CommandResult(

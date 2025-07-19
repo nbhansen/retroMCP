@@ -55,26 +55,61 @@ On your Raspberry Pi:
 3. Go to "Interface Options" → "SSH" → Enable
 4. Note your Pi's IP address: `hostname -I`
 
-### 2. Configure Passwordless Sudo (Required)
+### 2. Configure Secure Sudo Access
 
-**WARNING: This allows any user with SSH access to run any command as root without a password. Only do this on dedicated gaming systems.**
+**SECURITY IMPROVEMENT**: RetroMCP now uses targeted sudo rules instead of dangerous passwordless root access.
 
-RetroMCP requires passwordless sudo for package installation, service management, and system configuration. On your RetroPie system:
+**For standard RetroPie systems using the 'pi' user, this works automatically.**
+
+On your RetroPie system, run the security migration script:
 
 ```bash
-# Edit sudoers file
-sudo visudo
+# Navigate to the RetroMCP directory on your RetroPie
+cd /path/to/retroMCP
 
-# Add this line at the end (replace 'pi' with your username):
-pi ALL=(ALL) NOPASSWD:ALL
-
-# Or for the retro user:
-retro ALL=(ALL) NOPASSWD:ALL
-
-# Save and exit (Ctrl+X, then Y, then Enter in nano)
+# Run the automated security setup
+./scripts/security-migration.sh
 ```
 
-### 3. Install RetroMCP
+This script will:
+- Install secure targeted sudo rules
+- Remove any dangerous passwordless sudo configurations
+- Set up proper user permissions automatically
+
+**Manual Installation (if needed):**
+
+```bash
+# Copy the secure sudoers configuration
+sudo cp config/retromcp-sudoers /etc/sudoers.d/retromcp
+sudo chmod 440 /etc/sudoers.d/retromcp
+
+# Verify the configuration
+sudo visudo -c
+```
+
+**What this provides:**
+- ✅ Specific permissions for RetroMCP operations only
+- ✅ Works automatically with standard RetroPie 'pi' user  
+- ✅ No blanket root access required
+- ✅ Sudo password prompts for security verification
+
+### 3. Set Up SSH Key Authentication (Recommended)
+
+For maximum security, use SSH key-based authentication:
+
+```bash
+# Generate SSH key pair
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/retromcp_key
+
+# Copy public key to RetroPie
+ssh-copy-id -i ~/.ssh/retromcp_key.pub pi@<retropie-ip>
+
+# Set secure permissions
+chmod 600 ~/.ssh/retromcp_key
+chmod 644 ~/.ssh/retromcp_key.pub
+```
+
+### 4. Install RetroMCP
 
 ```bash
 # Clone repository
@@ -89,7 +124,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e .
 ```
 
-### 4. Configure Connection
+### 5. Configure Connection
 
 ```bash
 # Copy example configuration
@@ -99,14 +134,28 @@ cp .env.example .env
 nano .env
 ```
 
-Required settings in `.env`:
+**Secure Configuration Example:**
+```bash
+# Required
+RETROPIE_HOST=192.168.1.100
+RETROPIE_USERNAME=pi  # Standard RetroPie user (recommended)
+
+# SSH Key Authentication (Recommended)
+RETROPIE_KEY_PATH=~/.ssh/retromcp_key
+
+# OR Password Authentication (Less Secure)
+# RETROPIE_PASSWORD=your_ssh_password
+
+# Optional
+RETROPIE_PORT=22
 ```
-RETROPIE_HOST=192.168.1.100  # Your Pi's IP address
-RETROPIE_USERNAME=retro       # SSH username (auto-detected after first connection)
-RETROPIE_PASSWORD=password    # SSH password
-# OR
-RETROPIE_SSH_KEY_PATH=~/.ssh/id_rsa  # Path to SSH key
-```
+
+**Security Notes:**
+- **Root user access is blocked** for security reasons
+- **Standard 'pi' user works automatically** with the security configuration
+- **SSH key authentication is recommended** over passwords
+- System will prompt for sudo password when needed for privileged operations
+- All commands are validated and restricted to specific allowed operations only
 
 ## Claude Desktop Integration
 
@@ -151,9 +200,14 @@ Restart Claude Desktop to load the server.
 
 ## Security Features
 
+RetroMCP implements comprehensive security measures:
+
+- **No Root Access** - Root user connections are blocked entirely
+- **Targeted Sudo Rules** - Only specific commands are allowed with sudo (no NOPASSWD:ALL)
 - **SSH Security** - Host key verification, connection timeouts, credential cleanup
 - **Input Protection** - Command injection prevention, parameter validation, path traversal blocking
 - **Error Handling** - Information sanitization and secure error recovery
+- **Automatic Setup** - Works with standard RetroPie 'pi' user out of the box
 
 ## Testing
 
@@ -204,9 +258,10 @@ npx @modelcontextprotocol/inspector python -m retromcp.server
 - Test SSH manually: `ssh pi@<your-pi-ip>`
 
 ### Permission Issues
-- RetroMCP requires passwordless sudo for system operations
-- Ensure your user has NOPASSWD:ALL configured in sudoers
-- Check RetroPie directory ownership if file operations fail
+- Use the security migration script: `./scripts/security-migration.sh`
+- Verify sudo configuration: `sudo visudo -c`
+- For standard RetroPie 'pi' user, permissions should work automatically
+- Check that `/etc/sudoers.d/retromcp` file exists
 
 ### MCP Inspector Issues
 - Ensure Node.js is installed: `node --version`
@@ -214,8 +269,9 @@ npx @modelcontextprotocol/inspector python -m retromcp.server
 - Clear npm cache: `npm cache clean --force`
 
 ### Security Issues
-- Verify known_hosts file exists: `~/.ssh/known_hosts`
-- Check SSH key permissions: `chmod 600 ~/.ssh/id_rsa`
+- Verify SSH host key: `ssh-keyscan <retropie-ip> >> ~/.ssh/known_hosts`
+- Check SSH key permissions: `chmod 600 ~/.ssh/retromcp_key`
+- Ensure you're not using root user (this is blocked)
 - Review error messages for security warnings
 
 ## Background

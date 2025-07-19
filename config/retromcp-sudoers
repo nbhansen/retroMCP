@@ -1,0 +1,123 @@
+# RetroMCP Sudoers Configuration
+# This file provides targeted sudo rules for RetroMCP operations
+# without requiring passwordless root access
+#
+# IMPORTANT: This configuration uses %retromcp group
+# Users must be added to the retromcp group to use these permissions:
+# sudo usermod -a -G retromcp <username>
+
+# Package management operations
+%retromcp ALL=(ALL) /usr/bin/apt update
+%retromcp ALL=(ALL) /usr/bin/apt upgrade *
+%retromcp ALL=(ALL) /usr/bin/apt autoremove *
+%retromcp ALL=(ALL) /usr/bin/apt list *
+%retromcp ALL=(ALL) /usr/bin/apt-get update
+%retromcp ALL=(ALL) /usr/bin/apt-get install *
+%retromcp ALL=(ALL) /usr/bin/apt-get remove *
+%retromcp ALL=(ALL) /usr/bin/apt-get purge *
+%retromcp ALL=(ALL) /usr/bin/apt-get autoremove *
+%retromcp ALL=(ALL) /usr/bin/apt-get autoclean
+%retromcp ALL=(ALL) /usr/bin/apt-get upgrade *
+
+# System service management
+%retromcp ALL=(ALL) /usr/bin/systemctl start *
+%retromcp ALL=(ALL) /usr/bin/systemctl stop *
+%retromcp ALL=(ALL) /usr/bin/systemctl restart *
+%retromcp ALL=(ALL) /usr/bin/systemctl reload *
+%retromcp ALL=(ALL) /usr/bin/systemctl status *
+%retromcp ALL=(ALL) /usr/bin/systemctl enable *
+%retromcp ALL=(ALL) /usr/bin/systemctl disable *
+
+# System configuration with raspi-config
+%retromcp ALL=(ALL) /usr/bin/raspi-config nonint *
+%retromcp ALL=(ALL) /usr/bin/raspi-config --expand-rootfs
+%retromcp ALL=(ALL) /usr/bin/raspi-config --memory-split *
+
+# RetroPie specific operations
+%retromcp ALL=(ALL) /opt/retropie/supplementary/emulationstation/emulationstation
+%retromcp ALL=(ALL) /home/*/RetroPie-Setup/retropie_packages.sh *
+%retromcp ALL=(ALL) /home/*/RetroPie-Setup/retropie_setup.sh *
+%retromcp ALL=(ALL) /usr/bin/killall emulationstation
+
+# File and directory management (flexible paths)
+%retromcp ALL=(ALL) /bin/chmod 600 /home/*/.retromcp/*
+%retromcp ALL=(ALL) /bin/chmod 644 /home/*/.retromcp/*.log
+%retromcp ALL=(ALL) /bin/chmod 755 /home/*/RetroPie/roms/*
+%retromcp ALL=(ALL) /bin/chown [a-z][a-z0-9_-]* /home/*/.retromcp/*
+%retromcp ALL=(ALL) /bin/chown -R [a-z][a-z0-9_-]* /home/*/RetroPie/roms/*
+%retromcp ALL=(ALL) /bin/chown -R [a-z][a-z0-9_-]* /home/*/RetroPie/BIOS/*
+
+# GPIO operations (if needed)
+%retromcp ALL=(ALL) /usr/bin/gpio *
+
+# Network interface management (if needed)
+%retromcp ALL=(ALL) /sbin/ifconfig *
+%retromcp ALL=(ALL) /sbin/iwconfig *
+
+# Temperature and hardware monitoring
+%retromcp ALL=(ALL) /usr/bin/vcgencmd *
+
+# Process management for specific services
+%retromcp ALL=(ALL) /bin/kill -TERM *
+%retromcp ALL=(ALL) /bin/kill -HUP *
+%retromcp ALL=(ALL) /usr/bin/killall emulationstation
+%retromcp ALL=(ALL) /usr/bin/pkill emulationstation
+
+# System reboot and shutdown (use with caution)
+%retromcp ALL=(ALL) /sbin/reboot
+%retromcp ALL=(ALL) /sbin/shutdown *
+
+# Disable dangerous commands explicitly
+%retromcp ALL=(ALL) !/bin/su *
+%retromcp ALL=(ALL) !/usr/bin/sudo *
+%retromcp ALL=(ALL) !/bin/bash
+%retromcp ALL=(ALL) !/bin/sh
+%retromcp ALL=(ALL) !/usr/bin/passwd *
+%retromcp ALL=(ALL) !/usr/sbin/visudo *
+%retromcp ALL=(ALL) !/bin/chmod 777 *
+%retromcp ALL=(ALL) !/bin/chmod +s *
+%retromcp ALL=(ALL) !/usr/bin/ssh *
+
+# Fallback rules for pi user (for existing RetroPie systems)
+# These provide compatibility for systems where adding groups is not possible
+pi ALL=(ALL) /usr/bin/apt update
+pi ALL=(ALL) /usr/bin/apt upgrade *
+pi ALL=(ALL) /usr/bin/apt autoremove *
+pi ALL=(ALL) /usr/bin/apt list *
+pi ALL=(ALL) /usr/bin/apt-get update
+pi ALL=(ALL) /usr/bin/apt-get install *
+pi ALL=(ALL) /usr/bin/apt-get remove *
+pi ALL=(ALL) /usr/bin/apt-get purge *
+pi ALL=(ALL) /usr/bin/apt-get autoremove *
+pi ALL=(ALL) /usr/bin/apt-get autoclean
+pi ALL=(ALL) /usr/bin/apt-get upgrade *
+pi ALL=(ALL) /usr/bin/systemctl start *
+pi ALL=(ALL) /usr/bin/systemctl stop *
+pi ALL=(ALL) /usr/bin/systemctl restart *
+pi ALL=(ALL) /usr/bin/systemctl reload *
+pi ALL=(ALL) /usr/bin/systemctl status *
+pi ALL=(ALL) /usr/bin/systemctl enable *
+pi ALL=(ALL) /usr/bin/systemctl disable *
+pi ALL=(ALL) /usr/bin/raspi-config nonint *
+pi ALL=(ALL) /usr/bin/raspi-config --expand-rootfs
+pi ALL=(ALL) /usr/bin/raspi-config --memory-split *
+pi ALL=(ALL) /opt/retropie/supplementary/emulationstation/emulationstation
+pi ALL=(ALL) /home/pi/RetroPie-Setup/retropie_packages.sh *
+pi ALL=(ALL) /home/pi/RetroPie-Setup/retropie_setup.sh *
+pi ALL=(ALL) /usr/bin/killall emulationstation
+pi ALL=(ALL) /bin/chmod 600 /home/pi/.retromcp/*
+pi ALL=(ALL) /bin/chmod 644 /home/pi/.retromcp/*.log
+pi ALL=(ALL) /bin/chmod 755 /home/pi/RetroPie/roms/*
+pi ALL=(ALL) /bin/chown pi:pi /home/pi/.retromcp/*
+pi ALL=(ALL) /bin/chown -R pi:pi /home/pi/RetroPie/roms/*
+pi ALL=(ALL) /bin/chown -R pi:pi /home/pi/RetroPie/BIOS/*
+pi ALL=(ALL) /usr/bin/gpio *
+pi ALL=(ALL) /sbin/ifconfig *
+pi ALL=(ALL) /sbin/iwconfig *
+pi ALL=(ALL) /usr/bin/vcgencmd *
+pi ALL=(ALL) /bin/kill -TERM *
+pi ALL=(ALL) /bin/kill -HUP *
+pi ALL=(ALL) /usr/bin/killall emulationstation
+pi ALL=(ALL) /usr/bin/pkill emulationstation
+pi ALL=(ALL) /sbin/reboot
+pi ALL=(ALL) /sbin/shutdown *

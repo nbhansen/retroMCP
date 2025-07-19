@@ -32,7 +32,7 @@ from .infrastructure import SSHRetroPieClient
 from .infrastructure import SSHSystemRepository
 from .infrastructure.ssh_docker_repository import SSHDockerRepository
 from .infrastructure.ssh_state_repository import SSHStateRepository
-from .ssh_handler import RetroPieSSH
+from .secure_ssh_handler_v2 import SecureSSHHandlerV2
 
 logger = logging.getLogger(__name__)
 
@@ -76,11 +76,11 @@ class Container:
                 self._discovery_completed = True  # Don't retry on every call
 
     @property
-    def ssh_handler(self) -> RetroPieSSH:
+    def ssh_handler(self) -> SecureSSHHandlerV2:
         """Get SSH handler instance."""
         return self._get_or_create(
             "ssh_handler",
-            lambda: RetroPieSSH(
+            lambda: SecureSSHHandlerV2(
                 host=self._initial_config.host,
                 username=self._initial_config.username,
                 password=self._initial_config.password,

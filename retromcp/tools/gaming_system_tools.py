@@ -415,7 +415,7 @@ class GamingSystemTools(BaseTool):
 
                 # Configure overclock using raspi-config
                 result = self.container.retropie_client.execute_command(
-                    f"sudo raspi-config nonint do_overclock {quoted_preset}"
+                    f"raspi-config nonint do_overclock {quoted_preset}", use_sudo=True
                 )
 
                 if result.success:
@@ -449,7 +449,7 @@ class GamingSystemTools(BaseTool):
 
                 # Configure themes using RetroPie-Setup
                 result = self.container.retropie_client.execute_command(
-                    f"sudo {self.container.config.paths.retropie_setup_dir}/retropie_setup.sh esthemes {action}_theme {quoted_theme}"
+                    f"{self.container.config.paths.retropie_setup_dir}/retropie_setup.sh esthemes {action}_theme {quoted_theme}", use_sudo=True
                 )
 
                 if result.success:
@@ -475,7 +475,7 @@ class GamingSystemTools(BaseTool):
         try:
             # Restart EmulationStation service
             result = self.container.retropie_client.execute_command(
-                "sudo systemctl restart emulationstation"
+                "systemctl restart emulationstation", use_sudo=True
             )
 
             if result.success:
@@ -722,7 +722,7 @@ class GamingSystemTools(BaseTool):
             if target == "permissions":
                 # Fix ROM permissions
                 result = self.container.retropie_client.execute_command(
-                    f"sudo chown -R {self.container.config.username}:{self.container.config.username} {self.container.config.paths.roms_dir}"
+                    f"chown -R {self.container.config.username}:{self.container.config.username} {self.container.config.paths.roms_dir}", use_sudo=True
                 )
 
                 if result.success:
@@ -770,7 +770,7 @@ class GamingSystemTools(BaseTool):
             if target == "hdmi":
                 # Configure audio to HDMI
                 result = self.container.retropie_client.execute_command(
-                    "sudo raspi-config nonint do_audio 2"
+                    "raspi-config nonint do_audio 2", use_sudo=True
                 )
 
                 if result.success:
@@ -788,7 +788,7 @@ class GamingSystemTools(BaseTool):
             elif target == "analog":
                 # Configure audio to analog/3.5mm
                 result = self.container.retropie_client.execute_command(
-                    "sudo raspi-config nonint do_audio 1"
+                    "raspi-config nonint do_audio 1", use_sudo=True
                 )
 
                 if result.success:
@@ -836,7 +836,7 @@ class GamingSystemTools(BaseTool):
                 if resolution in resolution_map:
                     config_value = resolution_map[resolution]
                     result = self.container.retropie_client.execute_command(
-                        f"sudo raspi-config nonint do_resolution {config_value}"
+                        f"raspi-config nonint do_resolution {config_value}", use_sudo=True
                     )
 
                     if result.success:
