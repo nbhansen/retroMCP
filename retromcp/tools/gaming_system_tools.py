@@ -347,15 +347,20 @@ class GamingSystemTools(BaseTool):
                 # Use the update system use case
                 result = self.container.update_system_use_case.execute()
 
-                if result.success:
+                if result.is_error():
+                    error = result.error_or_none
+                    return self.format_error(f"System update failed: {error.message}")
+
+                command_result = result.value
+                if command_result.success:
                     output = "🎮 **RetroPie Setup - System Update**\n\n"
                     output += "✅ System updated successfully\n\n"
-                    if result.stdout:
-                        output += f"**Update Details:**\n```\n{result.stdout}\n```"
+                    if command_result.stdout:
+                        output += f"**Update Details:**\n```\n{command_result.stdout}\n```"
                     return [TextContent(type="text", text=output)]
                 else:
                     return self.format_error(
-                        f"System update failed: {result.stderr or result.stdout}"
+                        f"System update failed: {command_result.stderr or command_result.stdout}"
                     )
             else:
                 valid_targets = self._get_valid_targets_message("retropie", "setup")
