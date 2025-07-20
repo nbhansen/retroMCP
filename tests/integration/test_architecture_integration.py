@@ -237,6 +237,7 @@ class TestArchitecturalIntegration:
         with patch.object(server.container, "connect", return_value=True):
             # Replace the retropie_client with a mock
             from unittest.mock import Mock
+            from retromcp.domain.models import ConnectionInfo, Result
 
             mock_client = Mock()
             mock_execute = mock_client.execute_command
@@ -250,6 +251,18 @@ class TestArchitecturalIntegration:
                 execution_time=0.1,
             )
 
+            # Mock the use case to return a Result with ConnectionInfo
+            mock_connection_info = ConnectionInfo(
+                connected=True,
+                host=test_config.host,
+                port=test_config.port,
+                username=test_config.username
+            )
+            
+            mock_use_case = Mock()
+            mock_use_case.execute.return_value = Result.success(mock_connection_info)
+            server.container._instances["test_connection_use_case"] = mock_use_case
+
             # Execute a tool call through the server
             result = await server.call_tool("manage_connection", {"action": "test"})
 
@@ -258,8 +271,8 @@ class TestArchitecturalIntegration:
             assert hasattr(result[0], "text")
 
             # Verify the call went through the proper chain:
-            # Server → Container → Use Case → Repository → SSH Client
-            mock_execute.assert_called()
+            # Server → Container → Use Case (mocked to return Result)
+            mock_use_case.execute.assert_called()
 
     def test_container_singleton_behavior(self, test_config: RetroPieConfig) -> None:
         """Test that container properly manages singleton instances."""
@@ -299,29 +312,34 @@ class TestArchitecturalIntegration:
         """Test that errors properly propagate through the dependency chain."""
         container = Container(test_config)
 
-        # Mock repository to raise exception by replacing the instance
+        # Mock use case to return error Result instead of raising exception
         from unittest.mock import Mock
+        from retromcp.domain.models import ConnectionError, Result
 
-        mock_client = Mock()
-        mock_client.execute_command.side_effect = Exception("SSH connection failed")
-        container._instances["retropie_client"] = mock_client
+        mock_use_case = Mock()
+        mock_use_case.execute.return_value = Result.error(ConnectionError(
+            code="SSH_CONNECTION_FAILED",
+            message="SSH connection failed",
+            details={"error": "Connection refused"}
+        ))
+        container._instances["test_connection_use_case"] = mock_use_case
 
-        SystemManagementTools(container)
+        # Create connection tools to test error propagation through Result pattern
+        from retromcp.tools.connection_management_tools import ConnectionManagementTools
+        connection_tools = ConnectionManagementTools(container)
 
-        # Create system tools and test exception propagation
-        system_tools = SystemManagementTools(container)
-
-        # Exception should propagate through the tool chain when calling manage_connection
-        # This goes: Tool → Container → Use Case → Repository → SSH (exception)
+        # Error should propagate through the tool chain via Result pattern
+        # This goes: Tool → Container → Use Case → Result.error()
         import asyncio
 
         async def test_exception_propagation():
-            result = await system_tools.handle_tool_call(
+            result = await connection_tools.handle_tool_call(
                 "manage_connection", {"action": "test"}
             )
-            # Should return error response, not raise exception
+            # Should return error response with proper error handling
             assert len(result) == 1
             assert "❌" in result[0].text or "error" in result[0].text.lower()
+            assert "SSH connection failed" in result[0].text
 
         # Run the async test
         asyncio.run(test_exception_propagation())

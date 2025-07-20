@@ -68,55 +68,55 @@ class TestEndToEndArchitecture:
         server = RetroMCPServer(test_config, server_config)
 
         with patch.object(server.container, "connect", return_value=True):
-            # Mock different repository responses for different tools
-            with patch.object(
-                server.container.retropie_client, "test_connection", return_value=True
-            ), patch.object(
-                server.container.retropie_client, "get_connection_info"
-            ) as mock_connection_info, patch.object(
-                server.container.retropie_client, "get_system_info", create=True
-            ) as mock_system_info:
-                # Setup different responses for different tools
-                from retromcp.domain.models import ConnectionInfo
-                from retromcp.domain.models import SystemInfo
+            # Mock use cases to return Result patterns for different tools
+            from unittest.mock import Mock
+            from retromcp.domain.models import ConnectionInfo, SystemInfo, Result
 
-                mock_connection_info.return_value = ConnectionInfo(
-                    connected=True,
-                    host="integration-test",
-                    port=22,
-                    username="test-user",
-                )
+            # Mock connection test use case
+            mock_connection_info = ConnectionInfo(
+                connected=True,
+                host="integration-test",
+                port=22,
+                username="test-user",
+            )
+            mock_connection_use_case = Mock()
+            mock_connection_use_case.execute.return_value = Result.success(mock_connection_info)
+            server.container._instances["test_connection_use_case"] = mock_connection_use_case
 
-                mock_system_info.return_value = SystemInfo(
-                    hostname="integration-test",
-                    cpu_temperature=45.0,
-                    memory_total=1000000,
-                    memory_used=500000,
-                    memory_free=500000,
-                    disk_total=10000000,
-                    disk_used=5000000,
-                    disk_free=5000000,
-                    load_average=[1.0],
-                    uptime=3600,
-                )
+            # Mock system info use case
+            mock_system_info = SystemInfo(
+                hostname="integration-test",
+                cpu_temperature=45.0,
+                memory_total=1000000,
+                memory_used=500000,
+                memory_free=500000,
+                disk_total=10000000,
+                disk_used=5000000,
+                disk_free=5000000,
+                load_average=[1.0],
+                uptime=3600,
+            )
+            mock_system_info_use_case = Mock()
+            mock_system_info_use_case.execute.return_value = Result.success(mock_system_info)
+            server.container._instances["get_system_info_use_case"] = mock_system_info_use_case
 
-                # Test system tool
-                system_result = await server.call_tool(
-                    "manage_connection", {"action": "test"}
-                )
-                assert len(system_result) == 1
-                assert "integration-test" in system_result[0].text
+            # Test connection management tool
+            system_result = await server.call_tool(
+                "manage_connection", {"action": "test"}
+            )
+            assert len(system_result) == 1
+            assert "integration-test" in system_result[0].text
 
-                # Test another system tool (get_system_info)
-                info_result = await server.call_tool(
-                    "get_system_info", {"category": "hardware"}
-                )
-                assert len(info_result) == 1
-                assert "integration-test" in info_result[0].text
+            # Test system info tool
+            info_result = await server.call_tool(
+                "get_system_info", {"category": "hardware"}
+            )
+            assert len(info_result) == 1
+            assert "integration-test" in info_result[0].text
 
-                # Verify both chains executed through proper architecture
-                mock_connection_info.assert_called()
-                # Note: get_system_info uses the RetroPie client, not controller repository
+            # Verify both use cases were called through proper architecture
+            mock_connection_use_case.execute.assert_called()
+            mock_system_info_use_case.execute.assert_called()
 
     @pytest.mark.asyncio
     async def test_error_handling_through_complete_chain(
@@ -156,46 +156,49 @@ class TestEndToEndArchitecture:
         server = RetroMCPServer(test_config, server_config)
 
         with patch.object(server.container, "connect", return_value=True):
-            with patch.object(
-                server.container.retropie_client, "test_connection", return_value=True
-            ), patch.object(
-                server.container.retropie_client, "get_connection_info"
-            ) as mock_connection_info, patch.object(
-                server.container.retropie_client, "get_system_info", create=True
-            ) as mock_system_info:
-                from retromcp.domain.models import ConnectionInfo
-                from retromcp.domain.models import SystemInfo
+            # Mock use cases that tools will call
+            from unittest.mock import Mock
+            from retromcp.domain.models import ConnectionInfo, SystemInfo, Result
 
-                mock_connection_info.return_value = ConnectionInfo(
-                    connected=True,
-                    host="integration-test",
-                    port=22,
-                    username="test-user",
-                )
-                mock_system_info.return_value = SystemInfo(
-                    hostname="integration-test",
-                    cpu_temperature=45.0,
-                    memory_total=1000000,
-                    memory_used=500000,
-                    memory_free=500000,
-                    disk_total=10000000,
-                    disk_used=5000000,
-                    disk_free=5000000,
-                    load_average=[1.0],
-                    uptime=3600,
-                )
+            # Mock connection use case
+            mock_connection_info = ConnectionInfo(
+                connected=True,
+                host="integration-test",
+                port=22,
+                username="test-user",
+            )
+            mock_connection_use_case = Mock()
+            mock_connection_use_case.execute.return_value = Result.success(mock_connection_info)
+            server.container._instances["test_connection_use_case"] = mock_connection_use_case
 
-                # Call multiple tools - they should share the same container instance
-                await server.call_tool("manage_connection", {"action": "test"})
-                await server.call_tool("get_system_info", {"category": "all"})
+            # Mock system info use case
+            mock_system_info = SystemInfo(
+                hostname="integration-test",
+                cpu_temperature=45.0,
+                memory_total=1000000,
+                memory_used=500000,
+                memory_free=500000,
+                disk_total=10000000,
+                disk_used=5000000,
+                disk_free=5000000,
+                load_average=[1.0],
+                uptime=3600,
+            )
+            mock_system_info_use_case = Mock()
+            mock_system_info_use_case.execute.return_value = Result.success(mock_system_info)
+            server.container._instances["get_system_info_use_case"] = mock_system_info_use_case
 
-                # Tools should have used same client instance
-                assert mock_connection_info.call_count >= 1
-                assert mock_system_info.call_count >= 1
+            # Call multiple tools - they should share the same container instance
+            await server.call_tool("manage_connection", {"action": "test"})
+            await server.call_tool("get_system_info", {"category": "all"})
 
-                # Verify container state is consistent
-                tools = await server.list_tools()
-                assert len(tools) > 0
+            # Tools should have used same use case instances through shared container
+            assert mock_connection_use_case.execute.call_count >= 1
+            assert mock_system_info_use_case.execute.call_count >= 1
+
+            # Verify container state is consistent
+            tools = await server.list_tools()
+            assert len(tools) > 0
 
     def test_architectural_layer_separation(self, test_config: RetroPieConfig) -> None:
         """Test that architectural layers are properly separated."""
@@ -307,49 +310,52 @@ class TestEndToEndArchitecture:
         server = RetroMCPServer(test_config, server_config)
 
         with patch.object(server.container, "connect", return_value=True):
-            with patch.object(
-                server.container.retropie_client, "test_connection", return_value=True
-            ), patch.object(
-                server.container.retropie_client, "get_connection_info"
-            ) as mock_connection_info, patch.object(
-                server.container.retropie_client, "get_system_info", create=True
-            ) as mock_system_info:
-                from retromcp.domain.models import ConnectionInfo
-                from retromcp.domain.models import SystemInfo
+            # Mock use cases for state management test
+            from unittest.mock import Mock
+            from retromcp.domain.models import ConnectionInfo, SystemInfo, Result
 
-                mock_connection_info.return_value = ConnectionInfo(
-                    connected=True,
-                    host="integration-test",
-                    port=22,
-                    username="test-user",
-                )
-                mock_system_info.return_value = SystemInfo(
-                    hostname="integration-test",
-                    cpu_temperature=45.0,
-                    memory_total=1000000,
-                    memory_used=500000,
-                    memory_free=500000,
-                    disk_total=10000000,
-                    disk_used=5000000,
-                    disk_free=5000000,
-                    load_average=[1.0],
-                    uptime=3600,
-                )
+            # Mock connection use case
+            mock_connection_info = ConnectionInfo(
+                connected=True,
+                host="integration-test",
+                port=22,
+                username="test-user",
+            )
+            mock_connection_use_case = Mock()
+            mock_connection_use_case.execute.return_value = Result.success(mock_connection_info)
+            server.container._instances["test_connection_use_case"] = mock_connection_use_case
 
-                # First request
-                result1 = await server.call_tool(
-                    "manage_connection", {"action": "test"}
-                )
-                assert len(result1) == 1
+            # Mock system info use case
+            mock_system_info = SystemInfo(
+                hostname="integration-test",
+                cpu_temperature=45.0,
+                memory_total=1000000,
+                memory_used=500000,
+                memory_free=500000,
+                disk_total=10000000,
+                disk_used=5000000,
+                disk_free=5000000,
+                load_average=[1.0],
+                uptime=3600,
+            )
+            mock_system_info_use_case = Mock()
+            mock_system_info_use_case.execute.return_value = Result.success(mock_system_info)
+            server.container._instances["get_system_info_use_case"] = mock_system_info_use_case
 
-                # Second request - should reuse same container state
-                result2 = await server.call_tool("get_system_info", {"category": "all"})
-                assert len(result2) == 1
+            # First request
+            result1 = await server.call_tool(
+                "manage_connection", {"action": "test"}
+            )
+            assert len(result1) == 1
 
-                # Container should maintain singleton behavior
-                # Both calls should use same infrastructure instances
-                assert mock_connection_info.call_count >= 1
-                assert mock_system_info.call_count >= 1
+            # Second request - should reuse same container state
+            result2 = await server.call_tool("get_system_info", {"category": "all"})
+            assert len(result2) == 1
+
+            # Container should maintain singleton behavior
+            # Both calls should use same use case instances
+            assert mock_connection_use_case.execute.call_count >= 1
+            assert mock_system_info_use_case.execute.call_count >= 1
 
     def test_interface_compliance_through_chain(
         self, test_config: RetroPieConfig

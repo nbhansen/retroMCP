@@ -103,8 +103,11 @@ class TestSystemManagementToolsWorkflow:
         mock_system_info.disk_used = 12 * 1024 * 1024 * 1024  # 12GB in bytes
         mock_system_info.disk_free = 20 * 1024 * 1024 * 1024  # 20GB in bytes
 
+        # Import Result to create proper mock return value
+        from retromcp.domain.models import Result
+        
         mock_use_case = Mock()
-        mock_use_case.execute.return_value = mock_system_info
+        mock_use_case.execute.return_value = Result.success(mock_system_info)
         system_tools.container.get_system_info_use_case = mock_use_case
 
         # Execute the tool workflow
@@ -146,13 +149,19 @@ class TestSystemManagementToolsWorkflow:
         self._verify_claude_md_compliance(test_config)
 
         # Mock the install_packages use case that the tool actually calls
-        mock_result = Mock()
-        mock_result.success = True
-        mock_result.stdout = "Successfully installed htop, vim"
-        mock_result.stderr = ""
+        from retromcp.domain.models import CommandResult, Result
+        
+        mock_command_result = CommandResult(
+            command="apt install htop vim",
+            exit_code=0,
+            stdout="Successfully installed htop, vim",
+            stderr="",
+            success=True,
+            execution_time=5.2
+        )
 
         mock_use_case = Mock()
-        mock_use_case.execute.return_value = mock_result
+        mock_use_case.execute.return_value = Result.success(mock_command_result)
         system_tools.container.install_packages_use_case = mock_use_case
 
         # Execute the tool workflow

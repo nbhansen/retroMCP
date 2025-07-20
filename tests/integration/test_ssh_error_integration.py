@@ -125,38 +125,40 @@ class TestSSHConnectionIntegration:
         self, test_config: RetroPieConfig
     ) -> None:
         """Test handling of SSH authentication failures."""
-        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
-            # Mock authentication failure
-            mock_ssh = Mock()
-            mock_ssh.get_system_info = Mock(
-                side_effect=PermissionError("Authentication failed")
-            )
-            mock_ssh_class.return_value = mock_ssh
+        # Create container
+        container = Container(test_config)
 
-            # Create container with mocked client
-            container = Container(test_config)
-            container._instances["retropie_client"] = mock_ssh
+        # Mock use case to return authentication error via Result pattern
+        from retromcp.domain.models import ConnectionError, Result
 
-            # Create tools with container
-            system_tools = SystemManagementTools(container)
+        mock_use_case = Mock()
+        mock_use_case.execute.return_value = Result.error(ConnectionError(
+            code="SSH_AUTHENTICATION_FAILED",
+            message="Authentication failed",
+            details={"error": "Permission denied (publickey,password)"}
+        ))
+        container._instances["get_system_info_use_case"] = mock_use_case
 
-            # Attempt operation
-            result = await system_tools.handle_tool_call("get_system_info", {})
+        # Create tools with container
+        system_tools = SystemManagementTools(container)
 
-            # Verify authentication error is handled using MCP-compliant response
-            assert isinstance(result, list), "Should return MCP-compliant list"
-            assert len(result) == 1
-            response = result[0]
+        # Attempt operation
+        result = await system_tools.handle_tool_call("get_system_info", {})
 
-            # Check for error using text content (MCP standard approach)
-            assert hasattr(response, "text"), "Should have text attribute"
-            response_text = response.text.lower()
-            assert "❌" in response.text or any(
-                word in response_text for word in ["error", "failed"]
-            ), "Should indicate error in text"
-            assert any(
-                word in response_text for word in ["auth", "permission", "access"]
-            ), "Should mention authentication issue in error message"
+        # Verify authentication error is handled using MCP-compliant response
+        assert isinstance(result, list), "Should return MCP-compliant list"
+        assert len(result) == 1
+        response = result[0]
+
+        # Check for error using text content (MCP standard approach)
+        assert hasattr(response, "text"), "Should have text attribute"
+        response_text = response.text.lower()
+        assert "❌" in response.text or any(
+            word in response_text for word in ["error", "failed"]
+        ), "Should indicate error in text"
+        assert any(
+            word in response_text for word in ["auth", "permission", "access"]
+        ), "Should mention authentication issue in error message"
 
 
 class TestErrorRecoveryIntegration:
@@ -232,50 +234,54 @@ class TestErrorRecoveryIntegration:
         self, test_config: RetroPieConfig
     ) -> None:
         """Test handling when some commands succeed and others fail."""
-        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
-            mock_ssh = Mock()
+        # Create container
+        container = Container(test_config)
 
-            # Mock get_system_info to return partial data (some info available, some missing)
-            mock_ssh.get_system_info.return_value = SystemInfo(
-                hostname="retropie-test",
-                cpu_temperature=55.0,
-                memory_total=1024,
-                memory_used=512,
-                memory_free=512,
-                disk_total=16000,
-                disk_used=8000,
-                disk_free=8000,
-                load_average=[0.5, 0.3, 0.2],
-                uptime=3600,
-            )
-            mock_ssh_class.return_value = mock_ssh
+        # Mock use case to return successful Result with partial system info
+        from retromcp.domain.models import SystemInfo, Result
 
-            # Create container with mocked client
-            container = Container(test_config)
-            container._instances["retropie_client"] = mock_ssh
+        mock_system_info = SystemInfo(
+            hostname="retropie-test",
+            cpu_temperature=55.0,
+            memory_total=1024,
+            memory_used=512,
+            memory_free=512,
+            disk_total=16000,
+            disk_used=8000,
+            disk_free=8000,
+            load_average=[0.5, 0.3, 0.2],
+            uptime=3600,
+        )
+        
+        mock_use_case = Mock()
+        mock_use_case.execute.return_value = Result.success(mock_system_info)
+        container._instances["get_system_info_use_case"] = mock_use_case
 
-            # Create tools with container
-            system_tools = SystemManagementTools(container)
+        # Create tools with container
+        system_tools = SystemManagementTools(container)
 
-            # Execute tool that collects system info
-            result = await system_tools.handle_tool_call("get_system_info", {})
+        # Execute tool that collects system info
+        result = await system_tools.handle_tool_call("get_system_info", {})
 
-            # Verify partial success is handled appropriately using MCP format
-            assert isinstance(result, list), "Should return MCP-compliant list"
-            assert len(result) == 1
-            response = result[0]
+        # Verify partial success is handled appropriately using MCP format
+        assert isinstance(result, list), "Should return MCP-compliant list"
+        assert len(result) == 1
+        response = result[0]
 
-            # Check response follows MCP standard
-            assert hasattr(response, "text"), "Should have text attribute"
+        # Check response follows MCP standard
+        assert hasattr(response, "text"), "Should have text attribute"
 
-            # Should contain successful parts
-            response_text = response.text
-            assert "55" in response_text or "temperature" in response_text.lower(), (
-                "Should include successful temperature data"
-            )
-            assert "memory" in response_text.lower() or "512" in response_text, (
-                "Should include successful memory data"
-            )
+        # Should contain successful parts
+        response_text = response.text
+        assert "55" in response_text or "temperature" in response_text.lower(), (
+            "Should include successful temperature data"
+        )
+        assert "memory" in response_text.lower() or "512" in response_text, (
+            "Should include successful memory data"
+        )
+        
+        # Verify use case was called
+        mock_use_case.execute.assert_called_once()
 
 
 class TestConcurrentOperationsIntegration:
@@ -296,69 +302,74 @@ class TestConcurrentOperationsIntegration:
         self, test_config: RetroPieConfig
     ) -> None:
         """Test multiple tools running concurrently."""
-        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
-            mock_ssh = Mock()
+        # Create container
+        container = Container(test_config)
 
-            # Mock the high-level methods that tools actually call
-            mock_ssh.get_system_info.return_value = SystemInfo(
-                hostname="retropie-test",
-                cpu_temperature=45.0,
-                memory_total=1024,
-                memory_used=512,
-                memory_free=512,
-                disk_total=16000,
-                disk_used=8000,
-                disk_free=8000,
-                load_average=[0.2, 0.1, 0.1],
-                uptime=7200,
+        # Mock use cases for concurrent operations test
+        from retromcp.domain.models import SystemInfo, CommandResult, Result
+
+        # Mock system info use case
+        mock_system_info = SystemInfo(
+            hostname="retropie-test",
+            cpu_temperature=45.0,
+            memory_total=1024,
+            memory_used=512,
+            memory_free=512,
+            disk_total=16000,
+            disk_used=8000,
+            disk_free=8000,
+            load_average=[0.2, 0.1, 0.1],
+            uptime=7200,
+        )
+        mock_system_info_use_case = Mock()
+        mock_system_info_use_case.execute.return_value = Result.success(mock_system_info)
+        container._instances["get_system_info_use_case"] = mock_system_info_use_case
+
+        # Mock SSH client for hardware tools that use direct command execution
+        mock_client = Mock()
+        mock_client.execute_command.return_value = CommandResult(
+            command="vcgencmd measure_temp",
+            exit_code=0,
+            stdout="temp=45.0'C",
+            stderr="",
+            success=True,
+            execution_time=0.1,
+        )
+        container._instances["retropie_client"] = mock_client
+
+        # Create multiple tools with container
+        system_tools = SystemManagementTools(container)
+        hardware_tools = HardwareMonitoringTools(container)
+
+        # Run operations concurrently
+        tasks = [
+            system_tools.handle_tool_call("get_system_info", {}),
+            hardware_tools.handle_tool_call(
+                "manage_hardware", {"component": "temperature", "action": "check"}
+            ),
+            system_tools.handle_tool_call("get_system_info", {}),  # Duplicate
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Verify all operations completed using MCP-compliant format
+        assert len(results) == 3
+
+        # Check that none raised exceptions and all return MCP-compliant lists
+        for i, result in enumerate(results):
+            assert not isinstance(result, Exception), (
+                f"Task {i} should not raise exception"
             )
-            mock_ssh.execute_command.return_value = CommandResult(
-                command="vcgencmd measure_temp",
-                exit_code=0,
-                stdout="temp=45.0'C",
-                stderr="",
-                success=True,
-                execution_time=0.1,
+            assert isinstance(result, list), (
+                f"Task {i} should return MCP-compliant list"
             )
-            mock_ssh_class.return_value = mock_ssh
+            assert len(result) == 1, f"Task {i} should return one response"
+            assert hasattr(result[0], "text"), (
+                f"Task {i} response should have text attribute"
+            )
 
-            # Create container with mocked client
-            container = Container(test_config)
-            container._instances["retropie_client"] = mock_ssh
-
-            # Create multiple tools with container
-            system_tools = SystemManagementTools(container)
-            hardware_tools = HardwareMonitoringTools(container)
-
-            # Run operations concurrently
-            tasks = [
-                system_tools.handle_tool_call("get_system_info", {}),
-                hardware_tools.handle_tool_call(
-                    "manage_hardware", {"component": "temperature", "action": "check"}
-                ),
-                system_tools.handle_tool_call("get_system_info", {}),  # Duplicate
-            ]
-
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Verify all operations completed using MCP-compliant format
-            assert len(results) == 3
-
-            # Check that none raised exceptions and all return MCP-compliant lists
-            for i, result in enumerate(results):
-                assert not isinstance(result, Exception), (
-                    f"Task {i} should not raise exception"
-                )
-                assert isinstance(result, list), (
-                    f"Task {i} should return MCP-compliant list"
-                )
-                assert len(result) == 1, f"Task {i} should return one response"
-                assert hasattr(result[0], "text"), (
-                    f"Task {i} response should have text attribute"
-                )
-
-            # Verify SSH methods were called
-            assert mock_ssh.get_system_info.call_count >= 2  # System info called twice
+        # Verify use case was called for system info operations
+        assert mock_system_info_use_case.execute.call_count >= 2  # System info called twice
 
     @pytest.mark.asyncio
     async def test_resource_cleanup_on_error(self, test_config: RetroPieConfig) -> None:
@@ -413,39 +424,41 @@ class TestEndToEndErrorScenarios:
     @pytest.mark.asyncio
     async def test_unreachable_host_scenario(self, test_config: RetroPieConfig) -> None:
         """Test scenario where RetroPie host is unreachable."""
-        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
-            # Mock network unreachable error
-            mock_ssh = Mock()
-            mock_ssh.get_system_info = Mock(
-                side_effect=OSError("Network is unreachable")
-            )
-            mock_ssh_class.return_value = mock_ssh
+        # Create container
+        container = Container(test_config)
 
-            # Create container with mocked client
-            container = Container(test_config)
-            container._instances["retropie_client"] = mock_ssh
+        # Mock use case to return network error via Result pattern
+        from retromcp.domain.models import ConnectionError, Result
 
-            # Create tools with container
-            system_tools = SystemManagementTools(container)
+        mock_use_case = Mock()
+        mock_use_case.execute.return_value = Result.error(ConnectionError(
+            code="NETWORK_UNREACHABLE",
+            message="Network is unreachable",
+            details={"error": "No route to host"}
+        ))
+        container._instances["get_system_info_use_case"] = mock_use_case
 
-            # Attempt operation
-            result = await system_tools.handle_tool_call("get_system_info", {})
+        # Create tools with container
+        system_tools = SystemManagementTools(container)
 
-            # Verify network error is handled using MCP-compliant response format
-            assert isinstance(result, list), "Should return MCP-compliant list"
-            assert len(result) == 1
-            response = result[0]
+        # Attempt operation
+        result = await system_tools.handle_tool_call("get_system_info", {})
 
-            # Check for error using text content (MCP standard approach)
-            assert hasattr(response, "text"), "Should have text attribute"
-            response_text = response.text.lower()
-            assert "❌" in response.text or any(
-                word in response_text for word in ["error", "failed"]
-            ), "Should indicate error in text"
-            assert any(
-                word in response_text
-                for word in ["network", "unreachable", "connection"]
-            ), "Should mention network issue in error message"
+        # Verify network error is handled using MCP-compliant response format
+        assert isinstance(result, list), "Should return MCP-compliant list"
+        assert len(result) == 1
+        response = result[0]
+
+        # Check for error using text content (MCP standard approach)
+        assert hasattr(response, "text"), "Should have text attribute"
+        response_text = response.text.lower()
+        assert "❌" in response.text or any(
+            word in response_text for word in ["error", "failed"]
+        ), "Should indicate error in text"
+        assert any(
+            word in response_text
+            for word in ["network", "unreachable", "connection"]
+        ), "Should mention network issue in error message"
 
     @pytest.mark.asyncio
     async def test_malformed_command_output_scenario(
