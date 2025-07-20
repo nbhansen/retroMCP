@@ -58,7 +58,12 @@ class ConnectionManagementTools(BaseTool):
             use_case = self.container.test_connection_use_case
 
             if action == "test":
-                connection_info = use_case.execute()
+                result = use_case.execute()
+                if result.is_error():
+                    error = result.error_or_none
+                    return self.format_error(f"Connection test failed: {error.message}")
+                
+                connection_info = result.value
                 if connection_info.connected:
                     return self.format_success(
                         f"Connection test successful!\n"
@@ -69,7 +74,12 @@ class ConnectionManagementTools(BaseTool):
                 else:
                     return self.format_error("Connection test failed")
             elif action == "status":
-                connection_info = use_case.execute()
+                result = use_case.execute()
+                if result.is_error():
+                    error = result.error_or_none
+                    return self.format_error(f"Failed to get connection status: {error.message}")
+                
+                connection_info = result.value
                 status = "Connected" if connection_info.connected else "Disconnected"
                 return self.format_info(
                     f"Connection Status: {status}\n"
@@ -79,7 +89,12 @@ class ConnectionManagementTools(BaseTool):
                 )
             elif action == "reconnect":
                 # Force reconnection by testing connection
-                connection_info = use_case.execute()
+                result = use_case.execute()
+                if result.is_error():
+                    error = result.error_or_none
+                    return self.format_error(f"Reconnection failed: {error.message}")
+                
+                connection_info = result.value
                 if connection_info.connected:
                     return self.format_success("Reconnection successful")
                 else:
