@@ -44,38 +44,41 @@ class TestSSHConnectionIntegration:
         self, test_config: RetroPieConfig
     ) -> None:
         """Test how SSH connection failures propagate through the stack."""
-        with patch("retromcp.ssh_handler.RetroPieSSH") as mock_ssh_class:
-            # Mock SSH connection failure
-            mock_ssh = Mock()
-            mock_ssh.get_system_info = Mock(
-                side_effect=ConnectionError("SSH connection failed")
-            )
-            mock_ssh_class.return_value = mock_ssh
+        from retromcp.domain.models import ConnectionError
+        from retromcp.domain.models import Result
 
-            # Create container with mocked client
-            container = Container(test_config)
-            container._instances["retropie_client"] = mock_ssh
+        # Create container
+        container = Container(test_config)
 
-            # Create tools with container
-            system_tools = SystemManagementTools(container)
+        # Mock the use case to return a connection error
+        mock_use_case = Mock()
+        mock_use_case.execute.return_value = Result.error(ConnectionError(
+            code="SSH_CONNECTION_FAILED",
+            message="SSH connection failed",
+            details={"host": "test-retropie.local"}
+        ))
+        container._instances["get_system_info_use_case"] = mock_use_case
 
-            # Attempt tool operation - should handle connection error gracefully
-            result = await system_tools.handle_tool_call("get_system_info", {})
+        # Create tools with container
+        system_tools = SystemManagementTools(container)
 
-            # Verify error is properly handled using MCP-compliant response format
-            assert isinstance(result, list), "Should return MCP-compliant list"
-            assert len(result) == 1
-            response = result[0]
+        # Attempt tool operation - should handle connection error gracefully
+        result = await system_tools.handle_tool_call("get_system_info", {})
 
-            # Check for error using text content (MCP standard approach)
-            assert hasattr(response, "text"), "Should have text attribute"
-            response_text = response.text.lower()
-            assert "❌" in response.text or any(
-                word in response_text for word in ["error", "failed"]
-            ), "Should indicate error in text"
-            assert "connection" in response_text or "ssh" in response_text, (
-                "Should mention connection or SSH in error message"
-            )
+        # Verify error is properly handled using MCP-compliant response format
+        assert isinstance(result, list), "Should return MCP-compliant list"
+        assert len(result) == 1
+        response = result[0]
+
+        # Check for error using text content (MCP standard approach)
+        assert hasattr(response, "text"), "Should have text attribute"
+        response_text = response.text.lower()
+        assert "❌" in response.text or any(
+            word in response_text for word in ["error", "failed"]
+        ), "Should indicate error in text"
+        assert "connection" in response_text or "ssh" in response_text, (
+            "Should mention connection or SSH in error message"
+        )
 
     @pytest.mark.asyncio
     async def test_ssh_command_timeout_handling(

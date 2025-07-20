@@ -140,10 +140,13 @@ class StateTools(BaseTool):
         # Execute use case
         result = self.container.manage_state_use_case.execute(request)
 
-        if result.success:
-            return self._format_success_response(result, path)
-        else:
-            return self.format_error(result.message)
+        # Handle Result pattern
+        if result.is_error():
+            error = result.error_or_none
+            return self.format_error(f"State management failed: {error.message}")
+
+        state_result = result.value
+        return self._format_success_response(state_result, path)
 
     def _format_success_response(
         self, result: StateManagementResult, path: Optional[str] = None

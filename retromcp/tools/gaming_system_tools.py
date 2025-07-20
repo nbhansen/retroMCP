@@ -382,21 +382,25 @@ class GamingSystemTools(BaseTool):
                 # Execute via use case
                 result = self.container.install_emulator_use_case.execute(emulator)
 
-                if result.success:
-                    output = "🎮 **RetroPie - Emulator Installation**\n\n"
-                    output += f"✅ Emulator '{emulator}' installed successfully"
-                    if system:
-                        output += f" for {system}"
-                    output += "\n\n"
-                    if result.stdout:
-                        output += (
-                            f"**Installation Details:**\n```\n{result.stdout}\n```"
-                        )
-                    return [TextContent(type="text", text=output)]
-                else:
+                # Handle Result pattern
+                if result.is_error():
+                    error = result.error_or_none
                     return self.format_error(
-                        f"Emulator installation failed: {result.stderr or result.stdout}"
+                        f"Emulator installation failed: {error.message}"
                     )
+
+                command_result = result.value
+
+                output = "🎮 **RetroPie - Emulator Installation**\n\n"
+                output += f"✅ Emulator '{emulator}' installed successfully"
+                if system:
+                    output += f" for {system}"
+                output += "\n\n"
+                if command_result.stdout:
+                    output += (
+                        f"**Installation Details:**\n```\n{command_result.stdout}\n```"
+                    )
+                return [TextContent(type="text", text=output)]
             else:
                 valid_targets = self._get_valid_targets_message("retropie", "install")
                 return self.format_error(
@@ -529,7 +533,16 @@ class GamingSystemTools(BaseTool):
         """Handle controller detection operations."""
         try:
             # Use the detect controllers use case
-            controllers = self.container.detect_controllers_use_case.execute()
+            result = self.container.detect_controllers_use_case.execute()
+
+            # Handle Result pattern
+            if result.is_error():
+                error = result.error_or_none
+                return self.format_error(
+                    f"Controller detection failed: {error.message}"
+                )
+
+            controllers = result.value
 
             output = "🎮 **Controller Detection**\n\n"
 
@@ -575,18 +588,18 @@ class GamingSystemTools(BaseTool):
             # Execute via use case
             result = self.container.setup_controller_use_case.execute(target)
 
-            if result.success:
-                output = "🎮 **Controller Setup**\n\n"
-                output += (
-                    f"✅ {target.upper()} controller setup completed successfully\n\n"
-                )
-                if result.stdout:
-                    output += f"**Setup Details:**\n```\n{result.stdout}\n```"
-                return [TextContent(type="text", text=output)]
-            else:
-                return self.format_error(
-                    f"Controller setup failed: {result.stderr or result.stdout}"
-                )
+            # Handle Result pattern
+            if result.is_error():
+                error = result.error_or_none
+                return self.format_error(f"Controller setup failed: {error.message}")
+
+            command_result = result.value
+
+            output = "🎮 **Controller Setup**\n\n"
+            output += f"✅ {target.upper()} controller setup completed successfully\n\n"
+            if command_result.stdout:
+                output += f"**Setup Details:**\n```\n{command_result.stdout}\n```"
+            return [TextContent(type="text", text=output)]
         except Exception as e:
             return self.format_error(f"Controller setup failed: {e!s}")
 
@@ -678,7 +691,14 @@ class GamingSystemTools(BaseTool):
                 )
 
             # Use the list ROMs use case
-            roms = self.container.list_roms_use_case.execute()
+            result = self.container.list_roms_use_case.execute()
+
+            # Handle Result pattern
+            if result.is_error():
+                error = result.error_or_none
+                return self.format_error(f"ROM scan failed: {error.message}")
+
+            roms = result.value
 
             output = "🎮 **ROM Scan Results**\n\n"
 
@@ -687,9 +707,9 @@ class GamingSystemTools(BaseTool):
 
                 if roms:
                     for rom in roms:
-                        output += f"• **{rom.get('name', 'Unknown')}**\n"
-                        output += f"  - Path: {rom.get('path', 'Unknown')}\n"
-                        output += f"  - System: {rom.get('system', 'Unknown')}\n\n"
+                        output += f"• **{rom.system}**\n"
+                        output += f"  - Path: {rom.path}\n"
+                        output += f"  - ROM Count: {rom.rom_count}\n\n"
                 else:
                     output += "❌ No ROMs found\n\n"
                     output += "**Note:** Place ROM files in the appropriate system directories"

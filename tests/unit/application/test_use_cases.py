@@ -2,12 +2,12 @@
 
 from unittest.mock import Mock
 
+from retromcp.application.use_cases import CheckConnectionUseCase
 from retromcp.application.use_cases import DetectControllersUseCase
 from retromcp.application.use_cases import GetSystemInfoUseCase
 from retromcp.application.use_cases import InstallEmulatorUseCase
 from retromcp.application.use_cases import InstallPackagesUseCase
 from retromcp.application.use_cases import SetupControllerUseCase
-from retromcp.application.use_cases import TestConnectionUseCase
 from retromcp.application.use_cases import UpdateSystemUseCase
 from retromcp.domain.models import CommandResult
 from retromcp.domain.models import ConnectionInfo
@@ -16,6 +16,7 @@ from retromcp.domain.models import ControllerType
 from retromcp.domain.models import Emulator
 from retromcp.domain.models import EmulatorStatus
 from retromcp.domain.models import Package
+from retromcp.domain.models import Result
 from retromcp.domain.models import SystemInfo
 from retromcp.domain.ports import ControllerRepository
 from retromcp.domain.ports import EmulatorRepository
@@ -23,8 +24,8 @@ from retromcp.domain.ports import RetroPieClient
 from retromcp.domain.ports import SystemRepository
 
 
-class TestTestConnectionUseCase:
-    """Test TestConnectionUseCase."""
+class TestCheckConnectionUseCase:
+    """Test CheckConnectionUseCase."""
 
     def test_execute_when_connected(self):
         """Test execute when client is already connected."""
@@ -40,13 +41,14 @@ class TestTestConnectionUseCase:
         )
         mock_client.get_connection_info.return_value = expected_info
 
-        use_case = TestConnectionUseCase(mock_client)
+        use_case = CheckConnectionUseCase(mock_client)
 
         # Act
         result = use_case.execute()
 
         # Assert
-        assert result == expected_info
+        assert result.is_success()
+        assert result.value == expected_info
         mock_client.test_connection.assert_called_once()
         mock_client.connect.assert_not_called()
         mock_client.get_connection_info.assert_called_once()
@@ -65,13 +67,14 @@ class TestTestConnectionUseCase:
         )
         mock_client.get_connection_info.return_value = expected_info
 
-        use_case = TestConnectionUseCase(mock_client)
+        use_case = CheckConnectionUseCase(mock_client)
 
         # Act
         result = use_case.execute()
 
         # Assert
-        assert result == expected_info
+        assert result.is_success()
+        assert result.value == expected_info
         mock_client.test_connection.assert_called_once()
         mock_client.connect.assert_called_once()
         mock_client.get_connection_info.assert_called_once()
@@ -121,8 +124,8 @@ class TestInstallPackagesUseCase:
         result = use_case.execute([])
 
         # Assert
-        assert result.success is True
-        assert result.stdout == "No packages specified"
+        assert result.is_success()
+        assert result.value.stdout == "No packages specified"
         mock_repo.get_packages.assert_not_called()
 
     def test_execute_all_packages_installed(self):
@@ -133,7 +136,7 @@ class TestInstallPackagesUseCase:
             Package(name="git", version="2.30.2", installed=True),
             Package(name="vim", version="8.2", installed=True),
         ]
-        mock_repo.get_packages.return_value = installed_packages
+        mock_repo.get_packages.return_value = Result.success(installed_packages)
 
         use_case = InstallPackagesUseCase(mock_repo)
 
@@ -141,8 +144,8 @@ class TestInstallPackagesUseCase:
         result = use_case.execute(["git", "vim"])
 
         # Assert
-        assert result.success is True
-        assert result.stdout == "All packages are already installed"
+        assert result.is_success()
+        assert result.value.stdout == "All packages are already installed"
         mock_repo.install_packages.assert_not_called()
 
     def test_execute_install_new_packages(self):
@@ -152,7 +155,7 @@ class TestInstallPackagesUseCase:
         installed_packages = [
             Package(name="git", version="2.30.2", installed=True),
         ]
-        mock_repo.get_packages.return_value = installed_packages
+        mock_repo.get_packages.return_value = Result.success(installed_packages)
 
         expected_result = CommandResult(
             command="apt install vim htop",
@@ -215,6 +218,7 @@ class TestDetectControllersUseCase:
                 vendor_id="045e",
                 product_id="02ea",
                 controller_type=ControllerType.XBOX,
+                connected=True,
                 is_configured=True,
             ),
             Controller(
@@ -223,6 +227,7 @@ class TestDetectControllersUseCase:
                 vendor_id="054c",
                 product_id="09cc",
                 controller_type=ControllerType.PS4,
+                connected=True,
                 is_configured=False,
             ),
         ]
@@ -234,7 +239,8 @@ class TestDetectControllersUseCase:
         result = use_case.execute()
 
         # Assert
-        assert result == expected_controllers
+        assert result.is_success()
+        assert result.value == expected_controllers
         mock_repo.detect_controllers.assert_called_once()
 
 
@@ -253,8 +259,8 @@ class TestSetupControllerUseCase:
         result = use_case.execute("xbox")
 
         # Assert
-        assert result.success is False
-        assert "No xbox controller detected" in result.stderr
+        assert result.is_error()
+        assert "xbox" in result.error_or_none.message
         mock_repo.setup_controller.assert_not_called()
 
     def test_execute_controller_already_configured(self):
@@ -267,6 +273,7 @@ class TestSetupControllerUseCase:
             vendor_id="045e",
             product_id="02ea",
             controller_type=ControllerType.XBOX,
+            connected=True,
             is_configured=True,
             driver_required=None,
         )
@@ -278,8 +285,8 @@ class TestSetupControllerUseCase:
         result = use_case.execute("xbox")
 
         # Assert
-        assert result.success is True
-        assert "already configured" in result.stdout
+        assert result.is_success()
+        assert "already configured" in result.value.stdout
         mock_repo.setup_controller.assert_not_called()
 
     def test_execute_setup_controller(self):
@@ -292,6 +299,7 @@ class TestSetupControllerUseCase:
             vendor_id="045e",
             product_id="02ea",
             controller_type=ControllerType.XBOX,
+            connected=True,
             is_configured=False,
             driver_required="xboxdrv",
         )
@@ -313,7 +321,8 @@ class TestSetupControllerUseCase:
         result = use_case.execute("xbox")
 
         # Assert
-        assert result == expected_result
+        assert result.is_success()
+        assert result.value == expected_result
         mock_repo.setup_controller.assert_called_once_with(xbox_controller)
 
     def test_execute_match_by_controller_type(self):
@@ -326,6 +335,7 @@ class TestSetupControllerUseCase:
             vendor_id="054c",
             product_id="09cc",
             controller_type=ControllerType.PS4,
+            connected=True,
             is_configured=False,
         )
         mock_repo.detect_controllers.return_value = [ps4_controller]
@@ -346,7 +356,8 @@ class TestSetupControllerUseCase:
         result = use_case.execute("ps4")
 
         # Assert
-        assert result == expected_result
+        assert result.is_success()
+        assert result.value == expected_result
         mock_repo.setup_controller.assert_called_once_with(ps4_controller)
 
 
@@ -365,8 +376,8 @@ class TestInstallEmulatorUseCase:
         result = use_case.execute("nonexistent-emulator")
 
         # Assert
-        assert result.success is False
-        assert "not found" in result.stderr
+        assert result.is_error()
+        assert "not available" in result.error_or_none.message
         mock_repo.install_emulator.assert_not_called()
 
     def test_execute_emulator_already_installed(self):
@@ -386,8 +397,8 @@ class TestInstallEmulatorUseCase:
         result = use_case.execute("mupen64plus")
 
         # Assert
-        assert result.success is True
-        assert "already installed" in result.stdout
+        assert result.is_success()
+        assert "already installed" in result.value.stdout
         mock_repo.install_emulator.assert_not_called()
 
     def test_execute_emulator_not_available(self):
@@ -407,8 +418,8 @@ class TestInstallEmulatorUseCase:
         result = use_case.execute("unavailable-emulator")
 
         # Assert
-        assert result.success is False
-        assert "not available for installation" in result.stderr
+        assert result.is_error()
+        assert "not available" in result.error_or_none.message
         mock_repo.install_emulator.assert_not_called()
 
     def test_execute_install_emulator(self):
@@ -438,5 +449,6 @@ class TestInstallEmulatorUseCase:
         result = use_case.execute("pcsx-rearmed")
 
         # Assert
-        assert result == expected_result
+        assert result.is_success()
+        assert result.value == expected_result
         mock_repo.install_emulator.assert_called_once_with("pcsx-rearmed")

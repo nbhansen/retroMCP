@@ -58,17 +58,26 @@ class SetupControllerUseCase:
             # Get current controllers
             controllers = self._repository.detect_controllers()
 
-            # Find the target controller by device path
+            # Find the target controller by device path or controller type
             target_controller = None
+
+            # First try exact device path match
             for controller in controllers:
                 if controller.device_path == controller_device_path:
                     target_controller = controller
                     break
 
+            # If not found by device path, try matching by controller type
+            if not target_controller:
+                for controller in controllers:
+                    if controller.controller_type.value == controller_device_path:
+                        target_controller = controller
+                        break
+
             if not target_controller:
                 return Result.error(ValidationError(
                     code="CONTROLLER_NOT_FOUND",
-                    message=f"Controller with device path {controller_device_path} not found",
+                    message=f"Controller with device path or type '{controller_device_path}' not found",
                     details={"device_path": controller_device_path}
                 ))
 
@@ -122,15 +131,40 @@ class InstallEmulatorUseCase:
                     details={"emulator_name": emulator_name}
                 ))
 
-            # Get available emulators to check if this one exists
+            # Get available emulators to check if this one exists and its status
             available_emulators = self._repository.get_emulators()
-            emulator_names = [emulator.name for emulator in available_emulators]
-            
-            if emulator_name not in emulator_names:
+            target_emulator = None
+            for emulator in available_emulators:
+                if emulator.name == emulator_name:
+                    target_emulator = emulator
+                    break
+
+            if not target_emulator:
+                emulator_names = [emulator.name for emulator in available_emulators]
                 return Result.error(ValidationError(
                     code="EMULATOR_NOT_AVAILABLE",
                     message=f"Emulator '{emulator_name}' is not available for installation",
                     details={"emulator_name": emulator_name, "available": emulator_names}
+                ))
+
+            # Check if emulator is already installed
+            if target_emulator.status == EmulatorStatus.INSTALLED:
+                already_installed_result = CommandResult(
+                    command="",
+                    exit_code=0,
+                    stdout=f"Emulator '{emulator_name}' is already installed",
+                    stderr="",
+                    success=True,
+                    execution_time=0.0,
+                )
+                return Result.success(already_installed_result)
+
+            # Check if emulator is available for installation
+            if target_emulator.status != EmulatorStatus.AVAILABLE:
+                return Result.error(ValidationError(
+                    code="EMULATOR_NOT_AVAILABLE",
+                    message=f"Emulator '{emulator_name}' is not available for installation",
+                    details={"emulator_name": emulator_name, "status": target_emulator.status.value}
                 ))
 
             # Install the emulator

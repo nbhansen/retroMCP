@@ -101,7 +101,7 @@ class ManageStateUseCase:
         self, force_scan: bool = True
     ) -> Result[
         StateManagementResult, ValidationError | ConnectionError | ExecutionError
-    ]:  # noqa: ARG002
+    ]:
         """Save current system state."""
         # Build current state from system
         state_result = self._build_current_state()
@@ -197,7 +197,7 @@ class ManageStateUseCase:
 
     def _update_state(
         self, path: Optional[str], value: Any
-    ) -> Result[StateManagementResult, ValidationError]:  # noqa: ANN401
+    ) -> Result[StateManagementResult, ValidationError]:
         """Update specific field in state."""
         if not path or value is None:
             return Result.error(

@@ -6,6 +6,7 @@ from typing import Callable
 from typing import Dict
 from typing import Optional
 
+from .application.use_cases import CheckConnectionUseCase
 from .application.use_cases import DetectControllersUseCase
 from .application.use_cases import ExecuteCommandUseCase
 from .application.use_cases import GetSystemInfoUseCase
@@ -15,7 +16,6 @@ from .application.use_cases import ListRomsUseCase
 from .application.use_cases import ManageDockerUseCase
 from .application.use_cases import ManageStateUseCase
 from .application.use_cases import SetupControllerUseCase
-from .application.use_cases import TestConnectionUseCase
 from .application.use_cases import UpdateSystemUseCase
 from .application.use_cases import WriteFileUseCase
 from .config import RetroPieConfig
@@ -155,11 +155,11 @@ class Container:
     # Use cases
 
     @property
-    def test_connection_use_case(self) -> TestConnectionUseCase:
+    def test_connection_use_case(self) -> CheckConnectionUseCase:
         """Get test connection use case."""
         return self._get_or_create(
             "test_connection_use_case",
-            lambda: TestConnectionUseCase(self.retropie_client),
+            lambda: CheckConnectionUseCase(self.retropie_client),
         )
 
     @property

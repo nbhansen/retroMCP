@@ -175,10 +175,13 @@ class DockerTools(BaseTool):
         # Execute use case
         result = self.container.manage_docker_use_case.execute(request)
 
-        if result.success:
-            return self._format_success_response(result)
-        else:
-            return self.format_error(result.message)
+        # Handle Result pattern
+        if result.is_error():
+            error = result.error_or_none
+            return self.format_error(f"Docker operation failed: {error.message}")
+
+        docker_result = result.value
+        return self._format_success_response(docker_result)
 
     def _is_valid_action_for_resource(
         self, resource: DockerResource, action: DockerAction

@@ -140,18 +140,18 @@ class TestMCPToolCompliance:
             # Should have tools available via list_tools
             tools = asyncio.run(server.list_tools())
 
-            # Should have tools from different categories
+            # Should have tools from different functional areas
             tool_names = [tool.name for tool in tools]
-            expected_tool_categories = [
-                "system",
-                "hardware",
-                "retropie",
-                "controller",
-                "emulationstation",
+            expected_tools = [
+                "manage_gaming",     # Covers retropie, emulationstation, controller functionality
+                "manage_hardware",   # Hardware monitoring and management
+                "get_system_info",   # System information retrieval
+                "manage_package",    # Package management
+                "manage_state",      # State management
             ]
-            for category in expected_tool_categories:
-                assert any(category in name for name in tool_names), (
-                    f"Should have {category} tools available"
+            for tool in expected_tools:
+                assert tool in tool_names, (
+                    f"Should have {tool} tool available. Available tools: {tool_names}"
                 )
 
     def test_tool_schemas_are_mcp_compliant(

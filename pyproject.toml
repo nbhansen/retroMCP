@@ -109,4 +109,5 @@ markers = [
     # Special markers
     "security: Security and validation tests",
     "contract: Contract and compliance tests",
+    "real_pi: Tests that connect to real Raspberry Pi hardware",
 ]

@@ -16,7 +16,7 @@ from ..domain.ports import RetroPieClient
 from ..domain.ports import SystemRepository
 
 
-class TestConnectionUseCase:
+class CheckConnectionUseCase:
     """Use case for testing connection to RetroPie."""
 
     def __init__(self, client: RetroPieClient) -> None:

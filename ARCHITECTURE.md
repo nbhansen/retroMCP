@@ -42,7 +42,7 @@ graph TB
     
     %% Application Layer (Use Cases)
     subgraph "Application Layer (application/use_cases.py)"
-        TestConnectionUC[TestConnectionUseCase]
+        TestConnectionUC[CheckConnectionUseCase]
         GetSystemInfoUC[GetSystemInfoUseCase]
         InstallPackagesUC[InstallPackagesUseCase]
         UpdateSystemUC[UpdateSystemUseCase]

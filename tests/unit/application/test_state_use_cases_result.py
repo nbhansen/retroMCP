@@ -11,7 +11,6 @@ from retromcp.domain.models import Controller
 from retromcp.domain.models import ControllerType
 from retromcp.domain.models import Emulator
 from retromcp.domain.models import EmulatorStatus
-from retromcp.domain.models import ExecutionError
 from retromcp.domain.models import Result
 from retromcp.domain.models import RomDirectory
 from retromcp.domain.models import StateAction

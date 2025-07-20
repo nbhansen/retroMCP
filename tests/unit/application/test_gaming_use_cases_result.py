@@ -45,7 +45,7 @@ class TestDetectControllersUseCaseResult:
             ),
             Controller(
                 name="PlayStation Controller",
-                device_path="/dev/input/js1", 
+                device_path="/dev/input/js1",
                 controller_type=ControllerType.PS4,
                 connected=True,
                 vendor_id="054c",
@@ -113,7 +113,7 @@ class TestSetupControllerUseCaseResult:
         # Arrange
         controller_device_path = "/dev/input/js0"
         driver_path = "/opt/retropie/configs/all/controllers/xbox.cfg"
-        
+
         # Mock detect_controllers to return available controllers
         available_controllers = [
             Controller(
@@ -126,7 +126,7 @@ class TestSetupControllerUseCaseResult:
             )
         ]
         self.mock_controller_repo.detect_controllers.return_value = available_controllers
-        
+
         # Mock setup_controller to return success result
         setup_result = CommandResult(
             command="sudo /opt/retropie/scripts/retropie_setup.sh configure_controller",
@@ -153,7 +153,7 @@ class TestSetupControllerUseCaseResult:
         """Test that execute returns Result.error when controller ID not found."""
         # Arrange
         controller_device_path = "/dev/input/js99"
-        
+
         # Mock detect_controllers to return empty list
         self.mock_controller_repo.detect_controllers.return_value = []
 
@@ -172,7 +172,7 @@ class TestSetupControllerUseCaseResult:
         """Test that execute returns Result.error when controller detection fails."""
         # Arrange
         controller_device_path = "/dev/input/js0"
-        
+
         # Mock detect_controllers to raise Python exception
         self.mock_controller_repo.detect_controllers.side_effect = OSError("Failed to scan for controllers")
 
@@ -190,7 +190,7 @@ class TestSetupControllerUseCaseResult:
         """Test that execute returns Result.error when controller setup fails."""
         # Arrange
         controller_device_path = "/dev/input/js0"
-        
+
         # Mock detect_controllers to return available controllers
         available_controllers = [
             Controller(
@@ -203,7 +203,7 @@ class TestSetupControllerUseCaseResult:
             )
         ]
         self.mock_controller_repo.detect_controllers.return_value = available_controllers
-        
+
         # Mock setup_controller to raise exception
         # Mock setup_controller to raise Python exception
         self.mock_controller_repo.setup_controller.side_effect = RuntimeError("Failed to configure controller drivers")
@@ -231,14 +231,14 @@ class TestInstallEmulatorUseCaseResult:
         """Test that execute returns Result.success when emulator is installed successfully."""
         # Arrange
         emulator_name = "mupen64plus"
-        
+
         # Mock get_emulators to return available emulators including the target
         available_emulators = [
             Emulator(name="mupen64plus", system="n64", status=EmulatorStatus.INSTALLED),
             Emulator(name="pcsx-rearmed", system="psx", status=EmulatorStatus.INSTALLED),
         ]
         self.mock_emulator_repo.get_emulators.return_value = available_emulators
-        
+
         # Mock install_emulator to return success result
         install_result = CommandResult(
             command="sudo apt-get install mupen64plus",
@@ -281,7 +281,7 @@ class TestInstallEmulatorUseCaseResult:
         """Test that execute returns Result.error when emulator is not available."""
         # Arrange
         emulator_name = "invalid-emulator"
-        
+
         # Mock get_emulators to return available emulators NOT including the target
         available_emulators = [
             Emulator(name="mupen64plus", system="n64", status=EmulatorStatus.INSTALLED),
@@ -304,7 +304,7 @@ class TestInstallEmulatorUseCaseResult:
         """Test that execute returns Result.error when getting emulators list fails."""
         # Arrange
         emulator_name = "mupen64plus"
-        
+
         # Mock get_emulators to raise a Python exception
         self.mock_emulator_repo.get_emulators.side_effect = OSError("Failed to connect to RetroPie system")
 
@@ -322,14 +322,14 @@ class TestInstallEmulatorUseCaseResult:
         """Test that execute returns Result.error when emulator installation fails."""
         # Arrange
         emulator_name = "mupen64plus"
-        
+
         # Mock get_emulators to return available emulators including the target
         available_emulators = [
             Emulator(name="mupen64plus", system="n64", status=EmulatorStatus.INSTALLED),
             Emulator(name="pcsx-rearmed", system="psx", status=EmulatorStatus.INSTALLED),
         ]
         self.mock_emulator_repo.get_emulators.return_value = available_emulators
-        
+
         # Mock install_emulator to raise an exception
         self.mock_emulator_repo.install_emulator.side_effect = Exception("Installation failed")
 
@@ -365,7 +365,7 @@ class TestListRomsUseCaseResult:
             ),
             RomDirectory(
                 system="snes",
-                path="/home/pi/RetroPie/roms/snes", 
+                path="/home/pi/RetroPie/roms/snes",
                 rom_count=89,
                 total_size=4096000,
                 supported_extensions=[".sfc", ".smc", ".zip"],

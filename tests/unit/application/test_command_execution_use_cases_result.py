@@ -15,7 +15,6 @@ from retromcp.domain.models import Result
 from retromcp.domain.models import ValidationError
 from retromcp.domain.models import WriteFileRequest
 from retromcp.domain.ports import RetroPieClient
-from retromcp.domain.ports import SystemRepository
 
 
 class TestExecuteCommandUseCaseResult:
@@ -397,7 +396,7 @@ class TestWriteFileUseCaseResult:
             path="/home/pi/test.txt",
             content="Hello, World!"
         )
-        
+
         # Mock mkdir command result
         mkdir_result = CommandResult(
             command="mkdir -p /home/pi",
@@ -407,7 +406,7 @@ class TestWriteFileUseCaseResult:
             success=True,
             execution_time=0.05,
         )
-        
+
         # Mock file write command result
         write_result = CommandResult(
             command="cat > '/home/pi/test.txt' << 'EOF'\nHello, World!\nEOF",
@@ -417,7 +416,7 @@ class TestWriteFileUseCaseResult:
             success=True,
             execution_time=0.1,
         )
-        
+
         # Set up mock to return different results for different calls
         mock_client.execute_command.side_effect = [mkdir_result, write_result]
 

@@ -8,14 +8,15 @@ from .gaming_use_cases import ListRomsUseCase
 from .gaming_use_cases import SetupControllerUseCase
 from .package_use_cases import InstallPackagesUseCase
 from .state_use_cases import ManageStateUseCase
+from .system_use_cases import CheckConnectionUseCase
 from .system_use_cases import ExecuteCommandUseCase
 from .system_use_cases import GetSystemInfoUseCase
-from .system_use_cases import TestConnectionUseCase
 from .system_use_cases import UpdateSystemUseCase
 from .system_use_cases import WriteFileUseCase
 
 # Export all use cases for backward compatibility
 __all__ = [
+    "CheckConnectionUseCase",
     "DetectControllersUseCase",
     "ExecuteCommandUseCase",
     "GetSystemInfoUseCase",
@@ -25,7 +26,6 @@ __all__ = [
     "ManageDockerUseCase",
     "ManageStateUseCase",
     "SetupControllerUseCase",
-    "TestConnectionUseCase",
     "UpdateSystemUseCase",
     "WriteFileUseCase",
 ]
