@@ -99,6 +99,10 @@ markers = [
     "state_tools: State management tools tests",
     "system_tools: System management tools tests",
     "docker_tools: Docker tools tests",
+    "connection_management_tools: Connection management tools tests",
+    "system_info_tools: System information tools tests",
+    "command_execution_tools: Command execution tools tests",
+    "service_tools: Service management tools tests",
     # Infrastructure-specific markers
     "ssh_repos: SSH repository tests",
     "controller_repo: Controller repository tests",
