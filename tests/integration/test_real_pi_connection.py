@@ -1,6 +1,7 @@
 """Integration tests with comprehensive mocks for CI/CD compatibility."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
+
 import pytest
 
 from retromcp.config import RetroPieConfig
@@ -28,10 +29,7 @@ class TestRealPiConnection:
         )
 
         return RetroPieConfig(
-            host="192.168.1.142",
-            username="retro",
-            port=22,
-            paths=paths
+            host="192.168.1.142", username="retro", port=22, paths=paths
         )
 
     @pytest.mark.asyncio
@@ -44,19 +42,21 @@ class TestRealPiConnection:
 
         # Mock the system info use case
         from unittest.mock import Mock
-        from retromcp.domain.models import SystemInfo, Result
+
+        from retromcp.domain.models import Result
+        from retromcp.domain.models import SystemInfo
 
         mock_system_info = SystemInfo(
             hostname="retropie-test",
             cpu_temperature=55.4,
             memory_total=1024 * 1024 * 1024,  # 1GB
-            memory_used=512 * 1024 * 1024,   # 512MB
-            memory_free=512 * 1024 * 1024,   # 512MB
+            memory_used=512 * 1024 * 1024,  # 512MB
+            memory_free=512 * 1024 * 1024,  # 512MB
             disk_total=32 * 1024 * 1024 * 1024,  # 32GB
-            disk_used=12 * 1024 * 1024 * 1024,   # 12GB
-            disk_free=20 * 1024 * 1024 * 1024,   # 20GB
+            disk_used=12 * 1024 * 1024 * 1024,  # 12GB
+            disk_free=20 * 1024 * 1024 * 1024,  # 20GB
             load_average=[0.25, 0.30, 0.35],
-            uptime=86400  # 1 day
+            uptime=86400,  # 1 day
         )
 
         mock_use_case = Mock()
@@ -83,9 +83,10 @@ class TestRealPiConnection:
         assert "failed" not in response_text, f"Should not have failed: {response.text}"
 
         # Should contain expected system information
-        assert any(keyword in response_text for keyword in [
-            "hostname", "memory", "cpu", "disk", "uptime"
-        ]), f"Should contain system info: {response.text}"
+        assert any(
+            keyword in response_text
+            for keyword in ["hostname", "memory", "cpu", "disk", "uptime"]
+        ), f"Should contain system info: {response.text}"
 
         # Verify use case was called
         mock_use_case.execute.assert_called_once()
@@ -110,7 +111,7 @@ class TestRealPiConnection:
             stdout="Hello from Pi\n",
             stderr="",
             success=True,
-            execution_time=0.1
+            execution_time=0.1,
         )
         container._instances["retropie_client"] = mock_client
 
@@ -128,7 +129,9 @@ class TestRealPiConnection:
             # Verify command execution
             assert result.success, f"Command should succeed: {result.stderr}"
             assert result.exit_code == 0, f"Should have exit code 0: {result}"
-            assert "Hello from Pi" in result.stdout, f"Should contain expected output: {result.stdout}"
+            assert "Hello from Pi" in result.stdout, (
+                f"Should contain expected output: {result.stdout}"
+            )
         finally:
             # Always disconnect
             ssh_client.disconnect()

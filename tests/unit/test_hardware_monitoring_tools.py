@@ -91,20 +91,12 @@ class TestHardwareMonitoringTools:
         self, hardware_monitoring_tools: HardwareMonitoringTools
     ) -> None:
         """Test temperature check with normal readings."""
-        # Mock temperature command results
+        # Mock temperature command results with new shared sensor implementation
         hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
             CommandResult(
                 command="vcgencmd measure_temp",
                 exit_code=0,
                 stdout="temp=55.4'C",
-                stderr="",
-                success=True,
-                execution_time=0.1,
-            ),
-            CommandResult(
-                command="vcgencmd measure_temp gpu",
-                exit_code=0,
-                stdout="temp=52.1'C",
                 stderr="",
                 success=True,
                 execution_time=0.1,
@@ -131,9 +123,84 @@ class TestHardwareMonitoringTools:
         # Verify result
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
+        assert "Temperature Status" in result[0].text
         assert "55.4°C" in result[0].text
-        assert "52.1°C" in result[0].text
+        assert "shared sensor" in result[0].text
         assert "✅ NORMAL" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_get_soc_temperature_vcgencmd_success(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
+        """Test _get_soc_temperature with successful vcgencmd."""
+        # Mock successful vcgencmd
+        hardware_monitoring_tools.container.retropie_client.execute_command.return_value = CommandResult(
+            command="vcgencmd measure_temp",
+            exit_code=0,
+            stdout="temp=45.2'C",
+            stderr="",
+            success=True,
+            execution_time=0.1,
+        )
+
+        temp = await hardware_monitoring_tools._get_soc_temperature()
+        assert temp == 45.2
+
+    @pytest.mark.asyncio
+    async def test_get_soc_temperature_thermal_fallback(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
+        """Test _get_soc_temperature with thermal zone fallback."""
+        # Mock vcgencmd failure, thermal zone success
+        hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                command="vcgencmd measure_temp",
+                exit_code=1,
+                stdout="",
+                stderr="Command not found",
+                success=False,
+                execution_time=0.1,
+            ),
+            CommandResult(
+                command="cat /sys/class/thermal/thermal_zone0/temp",
+                exit_code=0,
+                stdout="47800",
+                stderr="",
+                success=True,
+                execution_time=0.1,
+            ),
+        ]
+
+        temp = await hardware_monitoring_tools._get_soc_temperature()
+        assert temp == 47.8
+
+    @pytest.mark.asyncio
+    async def test_get_soc_temperature_both_methods_fail(
+        self, hardware_monitoring_tools: HardwareMonitoringTools
+    ) -> None:
+        """Test _get_soc_temperature when both methods fail."""
+        # Mock both methods failing
+        hardware_monitoring_tools.container.retropie_client.execute_command.side_effect = [
+            CommandResult(
+                command="vcgencmd measure_temp",
+                exit_code=1,
+                stdout="",
+                stderr="Command not found",
+                success=False,
+                execution_time=0.1,
+            ),
+            CommandResult(
+                command="cat /sys/class/thermal/thermal_zone0/temp",
+                exit_code=1,
+                stdout="",
+                stderr="No such file",
+                success=False,
+                execution_time=0.1,
+            ),
+        ]
+
+        temp = await hardware_monitoring_tools._get_soc_temperature()
+        assert temp is None
 
     @pytest.mark.asyncio
     async def test_manage_hardware_temperature_check_critical(

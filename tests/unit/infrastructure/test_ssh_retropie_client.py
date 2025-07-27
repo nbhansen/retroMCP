@@ -1,10 +1,12 @@
 """Unit tests for SSH RetroPie client."""
 
+import logging
 from unittest.mock import Mock
 from unittest.mock import patch
 
 import pytest
 
+from retromcp.domain.models import CommandResult
 from retromcp.domain.models import ConnectionInfo
 from retromcp.infrastructure.ssh_retropie_client import SSHRetroPieClient
 from retromcp.ssh_handler import RetroPieSSH
@@ -190,3 +192,149 @@ class TestSSHRetroPieClient:
         assert (
             abs(result.execution_time - 0.3) < 0.001
         )  # Allow small floating point differences
+
+    def test_execute_command_with_retry_success_on_second_attempt(
+        self, client: SSHRetroPieClient, mock_ssh_handler: Mock
+    ):
+        """Test command execution with retry succeeding on second attempt."""
+        # Arrange
+        mock_ssh_handler.execute_command.side_effect = [
+            Exception("Connection lost"),  # First attempt fails
+            (0, "success output", ""),  # Second attempt succeeds
+        ]
+
+        # Act
+        with patch("time.time", side_effect=[1000.0, 1000.1, 1000.2, 1000.3]):
+            result = client.execute_command_with_retry("echo test", max_retries=2)
+
+        # Assert
+        assert result.command == "echo test"
+        assert result.exit_code == 0
+        assert result.stdout == "success output"
+        assert result.success is True
+        assert mock_ssh_handler.execute_command.call_count == 2
+
+    def test_execute_command_with_retry_exhausts_retries(
+        self, client: SSHRetroPieClient, mock_ssh_handler: Mock
+    ):
+        """Test command execution with retry exhausting all attempts."""
+        # Arrange
+        mock_ssh_handler.execute_command.side_effect = Exception(
+            "Persistent connection error"
+        )
+
+        # Act
+        with patch(
+            "time.time", side_effect=[1000.0, 1000.1, 1000.2, 1000.3, 1000.4, 1000.5]
+        ):
+            result = client.execute_command_with_retry("echo test", max_retries=3)
+
+        # Assert
+        assert result.command == "echo test"
+        assert result.exit_code == 1
+        assert "Persistent connection error" in result.stderr
+        assert result.success is False
+        assert mock_ssh_handler.execute_command.call_count == 3
+
+    def test_execute_command_with_timeout(
+        self, client: SSHRetroPieClient, mock_ssh_handler: Mock
+    ):
+        """Test command execution with timeout handling."""
+        # Arrange
+        # Mock the execute_command to return a result that took 1.5 seconds
+        mock_result = CommandResult(
+            command="slow_command",
+            exit_code=0,
+            stdout="output",
+            stderr="",
+            success=True,
+            execution_time=1.5,  # This simulates a command that took 1.5 seconds
+        )
+
+        # Mock execute_command to return our mock result
+        with patch.object(client, "execute_command", return_value=mock_result):
+            # Act
+            result = client.execute_command_with_timeout("slow_command", timeout=1.0)
+
+        # Assert
+        assert result.command == "slow_command"
+        assert result.exit_code == 124  # Standard timeout exit code
+        assert "Command timed out" in result.stderr
+        assert result.success is False
+
+    def test_execute_command_logs_retry_attempts(
+        self, client: SSHRetroPieClient, mock_ssh_handler: Mock, caplog
+    ):
+        """Test that retry attempts are properly logged."""
+        # Arrange - Make first attempt fail, then have retry logic kick in
+        mock_ssh_handler.execute_command.side_effect = [
+            Exception("Transient error"),
+            (0, "success", ""),
+        ]
+
+        # Act
+        with patch("time.time", side_effect=[1000.0, 1000.1, 1000.2, 1000.3]), patch(
+            "time.sleep"
+        ):  # Mock sleep to speed up test
+            with caplog.at_level(logging.INFO):  # Capture INFO level logs
+                result = client.execute_command_with_retry(
+                    "test_command", max_retries=3
+                )
+
+        # Assert
+        assert result.success is True
+        assert "Command execution failed (attempt 1/3)" in caplog.text
+        # Since first attempt failed and second succeeded, expect retry message
+        assert "Retrying command execution, attempt 2/3" in caplog.text
+
+    def test_execute_command_categorizes_connection_errors(
+        self, client: SSHRetroPieClient, mock_ssh_handler: Mock
+    ):
+        """Test that connection errors are properly categorized."""
+        # Arrange
+        mock_ssh_handler.execute_command.side_effect = Exception("Connection refused")
+
+        # Act
+        result = client.execute_command_with_enhanced_error_handling("echo test")
+
+        # Assert
+        assert result.command == "echo test"
+        assert result.exit_code == 2  # Connection error code
+        assert "Connection refused" in result.stderr
+        assert result.success is False
+
+    def test_execute_command_categorizes_authentication_errors(
+        self, client: SSHRetroPieClient, mock_ssh_handler: Mock
+    ):
+        """Test that authentication errors are properly categorized."""
+        # Arrange
+        mock_ssh_handler.execute_command.side_effect = Exception(
+            "Authentication failed"
+        )
+
+        # Act
+        result = client.execute_command_with_enhanced_error_handling("echo test")
+
+        # Assert
+        assert result.command == "echo test"
+        assert result.exit_code == 3  # Authentication error code
+        assert "Authentication failed" in result.stderr
+        assert result.success is False
+
+    def test_execute_command_categorizes_permission_errors(
+        self, client: SSHRetroPieClient, mock_ssh_handler: Mock
+    ):
+        """Test that permission errors are properly categorized."""
+        # Arrange
+        mock_ssh_handler.execute_command.side_effect = Exception("Permission denied")
+
+        # Act
+        result = client.execute_command_with_enhanced_error_handling(
+            "sudo restricted_command"
+        )
+
+        # Assert
+        assert result.command == "sudo restricted_command"
+        assert result.exit_code == 126  # Permission denied exit code
+        assert "Permission denied" in result.stderr
+        assert result.success is False

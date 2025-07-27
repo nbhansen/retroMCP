@@ -95,9 +95,21 @@ class ServiceManagementTools(BaseTool):
                     f"Service {service_name} {action}: {result.stdout}"
                 )
             else:
-                return self.format_error(
-                    f"Failed to {action} service {service_name}: {result.stderr}"
-                )
+                # Check if service not found (exit codes 4 or 5 typically indicate this)
+                if (
+                    result.exit_code in [4, 5]
+                    or "could not be found" in result.stderr.lower()
+                    or "no such unit" in result.stderr.lower()
+                ):
+                    return self.format_error(
+                        f"Service '{service_name}' not found on the system. "
+                        f"Please verify the service is installed and the name is correct. "
+                        f"You can list available services with: systemctl list-unit-files --type=service"
+                    )
+                else:
+                    return self.format_error(
+                        f"Failed to {action} service {service_name}: {result.stderr}"
+                    )
 
         except Exception as e:
             return self.format_error(f"Service management error: {e!s}")

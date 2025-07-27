@@ -8,6 +8,7 @@ from retromcp.config import RetroPieConfig
 from retromcp.discovery import RetroPiePaths
 from retromcp.domain.models import CommandResult
 from retromcp.domain.ports import RetroPieClient
+from retromcp.infrastructure.cache_system import SystemCache
 from retromcp.infrastructure.ssh_system_repository import SSHSystemRepository
 
 
@@ -18,6 +19,11 @@ class TestSSHSystemRepository:
     def mock_client(self) -> Mock:
         """Create mock RetroPie client."""
         return Mock(spec=RetroPieClient)
+
+    @pytest.fixture
+    def mock_cache(self) -> Mock:
+        """Create mock system cache."""
+        return Mock(spec=SystemCache)
 
     @pytest.fixture
     def test_config(self) -> RetroPieConfig:
@@ -42,23 +48,27 @@ class TestSSHSystemRepository:
 
     @pytest.fixture
     def repository(
-        self, mock_client: Mock, test_config: RetroPieConfig
+        self, mock_client: Mock, test_config: RetroPieConfig, mock_cache: Mock
     ) -> SSHSystemRepository:
         """Create SSH system repository instance."""
-        return SSHSystemRepository(mock_client, test_config)
+        return SSHSystemRepository(mock_client, test_config, mock_cache)
 
     def test_initialization(
-        self, mock_client: Mock, test_config: RetroPieConfig
+        self, mock_client: Mock, test_config: RetroPieConfig, mock_cache: Mock
     ) -> None:
         """Test repository initialization."""
-        repo = SSHSystemRepository(mock_client, test_config)
+        repo = SSHSystemRepository(mock_client, test_config, mock_cache)
         assert repo._client == mock_client
         assert repo._config == test_config
+        assert repo._cache == mock_cache
 
     def test_get_system_info_success(
-        self, repository: SSHSystemRepository, mock_client: Mock
+        self, repository: SSHSystemRepository, mock_client: Mock, mock_cache: Mock
     ) -> None:
         """Test successful system info retrieval."""
+        # Mock cache to return None (no cached data)
+        mock_cache.get_system_info.return_value = None
+
         # Mock command results - get_system_info calls 6 commands: hostname, temp, memory, disk, uptime, proc/uptime
         mock_client.execute_command.side_effect = [
             CommandResult(
@@ -111,7 +121,11 @@ class TestSSHSystemRepository:
             ),  # proc uptime
         ]
 
-        system_info = repository.get_system_info()
+        result = repository.get_system_info()
+
+        # Verify Result is successful
+        assert result.is_success()
+        system_info = result.value
 
         assert system_info.hostname == "retropie"
         assert system_info.cpu_temperature == 55.4
@@ -120,6 +134,9 @@ class TestSSHSystemRepository:
         assert system_info.memory_free == 536870912
         assert system_info.disk_total == 16000000000
         assert system_info.uptime == 105120
+
+        # Verify cache was called to store the result
+        mock_cache.cache_system_info.assert_called_once_with(system_info)
 
     def test_get_system_info_command_failures(
         self, repository: SSHSystemRepository, mock_client: Mock

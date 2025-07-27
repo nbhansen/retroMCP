@@ -14,13 +14,16 @@ from .models import Controller
 from .models import DockerManagementRequest
 from .models import DockerManagementResult
 from .models import Emulator
+from .models import ESSystemsConfig
 from .models import Package
+from .models import Result
 from .models import RomDirectory
 from .models import StateManagementResult
 from .models import SystemInfo
 from .models import SystemService
 from .models import SystemState
 from .models import Theme
+from .models import ValidationError
 
 
 class RetroPieClient(ABC):
@@ -201,3 +204,18 @@ class DockerRepository(ABC):
     @abstractmethod
     def is_docker_available(self) -> bool:
         """Check if Docker is available on the system."""
+
+
+class ConfigurationParser(ABC):
+    """Interface for parsing configuration files."""
+
+    @abstractmethod
+    def parse_es_systems_config(self, content: str) -> Result[ESSystemsConfig, ValidationError]:
+        """Parse es_systems.cfg XML content into domain models.
+
+        Args:
+            content: Raw XML content from es_systems.cfg file
+
+        Returns:
+            Result containing parsed ESSystemsConfig or ValidationError
+        """

@@ -50,6 +50,8 @@ class ManageStateUseCase:
                 return self._update_state(request.path, request.value)
             elif request.action == StateAction.COMPARE:
                 return self._compare_state()
+            elif request.action == StateAction.EXPORT:
+                return self._export_state()
             else:
                 return Result.error(
                     ValidationError(
@@ -248,3 +250,13 @@ class ManageStateUseCase:
                     details={"action": StateAction.COMPARE.value},
                 )
             )
+
+    def _export_state(
+        self,
+    ) -> Result[
+        StateManagementResult, ValidationError | ConnectionError | ExecutionError
+    ]:
+        """Export current system state to JSON format."""
+        # Export state using repository
+        result = self._state_repository.export_state()
+        return Result.success(result)

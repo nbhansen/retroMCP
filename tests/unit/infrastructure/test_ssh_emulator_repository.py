@@ -1127,3 +1127,144 @@ drwxr-xr-x 2 retro retro 4096 Jan 1 00:00 nes""",
         # This test documents the current behavior - it should be fixed to handle gracefully
         with pytest.raises(ValueError, match="invalid literal for int"):
             repository.get_rom_directories()
+
+    def test_get_rom_directories_detects_nes_files(
+        self, repository: SSHEmulatorRepository, mock_client: Mock
+    ) -> None:
+        """Test that NES ROMs with .nes extension are properly detected."""
+        mock_client.execute_command.side_effect = [
+            # List ROM directories
+            CommandResult(
+                command="ls -la /home/retro/RetroPie/roms 2>/dev/null",
+                exit_code=0,
+                stdout="""drwxr-xr-x 3 retro retro 4096 Jan 1 00:00 .
+drwxr-xr-x 3 retro retro 4096 Jan 1 00:00 ..
+drwxr-xr-x 2 retro retro 4096 Jan 1 00:00 nes""",
+                stderr="",
+                success=True,
+                execution_time=0.1,
+            ),
+            # Count NES ROMs using proper extensions
+            CommandResult(
+                command="find /home/retro/RetroPie/roms/nes -type f \\( -name '*.nes' -o -name '*.zip' -o -name '*.7z' \\) 2>/dev/null | wc -l",
+                exit_code=0,
+                stdout="5",
+                stderr="",
+                success=True,
+                execution_time=0.1,
+            ),
+            # NES directory size
+            CommandResult(
+                command="du -sb /home/retro/RetroPie/roms/nes 2>/dev/null | cut -f1",
+                exit_code=0,
+                stdout="2048000",
+                stderr="",
+                success=True,
+                execution_time=0.1,
+            ),
+        ]
+
+        rom_dirs = repository.get_rom_directories()
+
+        assert len(rom_dirs) == 1
+        nes_dir = rom_dirs[0]
+        assert nes_dir.system == "nes"
+        assert nes_dir.rom_count == 5  # Should detect .nes files
+        assert nes_dir.total_size == 2048000
+        assert ".nes" in nes_dir.supported_extensions
+
+        # Verify the find command uses system-specific extensions
+        find_call = mock_client.execute_command.call_args_list[1]
+        find_command = find_call[0][0]
+        assert "*.nes" in find_command
+        assert "*.zip" in find_command
+        assert "*.7z" in find_command
+        # Should NOT contain generic extensions for NES
+        assert "*.rom" not in find_command
+        assert "*.bin" not in find_command
+        assert "*.iso" not in find_command
+
+    def test_get_rom_directories_graceful_fallback_unknown_system(
+        self, repository: SSHEmulatorRepository, mock_client: Mock
+    ) -> None:
+        """Test graceful fallback for unknown systems without specific extensions."""
+        mock_client.execute_command.side_effect = [
+            # List ROM directories with unknown system
+            CommandResult(
+                command="ls -la /home/retro/RetroPie/roms 2>/dev/null",
+                exit_code=0,
+                stdout="""drwxr-xr-x 3 retro retro 4096 Jan 1 00:00 .
+drwxr-xr-x 3 retro retro 4096 Jan 1 00:00 ..
+drwxr-xr-x 2 retro retro 4096 Jan 1 00:00 unknown_system""",
+                stderr="",
+                success=True,
+                execution_time=0.1,
+            ),
+            # Count ROMs using fallback extensions
+            CommandResult(
+                command="find /home/retro/RetroPie/roms/unknown_system -type f \\( -name '*.zip' -o -name '*.7z' \\) 2>/dev/null | wc -l",
+                exit_code=0,
+                stdout="3",
+                stderr="",
+                success=True,
+                execution_time=0.1,
+            ),
+            # Size calculation
+            CommandResult(
+                command="du -sb /home/retro/RetroPie/roms/unknown_system 2>/dev/null | cut -f1",
+                exit_code=0,
+                stdout="1024000",
+                stderr="",
+                success=True,
+                execution_time=0.1,
+            ),
+        ]
+
+        rom_dirs = repository.get_rom_directories()
+
+        assert len(rom_dirs) == 1
+        unknown_dir = rom_dirs[0]
+        assert unknown_dir.system == "unknown_system"
+        assert unknown_dir.rom_count == 3  # Should count with fallback extensions
+        assert unknown_dir.total_size == 1024000
+        assert unknown_dir.supported_extensions == [".zip", ".7z"]  # Default fallback
+
+        # Verify the find command uses fallback extensions for unknown system
+        find_call = mock_client.execute_command.call_args_list[1]
+        find_command = find_call[0][0]
+        assert "*.zip" in find_command
+        assert "*.7z" in find_command
+        # Should use default fallback, not the full generic set
+        assert "*.rom" not in find_command
+        assert "*.bin" not in find_command
+
+    def test_build_find_command_exception_fallback(
+        self,
+        repository: SSHEmulatorRepository,
+        mock_client: Mock,  # noqa: ARG002
+    ) -> None:
+        """Test that build_find_command_for_system falls back gracefully on exceptions."""
+        # Test the fallback method directly
+        # Temporarily break the _get_supported_extensions method to trigger exception
+        original_method = repository._get_supported_extensions
+
+        def broken_method(system):  # noqa: ARG001
+            raise Exception("Simulated error")
+
+        repository._get_supported_extensions = broken_method
+
+        try:
+            # Should fall back to generic command when exception occurs
+            command = repository._build_find_command_for_system("/test/path", "nes")
+
+            # Should contain the original generic extensions as fallback
+            assert "*.rom" in command
+            assert "*.bin" in command
+            assert "*.iso" in command
+            assert "*.cue" in command
+            assert "*.zip" in command
+            assert "*.7z" in command
+
+        finally:
+            # Restore original method
+            repository._get_supported_extensions = original_method

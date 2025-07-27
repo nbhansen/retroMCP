@@ -28,19 +28,23 @@ class DetectControllersUseCase:
             controllers = self._repository.detect_controllers()
             return Result.success(controllers)
         except OSError as e:
-            return Result.error(ConnectionError(
-                code="CONTROLLER_CONNECTION_FAILED",
-                message=f"Failed to connect to controller interface: {e}",
-                details={"error": str(e)}
-            ))
+            return Result.error(
+                ConnectionError(
+                    code="CONTROLLER_CONNECTION_FAILED",
+                    message=f"Failed to connect to controller interface: {e}",
+                    details={"error": str(e)},
+                )
+            )
         except Exception as e:
-            return Result.error(ExecutionError(
-                code="CONTROLLER_DETECTION_FAILED",
-                message="Failed to detect controllers",
-                command="controller detection",
-                exit_code=1,
-                stderr=str(e)
-            ))
+            return Result.error(
+                ExecutionError(
+                    code="CONTROLLER_DETECTION_FAILED",
+                    message="Failed to detect controllers",
+                    command="controller detection",
+                    exit_code=1,
+                    stderr=str(e),
+                )
+            )
 
 
 class SetupControllerUseCase:
@@ -75,14 +79,19 @@ class SetupControllerUseCase:
                         break
 
             if not target_controller:
-                return Result.error(ValidationError(
-                    code="CONTROLLER_NOT_FOUND",
-                    message=f"Controller with device path or type '{controller_device_path}' not found",
-                    details={"device_path": controller_device_path}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="CONTROLLER_NOT_FOUND",
+                        message=f"Controller with device path or type '{controller_device_path}' not found",
+                        details={"device_path": controller_device_path},
+                    )
+                )
 
             # Check if controller is already configured
-            if target_controller.is_configured and not target_controller.driver_required:
+            if (
+                target_controller.is_configured
+                and not target_controller.driver_required
+            ):
                 already_configured_result = CommandResult(
                     command="",
                     exit_code=0,
@@ -98,19 +107,23 @@ class SetupControllerUseCase:
             return Result.success(result)
 
         except OSError as e:
-            return Result.error(ConnectionError(
-                code="CONTROLLER_CONNECTION_FAILED",
-                message=f"Failed to connect to controller interface: {e}",
-                details={"error": str(e)}
-            ))
+            return Result.error(
+                ConnectionError(
+                    code="CONTROLLER_CONNECTION_FAILED",
+                    message=f"Failed to connect to controller interface: {e}",
+                    details={"error": str(e)},
+                )
+            )
         except Exception as e:
-            return Result.error(ExecutionError(
-                code="CONTROLLER_SETUP_FAILED",
-                message="Failed to setup controller",
-                command="controller setup",
-                exit_code=1,
-                stderr=str(e)
-            ))
+            return Result.error(
+                ExecutionError(
+                    code="CONTROLLER_SETUP_FAILED",
+                    message="Failed to setup controller",
+                    command="controller setup",
+                    exit_code=1,
+                    stderr=str(e),
+                )
+            )
 
 
 class InstallEmulatorUseCase:
@@ -120,16 +133,20 @@ class InstallEmulatorUseCase:
         """Initialize with emulator repository."""
         self._repository = repository
 
-    def execute(self, emulator_name: str) -> Result[CommandResult, ValidationError | ConnectionError | ExecutionError]:
+    def execute(
+        self, emulator_name: str
+    ) -> Result[CommandResult, ValidationError | ConnectionError | ExecutionError]:
         """Install an emulator."""
         try:
             # Validate emulator name
             if not emulator_name or not emulator_name.strip():
-                return Result.error(ValidationError(
-                    code="INVALID_EMULATOR_NAME",
-                    message="Emulator name cannot be empty",
-                    details={"emulator_name": emulator_name}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="INVALID_EMULATOR_NAME",
+                        message="Emulator name cannot be empty",
+                        details={"emulator_name": emulator_name},
+                    )
+                )
 
             # Get available emulators to check if this one exists and its status
             available_emulators = self._repository.get_emulators()
@@ -141,11 +158,16 @@ class InstallEmulatorUseCase:
 
             if not target_emulator:
                 emulator_names = [emulator.name for emulator in available_emulators]
-                return Result.error(ValidationError(
-                    code="EMULATOR_NOT_AVAILABLE",
-                    message=f"Emulator '{emulator_name}' is not available for installation",
-                    details={"emulator_name": emulator_name, "available": emulator_names}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="EMULATOR_NOT_AVAILABLE",
+                        message=f"Emulator '{emulator_name}' is not available for installation",
+                        details={
+                            "emulator_name": emulator_name,
+                            "available": emulator_names,
+                        },
+                    )
+                )
 
             # Check if emulator is already installed
             if target_emulator.status == EmulatorStatus.INSTALLED:
@@ -161,30 +183,39 @@ class InstallEmulatorUseCase:
 
             # Check if emulator is available for installation
             if target_emulator.status != EmulatorStatus.AVAILABLE:
-                return Result.error(ValidationError(
-                    code="EMULATOR_NOT_AVAILABLE",
-                    message=f"Emulator '{emulator_name}' is not available for installation",
-                    details={"emulator_name": emulator_name, "status": target_emulator.status.value}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="EMULATOR_NOT_AVAILABLE",
+                        message=f"Emulator '{emulator_name}' is not available for installation",
+                        details={
+                            "emulator_name": emulator_name,
+                            "status": target_emulator.status.value,
+                        },
+                    )
+                )
 
             # Install the emulator
             result = self._repository.install_emulator(emulator_name)
             return Result.success(result)
 
         except OSError as e:
-            return Result.error(ConnectionError(
-                code="EMULATOR_CONNECTION_FAILED",
-                message=f"Failed to connect to emulator system: {e}",
-                details={"error": str(e)}
-            ))
+            return Result.error(
+                ConnectionError(
+                    code="EMULATOR_CONNECTION_FAILED",
+                    message=f"Failed to connect to emulator system: {e}",
+                    details={"error": str(e)},
+                )
+            )
         except Exception as e:
-            return Result.error(ExecutionError(
-                code="EMULATOR_INSTALL_FAILED",
-                message="Failed to install emulator",
-                command=f"install emulator {emulator_name}",
-                exit_code=1,
-                stderr=str(e)
-            ))
+            return Result.error(
+                ExecutionError(
+                    code="EMULATOR_INSTALL_FAILED",
+                    message="Failed to install emulator",
+                    command=f"install emulator {emulator_name}",
+                    exit_code=1,
+                    stderr=str(e),
+                )
+            )
 
 
 class ListRomsUseCase:
@@ -228,16 +259,20 @@ class ListRomsUseCase:
             return Result.success(rom_directories)
 
         except (OSError, PermissionError) as e:
-            return Result.error(ConnectionError(
-                code="ROM_ACCESS_FAILED",
-                message=f"Failed to access ROM directories: {e}",
-                details={"error": str(e)}
-            ))
+            return Result.error(
+                ConnectionError(
+                    code="ROM_ACCESS_FAILED",
+                    message=f"Failed to access ROM directories: {e}",
+                    details={"error": str(e)},
+                )
+            )
         except Exception as e:
-            return Result.error(ExecutionError(
-                code="ROM_LISTING_FAILED",
-                message="Failed to list ROM directories",
-                command="list ROM directories",
-                exit_code=1,
-                stderr=str(e)
-            ))
+            return Result.error(
+                ExecutionError(
+                    code="ROM_LISTING_FAILED",
+                    message="Failed to list ROM directories",
+                    command="list ROM directories",
+                    exit_code=1,
+                    stderr=str(e),
+                )
+            )

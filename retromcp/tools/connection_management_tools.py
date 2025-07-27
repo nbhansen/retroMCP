@@ -62,7 +62,7 @@ class ConnectionManagementTools(BaseTool):
                 if result.is_error():
                     error = result.error_or_none
                     return self.format_error(f"Connection test failed: {error.message}")
-                
+
                 connection_info = result.value
                 if connection_info.connected:
                     return self.format_success(
@@ -77,8 +77,10 @@ class ConnectionManagementTools(BaseTool):
                 result = use_case.execute()
                 if result.is_error():
                     error = result.error_or_none
-                    return self.format_error(f"Failed to get connection status: {error.message}")
-                
+                    return self.format_error(
+                        f"Failed to get connection status: {error.message}"
+                    )
+
                 connection_info = result.value
                 status = "Connected" if connection_info.connected else "Disconnected"
                 return self.format_info(
@@ -93,7 +95,7 @@ class ConnectionManagementTools(BaseTool):
                 if result.is_error():
                     error = result.error_or_none
                     return self.format_error(f"Reconnection failed: {error.message}")
-                
+
                 connection_info = result.value
                 if connection_info.connected:
                     return self.format_success("Reconnection successful")

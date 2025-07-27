@@ -2,25 +2,42 @@
 
 import re
 from typing import List
+from typing import Optional
 
 from ..config import RetroPieConfig
 from ..domain.models import CommandResult
 from ..domain.models import ConfigFile
 from ..domain.models import Emulator
 from ..domain.models import EmulatorStatus
+from ..domain.models import ESSystemsConfig
 from ..domain.models import RomDirectory
 from ..domain.models import Theme
+from ..domain.ports import ConfigurationParser
 from ..domain.ports import EmulatorRepository
 from ..domain.ports import RetroPieClient
+from .es_systems_parser import ESSystemsConfigParser
 
 
 class SSHEmulatorRepository(EmulatorRepository):
     """SSH implementation of emulator repository interface."""
 
-    def __init__(self, client: RetroPieClient, config: RetroPieConfig) -> None:
-        """Initialize with RetroPie client and configuration."""
+    def __init__(
+        self,
+        client: RetroPieClient,
+        config: RetroPieConfig,
+        config_parser: Optional[ConfigurationParser] = None
+    ) -> None:
+        """Initialize with RetroPie client and configuration.
+
+        Args:
+            client: RetroPie SSH client
+            config: RetroPie configuration
+            config_parser: Optional configuration parser (defaults to ESSystemsConfigParser)
+        """
         self._client = client
         self._config = config
+        self._config_parser = config_parser or ESSystemsConfigParser()
+        self._cached_es_config: Optional[ESSystemsConfig] = None
 
     def get_emulators(self) -> List[Emulator]:
         """Get list of available emulators."""
@@ -151,10 +168,11 @@ class SSHEmulatorRepository(EmulatorRepository):
                         system = parts[-1]
                         system_path = f"{base_dir}/{system}"
 
-                        # Count ROM files
-                        count_result = self._client.execute_command(
-                            f"find {system_path} -type f \\( -name '*.rom' -o -name '*.bin' -o -name '*.iso' -o -name '*.cue' -o -name '*.zip' -o -name '*.7z' \\) 2>/dev/null | wc -l"
+                        # Count ROM files using system-specific extensions
+                        find_command = self._build_find_command_for_system(
+                            system_path, system
                         )
+                        count_result = self._client.execute_command(find_command)
                         rom_count = (
                             int(count_result.stdout.strip())
                             if count_result.success
@@ -317,8 +335,58 @@ class SSHEmulatorRepository(EmulatorRepository):
         return result
 
     def _get_supported_extensions(self, system: str) -> List[str]:
-        """Get supported file extensions for a system."""
-        # Common extensions by system
+        """Get supported file extensions for a system.
+
+        First attempts to parse extensions from es_systems.cfg file.
+        Falls back to hard-coded extensions if parsing fails.
+        """
+        # Try to get extensions from parsed es_systems.cfg
+        try:
+            es_config = self._get_or_parse_es_systems_config()
+            if es_config:
+                # Find system in parsed config
+                for system_def in es_config.systems:
+                    if system_def.name == system:
+                        return system_def.extensions
+        except Exception:
+            # Silently fall back to hard-coded extensions on any error
+            pass
+
+        # Fallback to hard-coded extensions
+        return self._get_hardcoded_extensions(system)
+
+    def _get_or_parse_es_systems_config(self) -> Optional[ESSystemsConfig]:
+        """Get parsed es_systems.cfg config, with caching."""
+        if self._cached_es_config is not None:
+            return self._cached_es_config
+
+        # Try different common locations for es_systems.cfg
+        config_paths = [
+            "/etc/emulationstation/es_systems.cfg",
+            "~/.emulationstation/es_systems.cfg",
+            "/opt/retropie/configs/all/emulationstation/es_systems.cfg"
+        ]
+
+        for config_path in config_paths:
+            try:
+                # Try to read the config file
+                result = self._client.execute_command(f"cat {config_path}")
+                if result.success and result.stdout.strip():
+                    # Parse the content
+                    parse_result = self._config_parser.parse_es_systems_config(result.stdout)
+                    if parse_result.is_success():
+                        self._cached_es_config = parse_result.success_value
+                        return self._cached_es_config
+            except Exception:
+                # Continue to next path on error
+                continue
+
+        # No valid config found
+        return None
+
+    def _get_hardcoded_extensions(self, system: str) -> List[str]:
+        """Get hard-coded file extensions for a system (fallback)."""
+        # Common extensions by system (fallback when es_systems.cfg unavailable)
         extension_map = {
             "nes": [".nes", ".zip", ".7z"],
             "snes": [".smc", ".sfc", ".zip", ".7z"],
@@ -333,3 +401,23 @@ class SSHEmulatorRepository(EmulatorRepository):
         }
 
         return extension_map.get(system, [".zip", ".7z"])
+
+    def _build_find_command_for_system(self, system_path: str, system: str) -> str:
+        """Build find command using system-specific extensions with graceful fallback."""
+        try:
+            # Get system-specific extensions
+            extensions = self._get_supported_extensions(system)
+
+            # If no specific extensions found, use common fallback extensions
+            if not extensions:
+                extensions = [".zip", ".7z", ".rom", ".bin", ".iso", ".cue"]
+
+            # Build find command with system-specific extensions
+            name_patterns = [f"-name '*{ext}'" for ext in extensions]
+            find_patterns = " -o ".join(name_patterns)
+
+            return f"find {system_path} -type f \\( {find_patterns} \\) 2>/dev/null | wc -l"
+
+        except Exception:
+            # Graceful fallback to original generic command if anything goes wrong
+            return f"find {system_path} -type f \\( -name '*.rom' -o -name '*.bin' -o -name '*.iso' -o -name '*.cue' -o -name '*.zip' -o -name '*.7z' \\) 2>/dev/null | wc -l"

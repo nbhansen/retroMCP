@@ -25,22 +25,23 @@ try:
     from .config import ServerConfig
     from .container import Container
     from .profile import SystemProfileManager
+    from .tools import CommandQueueTools
     from .tools import DockerTools
     from .tools import GamingSystemTools
     from .tools import HardwareMonitoringTools
     from .tools import StateTools
     from .tools import SystemManagementTools
 except ImportError:
-    from profile import SystemProfileManager
-
-    from config import RetroPieConfig
-    from config import ServerConfig
-    from container import Container
-    from tools import DockerTools
-    from tools import GamingSystemTools
-    from tools import HardwareMonitoringTools
-    from tools import StateTools
-    from tools import SystemManagementTools
+    from .config import RetroPieConfig
+    from .config import ServerConfig
+    from .container import Container
+    from .profile import SystemProfileManager
+    from .tools import CommandQueueTools
+    from .tools import DockerTools
+    from .tools import GamingSystemTools
+    from .tools import HardwareMonitoringTools
+    from .tools import StateTools
+    from .tools import SystemManagementTools
 
 # Load environment variables
 load_dotenv()
@@ -163,6 +164,7 @@ class RetroMCPServer:
                 "gaming_system": GamingSystemTools(self.container),
                 "state": StateTools(self.container),
                 "docker": DockerTools(self.container),
+                "command_queue": CommandQueueTools(self.container),
             }
 
             # Collect tools from all modules
@@ -197,6 +199,7 @@ class RetroMCPServer:
             "gaming_system": GamingSystemTools(self.container),
             "state": StateTools(self.container),
             "docker": DockerTools(self.container),
+            "command_queue": CommandQueueTools(self.container),
         }
 
         try:
@@ -256,6 +259,8 @@ class RetroMCPServer:
                 "compare_states": "state",
                 # Docker tools
                 "manage_docker": "docker",
+                # Command queue tool
+                "manage_command_queue": "command_queue",
                 # Unified tool names
                 "manage_hardware": "hardware_monitoring",
                 "manage_gaming": "gaming_system",

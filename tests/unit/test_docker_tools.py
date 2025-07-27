@@ -13,6 +13,7 @@ from retromcp.domain.models import DockerManagementRequest
 from retromcp.domain.models import DockerManagementResult
 from retromcp.domain.models import DockerResource
 from retromcp.domain.models import DockerVolume
+from retromcp.domain.models import Result
 from retromcp.tools.docker_tools import DockerTools
 
 
@@ -293,7 +294,9 @@ class TestDockerToolsExecution:
             message="Success",
             containers=[],
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -314,14 +317,18 @@ class TestDockerToolsExecution:
         self, docker_tools: DockerTools, mock_container: Mock
     ) -> None:
         """Test that use case failure returns error response."""
+        from retromcp.domain.models import ExecutionError
+
         # Arrange
-        mock_result = DockerManagementResult(
-            success=False,
-            resource=DockerResource.CONTAINER,
-            action=DockerAction.PS,
-            message="Docker not available",
+        mock_container.manage_docker_use_case.execute.return_value = Result.error(
+            ExecutionError(
+                code="DOCKER_NOT_AVAILABLE",
+                message="Docker not available",
+                command="docker ps",
+                exit_code=127,
+                stderr="docker: command not found",
+            )
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -331,7 +338,7 @@ class TestDockerToolsExecution:
         # Assert
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert "Docker not available" in result[0].text
+        assert "Docker operation failed: Docker not available" in result[0].text
 
     @pytest.mark.asyncio
     async def test_manage_docker_with_all_parameters(
@@ -345,7 +352,9 @@ class TestDockerToolsExecution:
             action=DockerAction.RUN,
             message="Container started",
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         await docker_tools.handle_tool_call(
@@ -432,7 +441,9 @@ class TestDockerToolsResponseFormatting:
             message="Listed containers",
             containers=sample_containers,
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -484,7 +495,9 @@ class TestDockerToolsResponseFormatting:
             message="Listed volumes",
             volumes=sample_volumes,
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -554,7 +567,9 @@ class TestDockerToolsResponseFormatting:
             message="Container inspected",
             inspect_data=inspect_data,
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -601,7 +616,9 @@ class TestDockerToolsResponseFormatting:
             message="Retrieved logs",
             output=log_output,
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -637,7 +654,9 @@ a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6"""
             message="Container started",
             output=command_output,
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -672,7 +691,9 @@ docker.io/library/nginx:latest"""
             message="Image pulled",
             output=pull_output,
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -700,7 +721,9 @@ docker.io/library/nginx:latest"""
             action=DockerAction.START,
             message="Container started successfully",
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -726,7 +749,9 @@ docker.io/library/nginx:latest"""
             message="No containers found",
             containers=[],
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -753,7 +778,9 @@ docker.io/library/nginx:latest"""
             message="No volumes found",
             volumes=[],
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(
@@ -789,7 +816,9 @@ docker.io/library/nginx:latest"""
             message="Container inspected",
             inspect_data=inspect_data,
         )
-        mock_container.manage_docker_use_case.execute.return_value = mock_result
+        mock_container.manage_docker_use_case.execute.return_value = Result.success(
+            mock_result
+        )
 
         # Act
         result = await docker_tools.handle_tool_call(

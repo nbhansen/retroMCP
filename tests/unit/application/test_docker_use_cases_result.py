@@ -32,7 +32,9 @@ class TestManageDockerUseCaseResult:
         return ManageDockerUseCase(mock_docker_repo)
 
     # Success cases
-    def test_execute_returns_result_success_when_docker_available_and_container_operation_succeeds(self, use_case, mock_docker_repo):
+    def test_execute_returns_result_success_when_docker_available_and_container_operation_succeeds(
+        self, use_case, mock_docker_repo
+    ):
         """Test that execute returns Result.success when Docker is available and container operation succeeds."""
         # Arrange
         request = DockerManagementRequest(
@@ -87,7 +89,9 @@ class TestManageDockerUseCaseResult:
         assert result.value.containers == containers
         assert len(result.value.containers) == 2
 
-    def test_execute_returns_result_success_when_compose_operation_succeeds(self, use_case, mock_docker_repo):
+    def test_execute_returns_result_success_when_compose_operation_succeeds(
+        self, use_case, mock_docker_repo
+    ):
         """Test that execute returns Result.success when compose operation succeeds."""
         # Arrange
         request = DockerManagementRequest(
@@ -117,9 +121,14 @@ class TestManageDockerUseCaseResult:
         assert isinstance(result, Result)
         assert result.is_success()
         assert result.value == expected_result
-        assert result.value.message == "Compose stack 'retropie-stack' started successfully"
+        assert (
+            result.value.message
+            == "Compose stack 'retropie-stack' started successfully"
+        )
 
-    def test_execute_returns_result_success_when_volume_operation_succeeds(self, use_case, mock_docker_repo):
+    def test_execute_returns_result_success_when_volume_operation_succeeds(
+        self, use_case, mock_docker_repo
+    ):
         """Test that execute returns Result.success when volume operation succeeds."""
         # Arrange
         request = DockerManagementRequest(
@@ -167,7 +176,9 @@ class TestManageDockerUseCaseResult:
         assert len(result.value.volumes) == 2
 
     # Error cases
-    def test_execute_returns_result_error_when_docker_not_available(self, use_case, mock_docker_repo):
+    def test_execute_returns_result_error_when_docker_not_available(
+        self, use_case, mock_docker_repo
+    ):
         """Test that execute returns Result.error when Docker is not available."""
         # Arrange
         request = DockerManagementRequest(
@@ -189,10 +200,12 @@ class TestManageDockerUseCaseResult:
         assert result.error_or_none.code == "DOCKER_NOT_AVAILABLE"
         assert "Docker is not available" in result.error_or_none.message
 
-    def test_execute_returns_result_error_when_invalid_resource_type(self, use_case, mock_docker_repo):
+    def test_execute_returns_result_error_when_invalid_resource_type(
+        self, use_case, mock_docker_repo
+    ):
         """Test that execute returns Result.error for invalid resource type."""
         # Arrange
-                # Create a request with invalid resource type (mocking an edge case)
+        # Create a request with invalid resource type (mocking an edge case)
         request = Mock(spec=DockerManagementRequest)
         request.resource = "invalid_resource"  # Not a valid DockerResource
         request.action = DockerAction.PS
@@ -210,7 +223,9 @@ class TestManageDockerUseCaseResult:
         assert result.error_or_none.code == "UNSUPPORTED_RESOURCE_TYPE"
         assert "Unsupported resource type" in result.error_or_none.message
 
-    def test_execute_returns_result_error_when_container_operation_fails(self, use_case, mock_docker_repo):
+    def test_execute_returns_result_error_when_container_operation_fails(
+        self, use_case, mock_docker_repo
+    ):
         """Test that execute returns Result.error when container operation fails."""
         # Arrange
         request = DockerManagementRequest(
@@ -237,7 +252,9 @@ class TestManageDockerUseCaseResult:
         assert result.error_or_none.code == "DOCKER_OPERATION_FAILED"
         assert "Failed to execute Docker operation" in result.error_or_none.message
 
-    def test_execute_returns_result_error_when_docker_check_fails(self, use_case, mock_docker_repo):
+    def test_execute_returns_result_error_when_docker_check_fails(
+        self, use_case, mock_docker_repo
+    ):
         """Test that execute returns Result.error when Docker availability check fails."""
         # Arrange
         request = DockerManagementRequest(
@@ -260,7 +277,9 @@ class TestManageDockerUseCaseResult:
         assert result.error_or_none.code == "DOCKER_CONNECTION_FAILED"
         assert "Failed to connect to Docker" in result.error_or_none.message
 
-    def test_execute_returns_result_error_when_compose_operation_fails(self, use_case, mock_docker_repo):
+    def test_execute_returns_result_error_when_compose_operation_fails(
+        self, use_case, mock_docker_repo
+    ):
         """Test that execute returns Result.error when compose operation fails."""
         # Arrange
         request = DockerManagementRequest(
@@ -286,7 +305,9 @@ class TestManageDockerUseCaseResult:
         assert isinstance(result.error_or_none, ExecutionError)
         assert result.error_or_none.code == "DOCKER_OPERATION_FAILED"
 
-    def test_execute_returns_result_error_when_volume_operation_fails(self, use_case, mock_docker_repo):
+    def test_execute_returns_result_error_when_volume_operation_fails(
+        self, use_case, mock_docker_repo
+    ):
         """Test that execute returns Result.error when volume operation fails."""
         # Arrange
         request = DockerManagementRequest(
@@ -299,9 +320,7 @@ class TestManageDockerUseCaseResult:
         mock_docker_repo.is_docker_available.return_value = True
 
         # Mock volume operation failure
-        mock_docker_repo.manage_volumes.side_effect = ValueError(
-            "Invalid volume name"
-        )
+        mock_docker_repo.manage_volumes.side_effect = ValueError("Invalid volume name")
 
         # Act
         result = use_case.execute(request)

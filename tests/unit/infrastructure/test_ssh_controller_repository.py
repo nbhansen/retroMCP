@@ -8,6 +8,7 @@ from retromcp.domain.models import CommandResult
 from retromcp.domain.models import Controller
 from retromcp.domain.models import ControllerType
 from retromcp.domain.ports import RetroPieClient
+from retromcp.infrastructure.cache_system import SystemCache
 from retromcp.infrastructure.ssh_controller_repository import SSHControllerRepository
 
 
@@ -24,19 +25,30 @@ class TestSSHControllerRepository:
         return Mock(spec=RetroPieClient)
 
     @pytest.fixture
-    def repository(self, mock_client: Mock) -> SSHControllerRepository:
-        """Provide SSH controller repository with mocked client."""
-        return SSHControllerRepository(mock_client)
+    def mock_cache(self) -> Mock:
+        """Provide mocked system cache."""
+        return Mock(spec=SystemCache)
 
-    def test_init(self, mock_client: Mock) -> None:
+    @pytest.fixture
+    def repository(
+        self, mock_client: Mock, mock_cache: Mock
+    ) -> SSHControllerRepository:
+        """Provide SSH controller repository with mocked client and cache."""
+        return SSHControllerRepository(mock_client, mock_cache)
+
+    def test_init(self, mock_client: Mock, mock_cache: Mock) -> None:
         """Test repository initialization."""
-        repo = SSHControllerRepository(mock_client)
+        repo = SSHControllerRepository(mock_client, mock_cache)
         assert repo._client == mock_client
+        assert repo._cache == mock_cache
 
     def test_detect_controllers_no_joystick_devices(
-        self, repository: SSHControllerRepository, mock_client: Mock
+        self, repository: SSHControllerRepository, mock_client: Mock, mock_cache: Mock
     ) -> None:
         """Test detect_controllers when no joystick devices are found."""
+        # Mock cache to return None (no cached data)
+        mock_cache.get_hardware_scan.return_value = None
+
         # Mock ls command to return no devices, and lsusb command
         mock_client.execute_command.side_effect = [
             CommandResult(

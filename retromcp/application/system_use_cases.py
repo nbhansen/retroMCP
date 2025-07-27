@@ -33,11 +33,13 @@ class CheckConnectionUseCase:
             connection_info = self._client.get_connection_info()
             return Result.success(connection_info)
         except Exception as e:
-            return Result.error(ConnectionError(
-                code="CONNECTION_TEST_FAILED",
-                message=f"Failed to test connection: {e}",
-                details={"error": str(e)}
-            ))
+            return Result.error(
+                ConnectionError(
+                    code="CONNECTION_TEST_FAILED",
+                    message=f"Failed to test connection: {e}",
+                    details={"error": str(e)},
+                )
+            )
 
 
 class GetSystemInfoUseCase:
@@ -75,7 +77,9 @@ class ExecuteCommandUseCase:
         """Initialize with RetroPie client."""
         self._client = client
 
-    def execute(self, request: ExecuteCommandRequest) -> Result[CommandResult, ValidationError | ConnectionError | ExecutionError]:
+    def execute(
+        self, request: ExecuteCommandRequest
+    ) -> Result[CommandResult, ValidationError | ConnectionError | ExecutionError]:
         """Execute a command on the system."""
         try:
             # Validate command for security
@@ -94,43 +98,55 @@ class ExecuteCommandUseCase:
         except ValueError as e:
             # Security validation errors
             if "dangerous pattern" in str(e):
-                return Result.error(ValidationError(
-                    code="DANGEROUS_COMMAND",
-                    message=f"Command contains dangerous pattern: {e}",
-                    details={"command": request.command}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="DANGEROUS_COMMAND",
+                        message=f"Command contains dangerous pattern: {e}",
+                        details={"command": request.command},
+                    )
+                )
             elif "dangerous operators" in str(e):
-                return Result.error(ValidationError(
-                    code="COMMAND_INJECTION",
-                    message=f"Command contains potentially dangerous operators: {e}",
-                    details={"command": request.command}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="COMMAND_INJECTION",
+                        message=f"Command contains potentially dangerous operators: {e}",
+                        details={"command": request.command},
+                    )
+                )
             elif "empty" in str(e).lower():
-                return Result.error(ValidationError(
-                    code="EMPTY_COMMAND",
-                    message=str(e),
-                    details={"command": request.command}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="EMPTY_COMMAND",
+                        message=str(e),
+                        details={"command": request.command},
+                    )
+                )
             else:
-                return Result.error(ValidationError(
-                    code="INVALID_COMMAND",
-                    message=str(e),
-                    details={"command": request.command}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="INVALID_COMMAND",
+                        message=str(e),
+                        details={"command": request.command},
+                    )
+                )
         except OSError as e:
-            return Result.error(ConnectionError(
-                code="SSH_CONNECTION_FAILED",
-                message=f"Failed to connect to system: {e}",
-                details={"error": str(e)}
-            ))
+            return Result.error(
+                ConnectionError(
+                    code="SSH_CONNECTION_FAILED",
+                    message=f"Failed to connect to system: {e}",
+                    details={"error": str(e)},
+                )
+            )
         except Exception as e:
-            return Result.error(ExecutionError(
-                code="COMMAND_EXECUTION_FAILED",
-                message="Command execution failed",
-                command=request.command,
-                exit_code=1,
-                stderr=str(e)
-            ))
+            return Result.error(
+                ExecutionError(
+                    code="COMMAND_EXECUTION_FAILED",
+                    message="Command execution failed",
+                    command=request.command,
+                    exit_code=1,
+                    stderr=str(e),
+                )
+            )
 
     def _validate_command_security(self, command: str) -> None:
         """Validate command for security issues."""
@@ -232,13 +248,15 @@ class ExecuteCommandUseCase:
             result = self._client.execute_monitoring_command(request.command)
             return Result.success(result)
         except Exception as e:
-            return Result.error(ExecutionError(
-                code="MONITORING_COMMAND_FAILED",
-                message="Monitoring command execution failed",
-                command=request.command,
-                exit_code=1,
-                stderr=str(e)
-            ))
+            return Result.error(
+                ExecutionError(
+                    code="MONITORING_COMMAND_FAILED",
+                    message="Monitoring command execution failed",
+                    command=request.command,
+                    exit_code=1,
+                    stderr=str(e),
+                )
+            )
 
 
 class WriteFileUseCase:
@@ -248,7 +266,9 @@ class WriteFileUseCase:
         """Initialize with RetroPie client."""
         self._client = client
 
-    def execute(self, request: WriteFileRequest) -> Result[CommandResult, ValidationError | ConnectionError | ExecutionError]:
+    def execute(
+        self, request: WriteFileRequest
+    ) -> Result[CommandResult, ValidationError | ConnectionError | ExecutionError]:
         """Write a file to the system."""
         try:
             # Validate path for security
@@ -260,55 +280,69 @@ class WriteFileUseCase:
         except ValueError as e:
             # Path validation errors
             if "path traversal" in str(e).lower():
-                return Result.error(ValidationError(
-                    code="PATH_TRAVERSAL",
-                    message=str(e),
-                    details={"path": request.path}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="PATH_TRAVERSAL",
+                        message=str(e),
+                        details={"path": request.path},
+                    )
+                )
             elif "sensitive path" in str(e).lower():
-                return Result.error(ValidationError(
-                    code="SENSITIVE_PATH",
-                    message=str(e),
-                    details={"path": request.path}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="SENSITIVE_PATH",
+                        message=str(e),
+                        details={"path": request.path},
+                    )
+                )
             elif "absolute path" in str(e).lower():
-                return Result.error(ValidationError(
-                    code="RELATIVE_PATH",
-                    message=str(e),
-                    details={"path": request.path}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="RELATIVE_PATH",
+                        message=str(e),
+                        details={"path": request.path},
+                    )
+                )
             else:
-                return Result.error(ValidationError(
-                    code="INVALID_PATH",
-                    message=str(e),
-                    details={"path": request.path}
-                ))
+                return Result.error(
+                    ValidationError(
+                        code="INVALID_PATH",
+                        message=str(e),
+                        details={"path": request.path},
+                    )
+                )
         except OSError as e:
-            return Result.error(ConnectionError(
-                code="FILE_WRITE_CONNECTION_FAILED",
-                message=f"Failed to connect for file write: {e}",
-                details={"path": request.path, "error": str(e)}
-            ))
+            return Result.error(
+                ConnectionError(
+                    code="FILE_WRITE_CONNECTION_FAILED",
+                    message=f"Failed to connect for file write: {e}",
+                    details={"path": request.path, "error": str(e)},
+                )
+            )
         except Exception as e:
-            return Result.error(ExecutionError(
-                code="FILE_WRITE_FAILED",
-                message="Failed to write file",
-                command=f"write file {request.path}",
-                exit_code=1,
-                stderr=str(e)
-            ))
+            return Result.error(
+                ExecutionError(
+                    code="FILE_WRITE_FAILED",
+                    message="Failed to write file",
+                    command=f"write file {request.path}",
+                    exit_code=1,
+                    stderr=str(e),
+                )
+            )
 
     def _write_file_via_command(self, path: str, content: str) -> CommandResult:
         """Write file content using command execution."""
         import shlex
 
         # Create parent directories if they don't exist
-        parent_dir = path.rsplit('/', 1)[0] if '/' in path else '/'
-        if parent_dir != '/':
+        parent_dir = path.rsplit("/", 1)[0] if "/" in path else "/"
+        if parent_dir != "/":
             mkdir_command = f"mkdir -p {shlex.quote(parent_dir)}"
             mkdir_result = self._client.execute_command(mkdir_command)
             if not mkdir_result.success:
-                raise OSError(f"Failed to create parent directories: {mkdir_result.stderr}")
+                raise OSError(
+                    f"Failed to create parent directories: {mkdir_result.stderr}"
+                )
 
         # Handle empty content case
         if not content:

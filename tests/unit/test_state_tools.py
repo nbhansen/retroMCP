@@ -9,6 +9,7 @@ from retromcp.config import RetroPieConfig
 from retromcp.domain.models import HardwareInfo
 from retromcp.domain.models import NetworkInterface
 from retromcp.domain.models import NetworkStatus
+from retromcp.domain.models import Result
 from retromcp.domain.models import ServiceStatus
 from retromcp.domain.models import SoftwareInfo
 from retromcp.domain.models import StateAction
@@ -98,7 +99,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -119,7 +120,7 @@ class TestStateTools:
         self, state_tools: StateTools, mock_container: Mock
     ) -> None:
         """Test handling save action."""
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.SAVE,
@@ -138,7 +139,7 @@ class TestStateTools:
         self, state_tools: StateTools, mock_container: Mock
     ) -> None:
         """Test handling save action with force_scan."""
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.SAVE,
@@ -163,7 +164,7 @@ class TestStateTools:
         self, state_tools: StateTools, mock_container: Mock
     ) -> None:
         """Test handling update action."""
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.UPDATE,
@@ -196,7 +197,7 @@ class TestStateTools:
             "removed": {},
         }
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.COMPARE,
@@ -224,7 +225,7 @@ class TestStateTools:
         """Test handling compare action with no differences."""
         diff = {"added": {}, "changed": {}, "removed": {}}
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.COMPARE,
@@ -288,9 +289,12 @@ class TestStateTools:
         self, state_tools: StateTools, mock_container: Mock
     ) -> None:
         """Test handling error from use case."""
-        mock_container.manage_state_use_case.execute.return_value = (
-            StateManagementResult(
-                success=False, action=StateAction.LOAD, message="File not found"
+        from retromcp.domain.models import ValidationError
+
+        mock_container.manage_state_use_case.execute.return_value = Result.error(
+            ValidationError(
+                code="STATE_FILE_NOT_FOUND",
+                message="State file not found - run save first",
             )
         )
 
@@ -298,7 +302,8 @@ class TestStateTools:
 
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert "File not found" in result[0].text
+        assert "State management failed" in result[0].text
+        assert "State file not found" in result[0].text
 
     @pytest.mark.asyncio
     async def test_handle_exception(
@@ -379,7 +384,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -416,7 +421,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -455,7 +460,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -492,7 +497,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -526,7 +531,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -560,7 +565,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -595,7 +600,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -627,7 +632,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -670,7 +675,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -711,7 +716,7 @@ class TestStateTools:
             known_issues=[],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -746,7 +751,7 @@ class TestStateTools:
             known_issues=["Audio lag in N64 games", "Controller disconnect issue"],
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -805,7 +810,7 @@ class TestStateTools:
             hardware=hardware_info,
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -860,7 +865,7 @@ class TestStateTools:
             network=network_interfaces,
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -909,7 +914,7 @@ class TestStateTools:
             software=software_info,
         )
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.LOAD,
@@ -937,7 +942,7 @@ class TestStateTools:
         """Test handling export action with formatting."""
         exported_json = '{"system": {"hostname": "retropie"}}'
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.EXPORT,
@@ -962,7 +967,7 @@ class TestStateTools:
         self, state_tools: StateTools, mock_container: Mock
     ) -> None:
         """Test handling import action with formatting."""
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.IMPORT,
@@ -988,7 +993,7 @@ class TestStateTools:
         self, state_tools: StateTools, mock_container: Mock
     ) -> None:
         """Test handling watch action with formatting."""
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.WATCH,
@@ -1018,7 +1023,7 @@ class TestStateTools:
             "removed": {"system.old_field": "old_value", "emulators.removed": "data"},
         }
 
-        mock_container.manage_state_use_case.execute.return_value = (
+        mock_container.manage_state_use_case.execute.return_value = Result.success(
             StateManagementResult(
                 success=True,
                 action=StateAction.DIFF,

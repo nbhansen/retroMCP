@@ -1,7 +1,8 @@
 """Domain models for RetroMCP."""
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Any
 from typing import Dict
@@ -770,6 +771,20 @@ class ConnectionError(DomainError):
 
 
 @dataclass(frozen=True)
+class TimeoutError(DomainError):
+    """Command timeout failures."""
+
+    pass
+
+
+@dataclass(frozen=True)
+class AuthenticationError(DomainError):
+    """SSH authentication failures."""
+
+    pass
+
+
+@dataclass(frozen=True)
 class ExecutionError:
     """Command execution failures."""
 
@@ -779,3 +794,121 @@ class ExecutionError:
     exit_code: int
     stderr: str
     details: Optional[Dict[str, Any]] = None
+
+
+# ES Systems Configuration Models
+
+
+@dataclass(frozen=True)
+class SystemDefinition:
+    """EmulationStation system definition from es_systems.cfg."""
+
+    name: str
+    fullname: str
+    path: str
+    extensions: List[str]
+    command: str
+    platform: Optional[str] = None
+    theme: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        """Ensure extensions list is immutable by creating a copy."""
+        # Create an immutable copy of the extensions list
+        object.__setattr__(self, "extensions", list(self.extensions))
+
+
+@dataclass(frozen=True)
+class ESSystemsConfig:
+    """Complete EmulationStation systems configuration."""
+
+    systems: List[SystemDefinition]
+
+
+# Command Queue Domain Models
+
+
+class CommandStatus(Enum):
+    """Status of a queued command."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    CANCELLED = "cancelled"
+
+
+@dataclass
+class QueuedCommand:
+    """Represents a command in the queue."""
+
+    id: str
+    command: str
+    description: str
+    status: CommandStatus = CommandStatus.PENDING
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "command": self.command,
+            "description": self.description,
+            "status": self.status.value,
+            "result": self.result,
+            "error": self.error,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+        }
+
+
+@dataclass
+class CommandQueue:
+    """Manages a queue of commands."""
+
+    id: str
+    name: str
+    commands: List[QueuedCommand] = field(default_factory=list)
+    current_index: int = 0
+    created_at: datetime = field(default_factory=datetime.now)
+    auto_execute: bool = False
+    pause_between: int = 2  # seconds
+
+    def add_command(self, command: str, description: str) -> QueuedCommand:
+        """Add a command to the queue."""
+        cmd_id = f"{self.id}_{len(self.commands)}"
+        cmd = QueuedCommand(id=cmd_id, command=command, description=description)
+        self.commands.append(cmd)
+        return cmd
+
+    def get_current(self) -> Optional[QueuedCommand]:
+        """Get the current command to execute."""
+        if self.current_index < len(self.commands):
+            return self.commands[self.current_index]
+        return None
+
+    def get_next_pending(self) -> Optional[QueuedCommand]:
+        """Get the next pending command."""
+        for cmd in self.commands[self.current_index :]:
+            if cmd.status == CommandStatus.PENDING:
+                return cmd
+        return None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "commands": [cmd.to_dict() for cmd in self.commands],
+            "current_index": self.current_index,
+            "created_at": self.created_at.isoformat(),
+            "auto_execute": self.auto_execute,
+            "pause_between": self.pause_between,
+            "completed": sum(
+                1 for cmd in self.commands if cmd.status == CommandStatus.COMPLETED
+            ),
+            "total": len(self.commands),
+        }

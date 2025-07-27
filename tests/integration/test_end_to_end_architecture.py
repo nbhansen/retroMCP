@@ -70,7 +70,10 @@ class TestEndToEndArchitecture:
         with patch.object(server.container, "connect", return_value=True):
             # Mock use cases to return Result patterns for different tools
             from unittest.mock import Mock
-            from retromcp.domain.models import ConnectionInfo, SystemInfo, Result
+
+            from retromcp.domain.models import ConnectionInfo
+            from retromcp.domain.models import Result
+            from retromcp.domain.models import SystemInfo
 
             # Mock connection test use case
             mock_connection_info = ConnectionInfo(
@@ -80,8 +83,12 @@ class TestEndToEndArchitecture:
                 username="test-user",
             )
             mock_connection_use_case = Mock()
-            mock_connection_use_case.execute.return_value = Result.success(mock_connection_info)
-            server.container._instances["test_connection_use_case"] = mock_connection_use_case
+            mock_connection_use_case.execute.return_value = Result.success(
+                mock_connection_info
+            )
+            server.container._instances["test_connection_use_case"] = (
+                mock_connection_use_case
+            )
 
             # Mock system info use case
             mock_system_info = SystemInfo(
@@ -97,8 +104,12 @@ class TestEndToEndArchitecture:
                 uptime=3600,
             )
             mock_system_info_use_case = Mock()
-            mock_system_info_use_case.execute.return_value = Result.success(mock_system_info)
-            server.container._instances["get_system_info_use_case"] = mock_system_info_use_case
+            mock_system_info_use_case.execute.return_value = Result.success(
+                mock_system_info
+            )
+            server.container._instances["get_system_info_use_case"] = (
+                mock_system_info_use_case
+            )
 
             # Test connection management tool
             system_result = await server.call_tool(
@@ -158,7 +169,10 @@ class TestEndToEndArchitecture:
         with patch.object(server.container, "connect", return_value=True):
             # Mock use cases that tools will call
             from unittest.mock import Mock
-            from retromcp.domain.models import ConnectionInfo, SystemInfo, Result
+
+            from retromcp.domain.models import ConnectionInfo
+            from retromcp.domain.models import Result
+            from retromcp.domain.models import SystemInfo
 
             # Mock connection use case
             mock_connection_info = ConnectionInfo(
@@ -168,8 +182,12 @@ class TestEndToEndArchitecture:
                 username="test-user",
             )
             mock_connection_use_case = Mock()
-            mock_connection_use_case.execute.return_value = Result.success(mock_connection_info)
-            server.container._instances["test_connection_use_case"] = mock_connection_use_case
+            mock_connection_use_case.execute.return_value = Result.success(
+                mock_connection_info
+            )
+            server.container._instances["test_connection_use_case"] = (
+                mock_connection_use_case
+            )
 
             # Mock system info use case
             mock_system_info = SystemInfo(
@@ -185,8 +203,12 @@ class TestEndToEndArchitecture:
                 uptime=3600,
             )
             mock_system_info_use_case = Mock()
-            mock_system_info_use_case.execute.return_value = Result.success(mock_system_info)
-            server.container._instances["get_system_info_use_case"] = mock_system_info_use_case
+            mock_system_info_use_case.execute.return_value = Result.success(
+                mock_system_info
+            )
+            server.container._instances["get_system_info_use_case"] = (
+                mock_system_info_use_case
+            )
 
             # Call multiple tools - they should share the same container instance
             await server.call_tool("manage_connection", {"action": "test"})
@@ -312,7 +334,10 @@ class TestEndToEndArchitecture:
         with patch.object(server.container, "connect", return_value=True):
             # Mock use cases for state management test
             from unittest.mock import Mock
-            from retromcp.domain.models import ConnectionInfo, SystemInfo, Result
+
+            from retromcp.domain.models import ConnectionInfo
+            from retromcp.domain.models import Result
+            from retromcp.domain.models import SystemInfo
 
             # Mock connection use case
             mock_connection_info = ConnectionInfo(
@@ -322,8 +347,12 @@ class TestEndToEndArchitecture:
                 username="test-user",
             )
             mock_connection_use_case = Mock()
-            mock_connection_use_case.execute.return_value = Result.success(mock_connection_info)
-            server.container._instances["test_connection_use_case"] = mock_connection_use_case
+            mock_connection_use_case.execute.return_value = Result.success(
+                mock_connection_info
+            )
+            server.container._instances["test_connection_use_case"] = (
+                mock_connection_use_case
+            )
 
             # Mock system info use case
             mock_system_info = SystemInfo(
@@ -339,13 +368,15 @@ class TestEndToEndArchitecture:
                 uptime=3600,
             )
             mock_system_info_use_case = Mock()
-            mock_system_info_use_case.execute.return_value = Result.success(mock_system_info)
-            server.container._instances["get_system_info_use_case"] = mock_system_info_use_case
+            mock_system_info_use_case.execute.return_value = Result.success(
+                mock_system_info
+            )
+            server.container._instances["get_system_info_use_case"] = (
+                mock_system_info_use_case
+            )
 
             # First request
-            result1 = await server.call_tool(
-                "manage_connection", {"action": "test"}
-            )
+            result1 = await server.call_tool("manage_connection", {"action": "test"})
             assert len(result1) == 1
 
             # Second request - should reuse same container state

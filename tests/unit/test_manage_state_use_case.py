@@ -274,6 +274,51 @@ class TestManageStateUseCase:
         assert "added" in result.diff
         assert "changed" in result.diff
 
+    def test_export_state_success(
+        self,
+        use_case: ManageStateUseCase,
+        mock_state_repository: Mock,
+    ) -> None:
+        """Test successful state export."""
+        # Mock export result
+        export_result = StateManagementResult(
+            success=True,
+            action=StateAction.EXPORT,
+            message="State exported successfully",
+            exported_data='{"system": {"hostname": "retropie"}}',
+        )
+        mock_state_repository.export_state.return_value = export_result
+
+        request = StateManagementRequest(action=StateAction.EXPORT)
+        result = use_case.execute(request)
+
+        assert result.is_success()
+        result_value = result.value
+        assert result_value.success is True
+        assert result_value.action == StateAction.EXPORT
+        assert result_value.exported_data == '{"system": {"hostname": "retropie"}}'
+        assert "exported successfully" in result_value.message
+        mock_state_repository.export_state.assert_called_once()
+
+    def test_export_state_failure(
+        self,
+        use_case: ManageStateUseCase,
+        mock_state_repository: Mock,
+    ) -> None:
+        """Test state export failure."""
+        # Mock export exception
+        mock_state_repository.export_state.side_effect = Exception("Export failed")
+
+        request = StateManagementRequest(action=StateAction.EXPORT)
+        result = use_case.execute(request)
+
+        assert result.is_error()
+        error = result.error_or_none
+        assert error.code == "STATE_OPERATION_FAILED"
+        assert "Failed to execute state operation" in error.message
+        assert "Export failed" in error.stderr
+        mock_state_repository.export_state.assert_called_once()
+
     def test_invalid_action(self, use_case: ManageStateUseCase) -> None:
         """Test handling of invalid action."""
         # Create a mock action that's not in our expected set
@@ -283,5 +328,7 @@ class TestManageStateUseCase:
 
         result = use_case.execute(invalid_request)
 
-        assert result.success is False
-        assert "Unknown action" in result.message
+        assert result.is_error()
+        error = result.error
+        assert error.code == "UNKNOWN_ACTION"
+        assert "Unknown action" in error.message

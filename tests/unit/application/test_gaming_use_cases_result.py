@@ -86,7 +86,9 @@ class TestDetectControllersUseCaseResult:
         """Test that execute returns Result.error when controller detection fails."""
         # Arrange
         # Mock detect_controllers to raise Python exception
-        self.mock_controller_repo.detect_controllers.side_effect = OSError("Unable to access USB controller interface")
+        self.mock_controller_repo.detect_controllers.side_effect = OSError(
+            "Unable to access USB controller interface"
+        )
 
         # Act
         result = self.use_case.execute()
@@ -97,7 +99,9 @@ class TestDetectControllersUseCaseResult:
         assert result.is_error()
         assert isinstance(result.error_or_none, ConnectionError)
         assert result.error_or_none.code == "CONTROLLER_CONNECTION_FAILED"
-        assert "Failed to connect to controller interface" in result.error_or_none.message
+        assert (
+            "Failed to connect to controller interface" in result.error_or_none.message
+        )
 
 
 class TestSetupControllerUseCaseResult:
@@ -125,7 +129,9 @@ class TestSetupControllerUseCaseResult:
                 product_id="02ea",
             )
         ]
-        self.mock_controller_repo.detect_controllers.return_value = available_controllers
+        self.mock_controller_repo.detect_controllers.return_value = (
+            available_controllers
+        )
 
         # Mock setup_controller to return success result
         setup_result = CommandResult(
@@ -174,7 +180,9 @@ class TestSetupControllerUseCaseResult:
         controller_device_path = "/dev/input/js0"
 
         # Mock detect_controllers to raise Python exception
-        self.mock_controller_repo.detect_controllers.side_effect = OSError("Failed to scan for controllers")
+        self.mock_controller_repo.detect_controllers.side_effect = OSError(
+            "Failed to scan for controllers"
+        )
 
         # Act
         result = self.use_case.execute(controller_device_path)
@@ -202,11 +210,15 @@ class TestSetupControllerUseCaseResult:
                 product_id="02ea",
             )
         ]
-        self.mock_controller_repo.detect_controllers.return_value = available_controllers
+        self.mock_controller_repo.detect_controllers.return_value = (
+            available_controllers
+        )
 
         # Mock setup_controller to raise exception
         # Mock setup_controller to raise Python exception
-        self.mock_controller_repo.setup_controller.side_effect = RuntimeError("Failed to configure controller drivers")
+        self.mock_controller_repo.setup_controller.side_effect = RuntimeError(
+            "Failed to configure controller drivers"
+        )
 
         # Act
         result = self.use_case.execute(controller_device_path)
@@ -235,7 +247,9 @@ class TestInstallEmulatorUseCaseResult:
         # Mock get_emulators to return available emulators including the target
         available_emulators = [
             Emulator(name="mupen64plus", system="n64", status=EmulatorStatus.INSTALLED),
-            Emulator(name="pcsx-rearmed", system="psx", status=EmulatorStatus.INSTALLED),
+            Emulator(
+                name="pcsx-rearmed", system="psx", status=EmulatorStatus.INSTALLED
+            ),
         ]
         self.mock_emulator_repo.get_emulators.return_value = available_emulators
 
@@ -285,7 +299,9 @@ class TestInstallEmulatorUseCaseResult:
         # Mock get_emulators to return available emulators NOT including the target
         available_emulators = [
             Emulator(name="mupen64plus", system="n64", status=EmulatorStatus.INSTALLED),
-            Emulator(name="pcsx-rearmed", system="psx", status=EmulatorStatus.INSTALLED),
+            Emulator(
+                name="pcsx-rearmed", system="psx", status=EmulatorStatus.INSTALLED
+            ),
         ]
         self.mock_emulator_repo.get_emulators.return_value = available_emulators
 
@@ -306,7 +322,9 @@ class TestInstallEmulatorUseCaseResult:
         emulator_name = "mupen64plus"
 
         # Mock get_emulators to raise a Python exception
-        self.mock_emulator_repo.get_emulators.side_effect = OSError("Failed to connect to RetroPie system")
+        self.mock_emulator_repo.get_emulators.side_effect = OSError(
+            "Failed to connect to RetroPie system"
+        )
 
         # Act
         result = self.use_case.execute(emulator_name)
@@ -326,12 +344,16 @@ class TestInstallEmulatorUseCaseResult:
         # Mock get_emulators to return available emulators including the target
         available_emulators = [
             Emulator(name="mupen64plus", system="n64", status=EmulatorStatus.INSTALLED),
-            Emulator(name="pcsx-rearmed", system="psx", status=EmulatorStatus.INSTALLED),
+            Emulator(
+                name="pcsx-rearmed", system="psx", status=EmulatorStatus.INSTALLED
+            ),
         ]
         self.mock_emulator_repo.get_emulators.return_value = available_emulators
 
         # Mock install_emulator to raise an exception
-        self.mock_emulator_repo.install_emulator.side_effect = Exception("Installation failed")
+        self.mock_emulator_repo.install_emulator.side_effect = Exception(
+            "Installation failed"
+        )
 
         # Act
         result = self.use_case.execute(emulator_name)
@@ -392,8 +414,8 @@ class TestListRomsUseCaseResult:
         assert all(isinstance(rom_dir, RomDirectory) for rom_dir in result.value)
         # Should be sorted by ROM count descending
         assert result.value[0].rom_count == 150  # nes
-        assert result.value[1].rom_count == 89   # snes
-        assert result.value[2].rom_count == 12   # n64
+        assert result.value[1].rom_count == 89  # snes
+        assert result.value[2].rom_count == 12  # n64
 
     def test_execute_returns_result_success_with_system_filter(self):
         """Test that execute returns Result.success with system filtering applied."""
@@ -463,7 +485,9 @@ class TestListRomsUseCaseResult:
         """Test that execute returns Result.error when ROM directory listing fails."""
         # Arrange
         # Mock get_rom_directories to raise Python exception
-        self.mock_emulator_repo.get_rom_directories.side_effect = PermissionError("Failed to access ROM directories")
+        self.mock_emulator_repo.get_rom_directories.side_effect = PermissionError(
+            "Failed to access ROM directories"
+        )
 
         # Act
         result = self.use_case.execute()

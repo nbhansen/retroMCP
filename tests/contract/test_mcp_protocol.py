@@ -143,11 +143,11 @@ class TestMCPToolCompliance:
             # Should have tools from different functional areas
             tool_names = [tool.name for tool in tools]
             expected_tools = [
-                "manage_gaming",     # Covers retropie, emulationstation, controller functionality
-                "manage_hardware",   # Hardware monitoring and management
-                "get_system_info",   # System information retrieval
-                "manage_package",    # Package management
-                "manage_state",      # State management
+                "manage_gaming",  # Covers retropie, emulationstation, controller functionality
+                "manage_hardware",  # Hardware monitoring and management
+                "get_system_info",  # System information retrieval
+                "manage_package",  # Package management
+                "manage_state",  # State management
             ]
             for tool in expected_tools:
                 assert tool in tool_names, (

@@ -1,12 +1,11 @@
 """Test ServiceManagementTools following TDD methodology and Result pattern."""
 
 from unittest.mock import Mock
-from typing import List
 
 import pytest
-from mcp.types import TextContent, ImageContent, EmbeddedResource
+from mcp.types import TextContent
 
-from retromcp.domain.models import CommandResult, Result, DomainError
+from retromcp.domain.models import CommandResult
 from retromcp.tools.service_management_tools import ServiceManagementTools
 
 
@@ -31,23 +30,25 @@ class TestServiceManagementTools:
 
     # Tool Schema Tests
 
-    def test_get_tools_returns_correct_schema(self, service_tools: ServiceManagementTools) -> None:
+    def test_get_tools_returns_correct_schema(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test get_tools returns correct tool schema."""
         tools = service_tools.get_tools()
-        
+
         assert len(tools) == 1
         tool = tools[0]
-        
+
         assert tool.name == "manage_service"
         assert "Manage system services" in tool.description
-        
+
         # Verify schema structure
         schema = tool.inputSchema
         assert schema["type"] == "object"
         assert "action" in schema["properties"]
         assert "name" in schema["properties"]
         assert schema["required"] == ["action", "name"]
-        
+
         # Verify action enum
         action_enum = schema["properties"]["action"]["enum"]
         expected_actions = ["start", "stop", "restart", "enable", "disable", "status"]
@@ -56,7 +57,9 @@ class TestServiceManagementTools:
     # Service Start Operation Tests
 
     @pytest.mark.asyncio
-    async def test_start_service_success(self, service_tools: ServiceManagementTools) -> None:
+    async def test_start_service_success(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test successful service start operation."""
         # Mock successful command execution
         mock_result = CommandResult(
@@ -67,7 +70,9 @@ class TestServiceManagementTools:
             success=True,
             execution_time=2.5,
         )
-        service_tools.container.retropie_client.execute_command.return_value = mock_result
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
 
         # Execute service start
         result = await service_tools.handle_tool_call(
@@ -84,7 +89,9 @@ class TestServiceManagementTools:
         )
 
     @pytest.mark.asyncio
-    async def test_start_service_failure(self, service_tools: ServiceManagementTools) -> None:
+    async def test_start_service_failure(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test failed service start operation."""
         # Mock failed command execution
         mock_result = CommandResult(
@@ -95,7 +102,9 @@ class TestServiceManagementTools:
             success=False,
             execution_time=1.0,
         )
-        service_tools.container.retropie_client.execute_command.return_value = mock_result
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
 
         # Execute service start
         result = await service_tools.handle_tool_call(
@@ -106,12 +115,17 @@ class TestServiceManagementTools:
         # Verify error result
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert "Failed to start service nginx: Failed to start nginx.service" in result[0].text
+        assert (
+            "Failed to start service nginx: Failed to start nginx.service"
+            in result[0].text
+        )
 
     # Service Stop Operation Tests
 
     @pytest.mark.asyncio
-    async def test_stop_service_success(self, service_tools: ServiceManagementTools) -> None:
+    async def test_stop_service_success(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test successful service stop operation."""
         mock_result = CommandResult(
             command="sudo systemctl stop apache2",
@@ -121,7 +135,9 @@ class TestServiceManagementTools:
             success=True,
             execution_time=1.5,
         )
-        service_tools.container.retropie_client.execute_command.return_value = mock_result
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
 
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -138,7 +154,9 @@ class TestServiceManagementTools:
     # Service Restart Operation Tests
 
     @pytest.mark.asyncio
-    async def test_restart_service_success(self, service_tools: ServiceManagementTools) -> None:
+    async def test_restart_service_success(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test successful service restart operation."""
         mock_result = CommandResult(
             command="sudo systemctl restart ssh",
@@ -148,7 +166,9 @@ class TestServiceManagementTools:
             success=True,
             execution_time=3.0,
         )
-        service_tools.container.retropie_client.execute_command.return_value = mock_result
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
 
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -165,7 +185,9 @@ class TestServiceManagementTools:
     # Service Enable Operation Tests
 
     @pytest.mark.asyncio
-    async def test_enable_service_success(self, service_tools: ServiceManagementTools) -> None:
+    async def test_enable_service_success(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test successful service enable operation."""
         mock_result = CommandResult(
             command="sudo systemctl enable docker",
@@ -175,7 +197,9 @@ class TestServiceManagementTools:
             success=True,
             execution_time=1.0,
         )
-        service_tools.container.retropie_client.execute_command.return_value = mock_result
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
 
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -193,7 +217,9 @@ class TestServiceManagementTools:
     # Service Disable Operation Tests
 
     @pytest.mark.asyncio
-    async def test_disable_service_success(self, service_tools: ServiceManagementTools) -> None:
+    async def test_disable_service_success(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test successful service disable operation."""
         mock_result = CommandResult(
             command="sudo systemctl disable bluetooth",
@@ -203,7 +229,9 @@ class TestServiceManagementTools:
             success=True,
             execution_time=0.8,
         )
-        service_tools.container.retropie_client.execute_command.return_value = mock_result
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
 
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -221,7 +249,9 @@ class TestServiceManagementTools:
     # Service Status Operation Tests
 
     @pytest.mark.asyncio
-    async def test_status_service_success(self, service_tools: ServiceManagementTools) -> None:
+    async def test_status_service_success(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test successful service status operation."""
         mock_result = CommandResult(
             command="systemctl status nginx --no-pager",
@@ -231,7 +261,9 @@ class TestServiceManagementTools:
             success=True,
             execution_time=0.5,
         )
-        service_tools.container.retropie_client.execute_command.return_value = mock_result
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
 
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -249,7 +281,9 @@ class TestServiceManagementTools:
     # Error Handling Tests
 
     @pytest.mark.asyncio
-    async def test_unknown_tool_name(self, service_tools: ServiceManagementTools) -> None:
+    async def test_unknown_tool_name(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test handling of unknown tool name."""
         result = await service_tools.handle_tool_call(
             "unknown_tool",
@@ -261,7 +295,9 @@ class TestServiceManagementTools:
         assert "Unknown tool: unknown_tool" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_missing_action_parameter(self, service_tools: ServiceManagementTools) -> None:
+    async def test_missing_action_parameter(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test handling of missing action parameter."""
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -273,7 +309,9 @@ class TestServiceManagementTools:
         assert "Both 'action' and 'name' are required" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_missing_name_parameter(self, service_tools: ServiceManagementTools) -> None:
+    async def test_missing_name_parameter(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test handling of missing name parameter."""
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -285,7 +323,9 @@ class TestServiceManagementTools:
         assert "Both 'action' and 'name' are required" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_empty_action_parameter(self, service_tools: ServiceManagementTools) -> None:
+    async def test_empty_action_parameter(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test handling of empty action parameter."""
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -297,7 +337,9 @@ class TestServiceManagementTools:
         assert "Both 'action' and 'name' are required" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_empty_name_parameter(self, service_tools: ServiceManagementTools) -> None:
+    async def test_empty_name_parameter(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test handling of empty name parameter."""
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -321,10 +363,14 @@ class TestServiceManagementTools:
         assert "Unknown action: unknown" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_exception_handling(self, service_tools: ServiceManagementTools) -> None:
+    async def test_exception_handling(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test handling of exceptions during execution."""
         # Mock exception during command execution
-        service_tools.container.retropie_client.execute_command.side_effect = Exception("Connection failed")
+        service_tools.container.retropie_client.execute_command.side_effect = Exception(
+            "Connection failed"
+        )
 
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -338,7 +384,9 @@ class TestServiceManagementTools:
     # Edge Cases and Additional Coverage
 
     @pytest.mark.asyncio
-    async def test_service_with_special_characters(self, service_tools: ServiceManagementTools) -> None:
+    async def test_service_with_special_characters(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test service management with special characters in service name."""
         mock_result = CommandResult(
             command="sudo systemctl start my-custom.service",
@@ -348,7 +396,9 @@ class TestServiceManagementTools:
             success=True,
             execution_time=1.0,
         )
-        service_tools.container.retropie_client.execute_command.return_value = mock_result
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
 
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -360,7 +410,9 @@ class TestServiceManagementTools:
         assert "my-custom.service start: Started my-custom.service" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_service_command_with_stderr_output(self, service_tools: ServiceManagementTools) -> None:
+    async def test_service_command_with_stderr_output(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
         """Test service command that succeeds but has stderr output."""
         mock_result = CommandResult(
             command="systemctl status unknown-service --no-pager",
@@ -370,7 +422,9 @@ class TestServiceManagementTools:
             success=True,
             execution_time=0.3,
         )
-        service_tools.container.retropie_client.execute_command.return_value = mock_result
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
 
         result = await service_tools.handle_tool_call(
             "manage_service",
@@ -381,3 +435,146 @@ class TestServiceManagementTools:
         assert isinstance(result[0], TextContent)
         assert "unknown-service status:" in result[0].text
         assert "Active: inactive (dead)" in result[0].text
+
+    # Service Not Found Tests
+
+    @pytest.mark.asyncio
+    async def test_service_not_found_on_start(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
+        """Test handling when service doesn't exist during start operation."""
+        # Mock service not found error
+        mock_result = CommandResult(
+            command="sudo systemctl start emulationstation",
+            exit_code=5,
+            stdout="",
+            stderr="Unit emulationstation.service could not be found.",
+            success=False,
+            execution_time=0.2,
+        )
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
+
+        result = await service_tools.handle_tool_call(
+            "manage_service",
+            {"action": "start", "name": "emulationstation"},
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        # Updated to expect improved error message
+        assert "Service 'emulationstation' not found on the system" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_service_not_found_on_status(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
+        """Test handling when service doesn't exist during status check."""
+        # Mock service not found error
+        mock_result = CommandResult(
+            command="systemctl status emulationstation --no-pager",
+            exit_code=4,
+            stdout="",
+            stderr="Unit emulationstation.service could not be found.",
+            success=False,
+            execution_time=0.1,
+        )
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
+
+        result = await service_tools.handle_tool_call(
+            "manage_service",
+            {"action": "status", "name": "emulationstation"},
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        # Updated to expect improved error message
+        assert "Service 'emulationstation' not found on the system" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_service_not_found_with_improved_detection(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
+        """Test service detection before attempting operations."""
+        # Mock service not found error with specific exit code
+        mock_result = CommandResult(
+            command="sudo systemctl start emulationstation",
+            exit_code=5,  # systemctl returns 5 for "unit not found"
+            stdout="",
+            stderr="Unit emulationstation.service could not be found.",
+            success=False,
+            execution_time=0.2,
+        )
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
+
+        result = await service_tools.handle_tool_call(
+            "manage_service",
+            {"action": "start", "name": "emulationstation"},
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        # Check for improved error handling
+        assert "Service 'emulationstation' not found on the system" in result[0].text
+        assert "verify the service is installed" in result[0].text
+        assert "systemctl list-unit-files --type=service" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_service_not_found_exit_code_4(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
+        """Test handling of exit code 4 for service not found."""
+        # Mock service not found error with exit code 4
+        mock_result = CommandResult(
+            command="systemctl status emulationstation --no-pager",
+            exit_code=4,
+            stdout="",
+            stderr="Unit emulationstation.service could not be found.",
+            success=False,
+            execution_time=0.1,
+        )
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
+
+        result = await service_tools.handle_tool_call(
+            "manage_service",
+            {"action": "status", "name": "emulationstation"},
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "Service 'emulationstation' not found on the system" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_service_no_such_unit_error(
+        self, service_tools: ServiceManagementTools
+    ) -> None:
+        """Test handling of 'no such unit' error message."""
+        # Mock service not found with different error message
+        mock_result = CommandResult(
+            command="sudo systemctl restart nonexistent",
+            exit_code=1,
+            stdout="",
+            stderr="Failed to restart nonexistent.service: Unit nonexistent.service not found.",
+            success=False,
+            execution_time=0.2,
+        )
+        service_tools.container.retropie_client.execute_command.return_value = (
+            mock_result
+        )
+
+        result = await service_tools.handle_tool_call(
+            "manage_service",
+            {"action": "restart", "name": "nonexistent"},
+        )
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        # Should still show normal error since it's exit code 1
+        assert "Failed to restart service nonexistent" in result[0].text

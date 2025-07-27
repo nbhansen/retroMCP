@@ -49,7 +49,13 @@ class TestManageStateUseCaseResult:
         return Mock(spec=ControllerRepository)
 
     @pytest.fixture
-    def use_case(self, mock_state_repo, mock_system_repo, mock_emulator_repo, mock_controller_repo):
+    def use_case(
+        self,
+        mock_state_repo,
+        mock_system_repo,
+        mock_emulator_repo,
+        mock_controller_repo,
+    ):
         """Create ManageStateUseCase instance."""
         return ManageStateUseCase(
             state_repository=mock_state_repo,
@@ -78,7 +84,11 @@ class TestManageStateUseCaseResult:
             },
             emulators={
                 "installed": ["mupen64plus", "pcsx-rearmed", "snes9x"],
-                "preferred": {"n64": "mupen64plus", "psx": "pcsx-rearmed", "snes": "snes9x"},
+                "preferred": {
+                    "n64": "mupen64plus",
+                    "psx": "pcsx-rearmed",
+                    "snes": "snes9x",
+                },
             },
             controllers=[
                 {"type": "xbox", "device": "/dev/input/js0", "configured": True},
@@ -98,7 +108,9 @@ class TestManageStateUseCaseResult:
         )
 
     # Success cases
-    def test_execute_returns_result_success_when_load_state_succeeds(self, use_case, mock_state_repo, sample_system_state):
+    def test_execute_returns_result_success_when_load_state_succeeds(
+        self, use_case, mock_state_repo, sample_system_state
+    ):
         """Test that execute returns Result.success when loading state succeeds."""
         # Arrange
         request = StateManagementRequest(action=StateAction.LOAD)
@@ -118,7 +130,12 @@ class TestManageStateUseCaseResult:
         assert value.state == sample_system_state
 
     def test_execute_returns_result_success_when_save_state_succeeds(
-        self, use_case, mock_state_repo, mock_system_repo, mock_emulator_repo, mock_controller_repo
+        self,
+        use_case,
+        mock_state_repo,
+        mock_system_repo,
+        mock_emulator_repo,
+        mock_controller_repo,
     ):
         """Test that execute returns Result.success when saving state succeeds."""
         # Arrange
@@ -142,7 +159,9 @@ class TestManageStateUseCaseResult:
         # Mock emulators
         emulators = [
             Emulator(name="mupen64plus", system="n64", status=EmulatorStatus.INSTALLED),
-            Emulator(name="pcsx-rearmed", system="psx", status=EmulatorStatus.INSTALLED),
+            Emulator(
+                name="pcsx-rearmed", system="psx", status=EmulatorStatus.INSTALLED
+            ),
             Emulator(name="snes9x", system="snes", status=EmulatorStatus.INSTALLED),
         ]
         mock_emulator_repo.get_emulators.return_value = emulators
@@ -161,8 +180,20 @@ class TestManageStateUseCaseResult:
 
         # Mock ROM directories
         rom_dirs = [
-            RomDirectory(system="n64", path="/home/pi/RetroPie/roms/n64", rom_count=25, total_size=1024000000, supported_extensions=[".n64"]),
-            RomDirectory(system="psx", path="/home/pi/RetroPie/roms/psx", rom_count=50, total_size=2048000000, supported_extensions=[".bin"]),
+            RomDirectory(
+                system="n64",
+                path="/home/pi/RetroPie/roms/n64",
+                rom_count=25,
+                total_size=1024000000,
+                supported_extensions=[".n64"],
+            ),
+            RomDirectory(
+                system="psx",
+                path="/home/pi/RetroPie/roms/psx",
+                rom_count=50,
+                total_size=2048000000,
+                supported_extensions=[".bin"],
+            ),
         ]
         mock_emulator_repo.get_rom_directories.return_value = rom_dirs
 
@@ -184,7 +215,9 @@ class TestManageStateUseCaseResult:
         assert result.value.action == StateAction.SAVE
         assert "saved successfully" in result.value.message
 
-    def test_execute_returns_result_success_when_update_state_succeeds(self, use_case, mock_state_repo):
+    def test_execute_returns_result_success_when_update_state_succeeds(
+        self, use_case, mock_state_repo
+    ):
         """Test that execute returns Result.success when updating state succeeds."""
         # Arrange
         request = StateManagementRequest(
@@ -210,7 +243,13 @@ class TestManageStateUseCaseResult:
         assert result.value.action == StateAction.UPDATE
 
     def test_execute_returns_result_success_when_compare_state_succeeds(
-        self, use_case, mock_state_repo, mock_system_repo, mock_emulator_repo, mock_controller_repo, sample_system_state
+        self,
+        use_case,
+        mock_state_repo,
+        mock_system_repo,
+        mock_emulator_repo,
+        mock_controller_repo,
+        sample_system_state,
     ):
         """Test that execute returns Result.success when comparing state succeeds."""
         # Arrange
@@ -282,11 +321,15 @@ class TestManageStateUseCaseResult:
         assert result.error_or_none.code == "UNKNOWN_ACTION"
         assert "Unknown action" in result.error_or_none.message
 
-    def test_execute_returns_result_error_when_load_state_file_not_found(self, use_case, mock_state_repo):
+    def test_execute_returns_result_error_when_load_state_file_not_found(
+        self, use_case, mock_state_repo
+    ):
         """Test that execute returns Result.error when state file not found."""
         # Arrange
         request = StateManagementRequest(action=StateAction.LOAD)
-        mock_state_repo.load_state.side_effect = FileNotFoundError("State file not found")
+        mock_state_repo.load_state.side_effect = FileNotFoundError(
+            "State file not found"
+        )
 
         # Act
         result = use_case.execute(request)
@@ -298,10 +341,14 @@ class TestManageStateUseCaseResult:
         assert result.error_or_none.code == "STATE_FILE_NOT_FOUND"
         assert "State file not found" in result.error_or_none.message
 
-    def test_execute_returns_result_error_when_update_missing_path_or_value(self, use_case):
+    def test_execute_returns_result_error_when_update_missing_path_or_value(
+        self, use_case
+    ):
         """Test that execute returns Result.error when update is missing path or value."""
         # Arrange
-        request = StateManagementRequest(action=StateAction.UPDATE)  # Missing path and value
+        request = StateManagementRequest(
+            action=StateAction.UPDATE
+        )  # Missing path and value
 
         # Act
         result = use_case.execute(request)
@@ -314,7 +361,12 @@ class TestManageStateUseCaseResult:
         assert "Path and value required" in result.error_or_none.message
 
     def test_execute_returns_result_error_when_system_repo_fails(
-        self, use_case, mock_system_repo, mock_emulator_repo, mock_controller_repo, mock_state_repo
+        self,
+        use_case,
+        mock_system_repo,
+        mock_emulator_repo,
+        mock_controller_repo,
+        mock_state_repo,
     ):
         """Test that execute returns Result.error when system repository fails."""
         # Arrange
@@ -322,7 +374,9 @@ class TestManageStateUseCaseResult:
 
         # Mock system repo to return error Result
         mock_system_repo.get_system_info.return_value = Result.error(
-            ConnectionError(code="SSH_CONNECTION_FAILED", message="Failed to connect to SSH")
+            ConnectionError(
+                code="SSH_CONNECTION_FAILED", message="Failed to connect to SSH"
+            )
         )
 
         # Act
@@ -335,7 +389,12 @@ class TestManageStateUseCaseResult:
         assert result.error_or_none.code == "SSH_CONNECTION_FAILED"
 
     def test_execute_returns_result_error_when_repository_throws_exception(
-        self, use_case, mock_system_repo, mock_emulator_repo, mock_controller_repo, mock_state_repo
+        self,
+        use_case,
+        mock_system_repo,
+        mock_emulator_repo,
+        mock_controller_repo,
+        mock_state_repo,
     ):
         """Test that execute returns Result.error when repository throws exception."""
         # Arrange
@@ -369,7 +428,12 @@ class TestManageStateUseCaseResult:
         assert "Connection lost" in result.error_or_none.message
 
     def test_execute_returns_result_error_when_compare_without_stored_state(
-        self, use_case, mock_state_repo, mock_system_repo, mock_emulator_repo, mock_controller_repo
+        self,
+        use_case,
+        mock_state_repo,
+        mock_system_repo,
+        mock_emulator_repo,
+        mock_controller_repo,
     ):
         """Test that execute returns Result.error when comparing without stored state."""
         # Arrange
@@ -390,7 +454,12 @@ class TestManageStateUseCaseResult:
 
     # Edge cases
     def test_execute_handles_empty_emulator_list(
-        self, use_case, mock_state_repo, mock_system_repo, mock_emulator_repo, mock_controller_repo
+        self,
+        use_case,
+        mock_state_repo,
+        mock_system_repo,
+        mock_emulator_repo,
+        mock_controller_repo,
     ):
         """Test that execute handles empty emulator list correctly."""
         # Arrange
@@ -436,7 +505,12 @@ class TestManageStateUseCaseResult:
         assert saved_state.emulators["preferred"] == {}
 
     def test_execute_handles_repository_returning_non_result_types(
-        self, use_case, mock_state_repo, mock_system_repo, mock_emulator_repo, mock_controller_repo
+        self,
+        use_case,
+        mock_state_repo,
+        mock_system_repo,
+        mock_emulator_repo,
+        mock_controller_repo,
     ):
         """Test that execute handles repositories that don't return Result types."""
         # Arrange

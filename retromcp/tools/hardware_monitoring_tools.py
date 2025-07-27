@@ -250,34 +250,14 @@ class HardwareMonitoringTools(BaseTool):
         output = "🌡️ **Temperature Status**\n\n"
 
         try:
-            # Get CPU temperature
-            cpu_result = self.container.retropie_client.execute_command(
-                "vcgencmd measure_temp"
-            )
-            if cpu_result.success and cpu_result.stdout:
-                cpu_temp_str = cpu_result.stdout.strip()
-                if "temp=" in cpu_temp_str:
-                    cpu_temp = float(cpu_temp_str.split("=")[1].rstrip("'C"))
-                    cpu_status = self._get_temperature_status(cpu_temp)
-                    output += f"CPU: {cpu_status} {cpu_temp}°C\n"
-                else:
-                    output += "CPU: ❓ Unable to read temperature\n"
+            # Get SoC temperature (CPU and GPU share the same sensor on Raspberry Pi)
+            temp_result = await self._get_soc_temperature()
+            if temp_result is not None:
+                temp_status = self._get_temperature_status(temp_result)
+                output += f"CPU: {temp_status} {temp_result}°C\n"
+                output += f"GPU: {temp_status} {temp_result}°C (shared sensor)\n"
             else:
                 output += "CPU: ❌ Failed to read temperature\n"
-
-            # Get GPU temperature
-            gpu_result = self.container.retropie_client.execute_command(
-                "vcgencmd measure_temp gpu"
-            )
-            if gpu_result.success and gpu_result.stdout:
-                gpu_temp_str = gpu_result.stdout.strip()
-                if "temp=" in gpu_temp_str:
-                    gpu_temp = float(gpu_temp_str.split("=")[1].rstrip("'C"))
-                    gpu_status = self._get_temperature_status(gpu_temp)
-                    output += f"GPU: {gpu_status} {gpu_temp}°C\n"
-                else:
-                    output += "GPU: ❓ Unable to read temperature\n"
-            else:
                 output += "GPU: ❌ Failed to read temperature\n"
 
             # Check throttling status
@@ -313,6 +293,31 @@ class HardwareMonitoringTools(BaseTool):
     async def _inspect_temperature_details(self) -> List[TextContent]:
         """Inspect detailed temperature information."""
         return self.format_info("Temperature inspection not yet implemented")
+
+    async def _get_soc_temperature(self) -> float | None:
+        """Get SoC temperature using fallback method chain."""
+        try:
+            # Try vcgencmd first (primary method)
+            result = self.container.retropie_client.execute_command(
+                "vcgencmd measure_temp"
+            )
+            if result.success and result.stdout and "temp=" in result.stdout:
+                temp_str = result.stdout.strip()
+                return float(temp_str.split("=")[1].rstrip("'C"))
+
+            # Fallback to thermal zone (alternative method)
+            thermal_result = self.container.retropie_client.execute_command(
+                "cat /sys/class/thermal/thermal_zone0/temp"
+            )
+            if thermal_result.success and thermal_result.stdout.strip().isdigit():
+                return float(thermal_result.stdout.strip()) / 1000.0
+
+            # If both methods fail, return None
+            return None
+
+        except (ValueError, IndexError, AttributeError):
+            # Handle parsing errors gracefully
+            return None
 
     # Fan monitoring methods
 

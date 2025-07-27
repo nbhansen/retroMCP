@@ -43,7 +43,9 @@ class TestExecuteCommandUseCaseResult:
         )
 
     # Success cases
-    def test_execute_returns_result_success_when_command_succeeds(self, use_case, mock_client, sample_command_result):
+    def test_execute_returns_result_success_when_command_succeeds(
+        self, use_case, mock_client, sample_command_result
+    ):
         """Test that execute returns Result.success when command execution succeeds."""
         # Arrange
         request = ExecuteCommandRequest(
@@ -67,7 +69,9 @@ class TestExecuteCommandUseCaseResult:
         assert result.value.stdout == "Hello World\n"
         mock_client.execute_command.assert_called_once_with("echo 'Hello World'")
 
-    def test_execute_returns_result_success_when_sudo_command_succeeds(self, use_case, mock_client):
+    def test_execute_returns_result_success_when_sudo_command_succeeds(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.success when sudo command succeeds."""
         # Arrange
         request = ExecuteCommandRequest(
@@ -97,7 +101,9 @@ class TestExecuteCommandUseCaseResult:
         assert "Reading package lists... Done" in result.value.stdout
         mock_client.execute_command.assert_called_once_with("sudo apt-get update")
 
-    def test_execute_returns_result_success_when_command_with_timeout_succeeds(self, use_case, mock_client):
+    def test_execute_returns_result_success_when_command_with_timeout_succeeds(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.success when command with timeout succeeds."""
         # Arrange
         request = ExecuteCommandRequest(
@@ -124,9 +130,13 @@ class TestExecuteCommandUseCaseResult:
         assert isinstance(result, Result)
         assert result.is_success()
         assert "PING google.com" in result.value.stdout
-        mock_client.execute_command.assert_called_once_with("timeout 10 ping -c 3 google.com")
+        mock_client.execute_command.assert_called_once_with(
+            "timeout 10 ping -c 3 google.com"
+        )
 
-    def test_execute_returns_result_success_when_monitoring_command_succeeds(self, use_case, mock_client):
+    def test_execute_returns_result_success_when_monitoring_command_succeeds(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.success when monitoring command succeeds."""
         # Arrange
         request = ExecuteCommandRequest(
@@ -155,7 +165,9 @@ class TestExecuteCommandUseCaseResult:
         assert "top - 15:30:01" in result.value.stdout
         mock_client.execute_monitoring_command.assert_called_once_with("top -n 1")
 
-    def test_execute_returns_result_success_when_safe_pipe_command_succeeds(self, use_case, mock_client):
+    def test_execute_returns_result_success_when_safe_pipe_command_succeeds(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.success when safe pipe command succeeds."""
         # Arrange
         request = ExecuteCommandRequest(
@@ -184,7 +196,9 @@ class TestExecuteCommandUseCaseResult:
         assert "python3 script.py" in result.value.stdout
 
     # Error cases
-    def test_execute_returns_result_error_when_dangerous_command_detected(self, use_case, mock_client):
+    def test_execute_returns_result_error_when_dangerous_command_detected(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.error when dangerous command is detected."""
         # Arrange
         request = ExecuteCommandRequest(
@@ -206,7 +220,9 @@ class TestExecuteCommandUseCaseResult:
         assert "dangerous pattern" in result.error_or_none.message
         mock_client.execute_command.assert_not_called()
 
-    def test_execute_returns_result_error_when_command_injection_detected(self, use_case, mock_client):
+    def test_execute_returns_result_error_when_command_injection_detected(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.error when command injection is detected."""
         # Arrange - use a command that has dangerous operators but no dangerous patterns
         request = ExecuteCommandRequest(
@@ -227,7 +243,9 @@ class TestExecuteCommandUseCaseResult:
         assert result.error_or_none.code == "COMMAND_INJECTION"
         assert "dangerous operators" in result.error_or_none.message
 
-    def test_execute_returns_result_error_when_command_substitution_detected(self, use_case, mock_client):
+    def test_execute_returns_result_error_when_command_substitution_detected(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.error when command substitution is detected."""
         # Arrange
         request = ExecuteCommandRequest(
@@ -248,7 +266,9 @@ class TestExecuteCommandUseCaseResult:
         assert result.error_or_none.code == "DANGEROUS_COMMAND"
         assert "dangerous pattern" in result.error_or_none.message
 
-    def test_execute_returns_result_error_when_client_throws_exception(self, use_case, mock_client):
+    def test_execute_returns_result_error_when_client_throws_exception(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.error when client throws exception."""
         # Arrange
         request = ExecuteCommandRequest(
@@ -260,7 +280,7 @@ class TestExecuteCommandUseCaseResult:
         )
         mock_client.execute_command.side_effect = ConnectionError(
             code="SSH_CONNECTION_LOST",
-            message="SSH connection was lost during command execution"
+            message="SSH connection was lost during command execution",
         )
 
         # Act
@@ -273,7 +293,9 @@ class TestExecuteCommandUseCaseResult:
         assert result.error_or_none.code == "COMMAND_EXECUTION_FAILED"
         assert "Command execution failed" in result.error_or_none.message
 
-    def test_execute_returns_result_error_when_monitoring_command_fails(self, use_case, mock_client):
+    def test_execute_returns_result_error_when_monitoring_command_fails(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.error when monitoring command fails."""
         # Arrange
         request = ExecuteCommandRequest(
@@ -283,7 +305,9 @@ class TestExecuteCommandUseCaseResult:
             timeout=None,
             mode=CommandExecutionMode.MONITORING,
         )
-        mock_client.execute_monitoring_command.side_effect = OSError("Terminal not available")
+        mock_client.execute_monitoring_command.side_effect = OSError(
+            "Terminal not available"
+        )
 
         # Act
         result = use_case.execute(request)
@@ -389,13 +413,12 @@ class TestWriteFileUseCaseResult:
         return WriteFileUseCase(mock_client)
 
     # Success cases
-    def test_execute_returns_result_success_when_file_write_succeeds(self, use_case, mock_client):
+    def test_execute_returns_result_success_when_file_write_succeeds(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.success when file write succeeds."""
         # Arrange
-        request = WriteFileRequest(
-            path="/home/pi/test.txt",
-            content="Hello, World!"
-        )
+        request = WriteFileRequest(path="/home/pi/test.txt", content="Hello, World!")
 
         # Mock mkdir command result
         mkdir_result = CommandResult(
@@ -430,12 +453,14 @@ class TestWriteFileUseCaseResult:
         assert result.value.success is True
         assert mock_client.execute_command.call_count == 2
 
-    def test_execute_returns_result_success_when_config_file_write_succeeds(self, use_case, mock_client):
+    def test_execute_returns_result_success_when_config_file_write_succeeds(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.success when config file write succeeds."""
         # Arrange
         request = WriteFileRequest(
             path="/opt/retropie/configs/all/retroarch.cfg",
-            content="input_driver = \"sdl2\"\nvideo_driver = \"gl\""
+            content='input_driver = "sdl2"\nvideo_driver = "gl"',
         )
         expected_result = CommandResult(
             command="cat > '/opt/retropie/configs/all/retroarch.cfg' << 'EOF'\ninput_driver = \"sdl2\"\nvideo_driver = \"gl\"\nEOF",
@@ -456,12 +481,13 @@ class TestWriteFileUseCaseResult:
         assert result.value.success is True
 
     # Error cases
-    def test_execute_returns_result_error_when_path_traversal_detected(self, use_case, mock_client):
+    def test_execute_returns_result_error_when_path_traversal_detected(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.error when path traversal is detected."""
         # Arrange
         request = WriteFileRequest(
-            path="/home/pi/../../../etc/passwd",
-            content="malicious content"
+            path="/home/pi/../../../etc/passwd", content="malicious content"
         )
 
         # Act
@@ -475,13 +501,12 @@ class TestWriteFileUseCaseResult:
         assert "path traversal" in result.error_or_none.message.lower()
         mock_client.execute_command.assert_not_called()
 
-    def test_execute_returns_result_error_when_sensitive_path_detected(self, use_case, mock_client):
+    def test_execute_returns_result_error_when_sensitive_path_detected(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.error when writing to sensitive path."""
         # Arrange
-        request = WriteFileRequest(
-            path="/etc/passwd",
-            content="malicious content"
-        )
+        request = WriteFileRequest(path="/etc/passwd", content="malicious content")
 
         # Act
         result = use_case.execute(request)
@@ -493,13 +518,12 @@ class TestWriteFileUseCaseResult:
         assert result.error_or_none.code == "SENSITIVE_PATH"
         assert "sensitive path" in result.error_or_none.message.lower()
 
-    def test_execute_returns_result_error_when_relative_path_used(self, use_case, mock_client):
+    def test_execute_returns_result_error_when_relative_path_used(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.error when relative path is used."""
         # Arrange
-        request = WriteFileRequest(
-            path="relative/path/file.txt",
-            content="content"
-        )
+        request = WriteFileRequest(path="relative/path/file.txt", content="content")
 
         # Act
         result = use_case.execute(request)
@@ -511,13 +535,12 @@ class TestWriteFileUseCaseResult:
         assert result.error_or_none.code == "RELATIVE_PATH"
         assert "absolute path" in result.error_or_none.message.lower()
 
-    def test_execute_returns_result_error_when_repository_fails(self, use_case, mock_client):
+    def test_execute_returns_result_error_when_repository_fails(
+        self, use_case, mock_client
+    ):
         """Test that execute returns Result.error when repository fails."""
         # Arrange
-        request = WriteFileRequest(
-            path="/home/pi/test.txt",
-            content="content"
-        )
+        request = WriteFileRequest(path="/home/pi/test.txt", content="content")
         mock_client.execute_command.side_effect = OSError("Permission denied")
 
         # Act
@@ -534,10 +557,7 @@ class TestWriteFileUseCaseResult:
     def test_execute_handles_empty_content(self, use_case, mock_client):
         """Test that execute handles empty content."""
         # Arrange
-        request = WriteFileRequest(
-            path="/home/pi/empty.txt",
-            content=""
-        )
+        request = WriteFileRequest(path="/home/pi/empty.txt", content="")
         expected_result = CommandResult(
             command="touch /home/pi/empty.txt",
             exit_code=0,
@@ -561,7 +581,7 @@ class TestWriteFileUseCaseResult:
         # Arrange
         request = WriteFileRequest(
             path="/home/pi/special.txt",
-            content="Special chars: !@#$%^&*(){}[]|\\:;\"'<>?,./"
+            content="Special chars: !@#$%^&*(){}[]|\\:;\"'<>?,./",
         )
         expected_result = CommandResult(
             command="cat > /home/pi/special.txt",

@@ -105,7 +105,7 @@ class TestSystemManagementToolsWorkflow:
 
         # Import Result to create proper mock return value
         from retromcp.domain.models import Result
-        
+
         mock_use_case = Mock()
         mock_use_case.execute.return_value = Result.success(mock_system_info)
         system_tools.container.get_system_info_use_case = mock_use_case
@@ -149,15 +149,16 @@ class TestSystemManagementToolsWorkflow:
         self._verify_claude_md_compliance(test_config)
 
         # Mock the install_packages use case that the tool actually calls
-        from retromcp.domain.models import CommandResult, Result
-        
+        from retromcp.domain.models import CommandResult
+        from retromcp.domain.models import Result
+
         mock_command_result = CommandResult(
             command="apt install htop vim",
             exit_code=0,
             stdout="Successfully installed htop, vim",
             stderr="",
             success=True,
-            execution_time=5.2
+            execution_time=5.2,
         )
 
         mock_use_case = Mock()

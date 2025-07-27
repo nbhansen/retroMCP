@@ -8,6 +8,8 @@ from mcp.types import TextContent
 from retromcp.config import RetroPieConfig
 from retromcp.discovery import RetroPiePaths
 from retromcp.domain.models import CommandResult
+from retromcp.domain.models import ExecutionError
+from retromcp.domain.models import Result
 from retromcp.tools.package_management_tools import PackageManagementTools
 
 
@@ -98,16 +100,17 @@ class TestPackageManagementTools:
         self, package_tools: PackageManagementTools
     ) -> None:
         """Test successful package installation."""
-        # Mock successful installation through use case
-        package_tools.container.install_packages_use_case.execute.return_value = (
-            CommandResult(
-                command="sudo apt-get install -y test-package",
-                exit_code=0,
-                stdout="Successfully installed test-package",
-                stderr="",
-                success=True,
-                execution_time=30.0,
-            )
+        # Mock successful installation through use case - return Result.success
+        install_result = CommandResult(
+            command="sudo apt-get install -y test-package",
+            exit_code=0,
+            stdout="Successfully installed test-package",
+            stderr="",
+            success=True,
+            execution_time=30.0,
+        )
+        package_tools.container.install_packages_use_case.execute.return_value = Result.success(
+            install_result
         )
 
         # Execute package installation
@@ -173,16 +176,16 @@ class TestPackageManagementTools:
         self, package_tools: PackageManagementTools
     ) -> None:
         """Test install failure from use case."""
-        # Mock failed installation
-        package_tools.container.install_packages_use_case.execute.return_value = (
-            CommandResult(
-                command="sudo apt-get install -y non-existent-package",
-                exit_code=1,
-                stdout="",
-                stderr="E: Unable to locate package non-existent-package",
-                success=False,
-                execution_time=5.0,
-            )
+        # Mock failed installation - return Result.error with ExecutionError
+        install_error = ExecutionError(
+            code="PACKAGE_INSTALL_FAILED",
+            message="Package installation failed: E: Unable to locate package non-existent-package",
+            command="sudo apt-get install -y non-existent-package",
+            exit_code=100,
+            stderr="E: Unable to locate package non-existent-package",
+        )
+        package_tools.container.install_packages_use_case.execute.return_value = Result.error(
+            install_error
         )
 
         # Execute package installation
@@ -198,7 +201,7 @@ class TestPackageManagementTools:
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "❌" in result[0].text
-        assert "failed to install packages" in result[0].text.lower()
+        assert "package installation failed" in result[0].text.lower()
         assert "unable to locate package" in result[0].text.lower()
 
     # Package Remove Tests
@@ -630,15 +633,37 @@ class TestPackageManagementTools:
         self, package_tools: PackageManagementTools
     ) -> None:
         """Test successful package check for installed packages."""
-        # Mock package check output showing installed packages
-        package_tools.container.retropie_client.execute_command.return_value = CommandResult(
-            command="dpkg -l python3 vim 2>/dev/null | grep '^ii'",
-            exit_code=0,
-            stdout="ii  python3        3.9.2  amd64  Interactive high-level object-oriented language\nii  vim            8.2.2434  amd64  Vi IMproved - enhanced vi editor",
-            stderr="",
-            success=True,
-            execution_time=1.0,
-        )
+        # Mock individual package check calls - new implementation checks each package separately
+        def mock_execute_command(command: str) -> CommandResult:
+            if "dpkg -l python3" in command:
+                return CommandResult(
+                    command=command,
+                    exit_code=0,
+                    stdout="ii  python3        3.9.2  amd64  Interactive high-level object-oriented language",
+                    stderr="",
+                    success=True,
+                    execution_time=0.5,
+                )
+            elif "dpkg -l vim" in command:
+                return CommandResult(
+                    command=command,
+                    exit_code=0,
+                    stdout="ii  vim            8.2.2434  amd64  Vi IMproved - enhanced vi editor",
+                    stderr="",
+                    success=True,
+                    execution_time=0.5,
+                )
+            else:
+                return CommandResult(
+                    command=command,
+                    exit_code=1,
+                    stdout="",
+                    stderr="Unknown command",
+                    success=False,
+                    execution_time=0.1,
+                )
+
+        package_tools.container.retropie_client.execute_command.side_effect = mock_execute_command
 
         # Execute package check
         result = await package_tools.handle_tool_call(
@@ -655,28 +680,48 @@ class TestPackageManagementTools:
         assert "Package Status Check:" in result[0].text
         assert "✅ python3: Installed" in result[0].text
         assert "✅ vim: Installed" in result[0].text
+        assert "Summary: 2/2 installed" in result[0].text
 
-        # Verify command was called
-        package_tools.container.retropie_client.execute_command.assert_called_once_with(
-            "dpkg -l python3 vim 2>/dev/null | grep '^ii'"
-        )
+        # Verify individual commands were called
+        assert package_tools.container.retropie_client.execute_command.call_count == 2
 
     @pytest.mark.asyncio
     async def test_check_packages_not_found(
         self, package_tools: PackageManagementTools
     ) -> None:
         """Test package check when no packages are found."""
-        # Mock package check output with no installed packages
-        package_tools.container.retropie_client.execute_command.return_value = (
-            CommandResult(
-                command="dpkg -l non-existent-package 2>/dev/null | grep '^ii'",
-                exit_code=0,
-                stdout="",  # Empty output means no packages found
-                stderr="",
-                success=True,
-                execution_time=0.5,
-            )
-        )
+        # Mock individual package check calls for non-existent package
+        def mock_execute_command(command: str) -> CommandResult:
+            if "dpkg -l non-existent-package" in command:
+                return CommandResult(
+                    command=command,
+                    exit_code=0,
+                    stdout="",  # Empty output means package not installed
+                    stderr="",
+                    success=True,
+                    execution_time=0.5,
+                )
+            elif "apt-cache show non-existent-package" in command:
+                # Simulate package doesn't exist in repos
+                return CommandResult(
+                    command=command,
+                    exit_code=0,
+                    stdout="not_found",
+                    stderr="",
+                    success=True,
+                    execution_time=0.3,
+                )
+            else:
+                return CommandResult(
+                    command=command,
+                    exit_code=1,
+                    stdout="",
+                    stderr="Unknown command",
+                    success=False,
+                    execution_time=0.1,
+                )
+
+        package_tools.container.retropie_client.execute_command.side_effect = mock_execute_command
 
         # Execute package check
         result = await package_tools.handle_tool_call(
@@ -687,11 +732,11 @@ class TestPackageManagementTools:
             },
         )
 
-        # Verify error message
+        # Verify specific package status message (improved from generic error)
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert "❌" in result[0].text
-        assert "no packages found" in result[0].text.lower()
+        assert "Package Status Check:" in result[0].text
+        assert "❌ non-existent-package: Not installed" in result[0].text
 
     @pytest.mark.asyncio
     async def test_check_packages_missing_packages_error(

@@ -52,11 +52,13 @@ class TestSSHConnectionIntegration:
 
         # Mock the use case to return a connection error
         mock_use_case = Mock()
-        mock_use_case.execute.return_value = Result.error(ConnectionError(
-            code="SSH_CONNECTION_FAILED",
-            message="SSH connection failed",
-            details={"host": "test-retropie.local"}
-        ))
+        mock_use_case.execute.return_value = Result.error(
+            ConnectionError(
+                code="SSH_CONNECTION_FAILED",
+                message="SSH connection failed",
+                details={"host": "test-retropie.local"},
+            )
+        )
         container._instances["get_system_info_use_case"] = mock_use_case
 
         # Create tools with container
@@ -129,14 +131,17 @@ class TestSSHConnectionIntegration:
         container = Container(test_config)
 
         # Mock use case to return authentication error via Result pattern
-        from retromcp.domain.models import ConnectionError, Result
+        from retromcp.domain.models import ConnectionError
+        from retromcp.domain.models import Result
 
         mock_use_case = Mock()
-        mock_use_case.execute.return_value = Result.error(ConnectionError(
-            code="SSH_AUTHENTICATION_FAILED",
-            message="Authentication failed",
-            details={"error": "Permission denied (publickey,password)"}
-        ))
+        mock_use_case.execute.return_value = Result.error(
+            ConnectionError(
+                code="SSH_AUTHENTICATION_FAILED",
+                message="Authentication failed",
+                details={"error": "Permission denied (publickey,password)"},
+            )
+        )
         container._instances["get_system_info_use_case"] = mock_use_case
 
         # Create tools with container
@@ -238,7 +243,7 @@ class TestErrorRecoveryIntegration:
         container = Container(test_config)
 
         # Mock use case to return successful Result with partial system info
-        from retromcp.domain.models import SystemInfo, Result
+        from retromcp.domain.models import Result
 
         mock_system_info = SystemInfo(
             hostname="retropie-test",
@@ -252,7 +257,7 @@ class TestErrorRecoveryIntegration:
             load_average=[0.5, 0.3, 0.2],
             uptime=3600,
         )
-        
+
         mock_use_case = Mock()
         mock_use_case.execute.return_value = Result.success(mock_system_info)
         container._instances["get_system_info_use_case"] = mock_use_case
@@ -279,7 +284,7 @@ class TestErrorRecoveryIntegration:
         assert "memory" in response_text.lower() or "512" in response_text, (
             "Should include successful memory data"
         )
-        
+
         # Verify use case was called
         mock_use_case.execute.assert_called_once()
 
@@ -306,7 +311,8 @@ class TestConcurrentOperationsIntegration:
         container = Container(test_config)
 
         # Mock use cases for concurrent operations test
-        from retromcp.domain.models import SystemInfo, CommandResult, Result
+        from retromcp.domain.models import CommandResult
+        from retromcp.domain.models import Result
 
         # Mock system info use case
         mock_system_info = SystemInfo(
@@ -322,7 +328,9 @@ class TestConcurrentOperationsIntegration:
             uptime=7200,
         )
         mock_system_info_use_case = Mock()
-        mock_system_info_use_case.execute.return_value = Result.success(mock_system_info)
+        mock_system_info_use_case.execute.return_value = Result.success(
+            mock_system_info
+        )
         container._instances["get_system_info_use_case"] = mock_system_info_use_case
 
         # Mock SSH client for hardware tools that use direct command execution
@@ -369,7 +377,9 @@ class TestConcurrentOperationsIntegration:
             )
 
         # Verify use case was called for system info operations
-        assert mock_system_info_use_case.execute.call_count >= 2  # System info called twice
+        assert (
+            mock_system_info_use_case.execute.call_count >= 2
+        )  # System info called twice
 
     @pytest.mark.asyncio
     async def test_resource_cleanup_on_error(self, test_config: RetroPieConfig) -> None:
@@ -428,14 +438,17 @@ class TestEndToEndErrorScenarios:
         container = Container(test_config)
 
         # Mock use case to return network error via Result pattern
-        from retromcp.domain.models import ConnectionError, Result
+        from retromcp.domain.models import ConnectionError
+        from retromcp.domain.models import Result
 
         mock_use_case = Mock()
-        mock_use_case.execute.return_value = Result.error(ConnectionError(
-            code="NETWORK_UNREACHABLE",
-            message="Network is unreachable",
-            details={"error": "No route to host"}
-        ))
+        mock_use_case.execute.return_value = Result.error(
+            ConnectionError(
+                code="NETWORK_UNREACHABLE",
+                message="Network is unreachable",
+                details={"error": "No route to host"},
+            )
+        )
         container._instances["get_system_info_use_case"] = mock_use_case
 
         # Create tools with container
@@ -456,8 +469,7 @@ class TestEndToEndErrorScenarios:
             word in response_text for word in ["error", "failed"]
         ), "Should indicate error in text"
         assert any(
-            word in response_text
-            for word in ["network", "unreachable", "connection"]
+            word in response_text for word in ["network", "unreachable", "connection"]
         ), "Should mention network issue in error message"
 
     @pytest.mark.asyncio

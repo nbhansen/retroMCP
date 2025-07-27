@@ -27,6 +27,25 @@ class TestGamingSystemTools:
         mock.retropie_client.execute_command = Mock()
         mock.config = test_config
 
+        # Mock structured logger
+        mock.structured_logger = Mock()
+        mock.structured_logger.generate_correlation_id = Mock(
+            return_value="test-correlation-123"
+        )
+        mock.structured_logger.set_context = Mock()
+        mock.structured_logger.clear_context = Mock()
+        mock.structured_logger.info = Mock()
+        mock.structured_logger.warning = Mock()
+        mock.structured_logger.error = Mock()
+        mock.structured_logger.audit_user_action = Mock()
+        mock.structured_logger.audit_security_event = Mock()
+
+        # Mock performance timing context manager
+        context_manager = Mock()
+        context_manager.__enter__ = Mock()
+        context_manager.__exit__ = Mock()
+        mock.structured_logger.performance_timing = Mock(return_value=context_manager)
+
         # Mock use cases
         mock.detect_controllers_use_case = Mock()
         mock.setup_controller_use_case = Mock()

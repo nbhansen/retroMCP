@@ -33,6 +33,7 @@ from .infrastructure import SSHSystemRepository
 from .infrastructure.cache_system import SystemCache
 from .infrastructure.ssh_docker_repository import SSHDockerRepository
 from .infrastructure.ssh_state_repository import SSHStateRepository
+from .infrastructure.structured_logger import StructuredLogger
 from .ssh_handler import RetroPieSSH
 
 logger = logging.getLogger(__name__)
@@ -104,6 +105,14 @@ class Container:
         return self._get_or_create(
             "system_cache",
             lambda: SystemCache(),
+        )
+
+    @property
+    def structured_logger(self) -> StructuredLogger:
+        """Get structured logger instance."""
+        return self._get_or_create(
+            "structured_logger",
+            lambda: StructuredLogger(logging.getLogger("retromcp.tools")),
         )
 
     @property

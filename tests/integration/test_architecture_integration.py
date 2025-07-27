@@ -237,7 +237,9 @@ class TestArchitecturalIntegration:
         with patch.object(server.container, "connect", return_value=True):
             # Replace the retropie_client with a mock
             from unittest.mock import Mock
-            from retromcp.domain.models import ConnectionInfo, Result
+
+            from retromcp.domain.models import ConnectionInfo
+            from retromcp.domain.models import Result
 
             mock_client = Mock()
             mock_execute = mock_client.execute_command
@@ -256,9 +258,9 @@ class TestArchitecturalIntegration:
                 connected=True,
                 host=test_config.host,
                 port=test_config.port,
-                username=test_config.username
+                username=test_config.username,
             )
-            
+
             mock_use_case = Mock()
             mock_use_case.execute.return_value = Result.success(mock_connection_info)
             server.container._instances["test_connection_use_case"] = mock_use_case
@@ -314,18 +316,23 @@ class TestArchitecturalIntegration:
 
         # Mock use case to return error Result instead of raising exception
         from unittest.mock import Mock
-        from retromcp.domain.models import ConnectionError, Result
+
+        from retromcp.domain.models import ConnectionError
+        from retromcp.domain.models import Result
 
         mock_use_case = Mock()
-        mock_use_case.execute.return_value = Result.error(ConnectionError(
-            code="SSH_CONNECTION_FAILED",
-            message="SSH connection failed",
-            details={"error": "Connection refused"}
-        ))
+        mock_use_case.execute.return_value = Result.error(
+            ConnectionError(
+                code="SSH_CONNECTION_FAILED",
+                message="SSH connection failed",
+                details={"error": "Connection refused"},
+            )
+        )
         container._instances["test_connection_use_case"] = mock_use_case
 
         # Create connection tools to test error propagation through Result pattern
         from retromcp.tools.connection_management_tools import ConnectionManagementTools
+
         connection_tools = ConnectionManagementTools(container)
 
         # Error should propagate through the tool chain via Result pattern

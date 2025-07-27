@@ -12,6 +12,9 @@ from mcp.types import ImageContent
 from mcp.types import TextContent
 from mcp.types import Tool
 
+from ..infrastructure.structured_logger import AuditEvent
+from ..infrastructure.structured_logger import ErrorCategory
+from ..infrastructure.structured_logger import LogContext
 from .base import BaseTool
 
 
@@ -144,13 +147,58 @@ class GamingSystemTools(BaseTool):
         Returns:
             List of content objects with the tool's response.
         """
+        # Generate correlation ID for request tracking
+        correlation_id = self.container.structured_logger.generate_correlation_id()
+
+        # Extract component and action for context
+        component = arguments.get("component", "unknown")
+        action = arguments.get("action", "unknown")
+
+        # Set up logging context
+        context = LogContext(
+            correlation_id=correlation_id,
+            username=self.config.username,
+            component=component,
+            action=action,
+        )
+        self.container.structured_logger.set_context(context)
+
         try:
+            self.container.structured_logger.info(
+                f"Starting gaming system operation: {component}/{action}",
+                extra_data={"tool_name": name, "arguments": arguments},
+            )
+
             if name == "manage_gaming":
-                return await self._manage_gaming(arguments)
+                result = await self._manage_gaming(arguments)
+
+                # Log successful completion
+                self.container.structured_logger.info(
+                    f"Gaming system operation completed successfully: {component}/{action}"
+                )
+
+                return result
             else:
+                # Log security event for unknown tool
+                self.container.structured_logger.audit_security_event(
+                    f"Unknown tool requested: {name}",
+                    blocked_action=name,
+                    reason="unknown_tool",
+                    extra_data={"requested_tool": name},
+                )
                 return self.format_error(f"Unknown tool: {name}")
+
         except Exception as e:
+            # Log error with categorization
+            self.container.structured_logger.error(
+                f"Error in {name}: {e!s}",
+                category=ErrorCategory.SYSTEM_ERROR,
+                extra_data={"tool_name": name, "exception_type": type(e).__name__},
+            )
             return self.format_error(f"Error in {name}: {e!s}")
+        finally:
+            # Always clear context when done
+            self.container.structured_logger.clear_context()
 
     async def _manage_gaming(self, arguments: Dict[str, Any]) -> List[TextContent]:
         """Route gaming management requests to appropriate handlers."""
@@ -158,9 +206,42 @@ class GamingSystemTools(BaseTool):
         action = arguments.get("action")
 
         if not component:
+            self.container.structured_logger.error(
+                "Component is required",
+                category=ErrorCategory.VALIDATION_ERROR,
+                extra_data={"arguments": arguments},
+            )
             return self.format_error("Component is required")
+
         if not action:
+            self.container.structured_logger.error(
+                "Action is required",
+                category=ErrorCategory.VALIDATION_ERROR,
+                extra_data={"component": component, "arguments": arguments},
+            )
             return self.format_error("Action is required")
+
+        # Validate component against allowed values
+        valid_components = [
+            "retropie",
+            "emulationstation",
+            "controller",
+            "roms",
+            "emulator",
+            "audio",
+            "video",
+        ]
+        if component not in valid_components:
+            self.container.structured_logger.audit_security_event(
+                f"Invalid component requested: {component}",
+                blocked_action="manage_gaming",
+                reason="invalid_component",
+                extra_data={
+                    "requested_component": component,
+                    "valid_components": valid_components,
+                },
+            )
+            return self.format_error(f"Invalid component: {component}")
 
         # Route to appropriate component handler
         if component == "retropie":
@@ -344,30 +425,120 @@ class GamingSystemTools(BaseTool):
         """Handle RetroPie setup operations."""
         try:
             if target == "update":
-                # Use the update system use case
-                result = self.container.update_system_use_case.execute()
+                with self.container.structured_logger.performance_timing(
+                    "retropie_setup_update"
+                ):
+                    # Use the update system use case
+                    result = self.container.update_system_use_case.execute()
 
-                if result.is_error():
-                    error = result.error_or_none
-                    return self.format_error(f"System update failed: {error.message}")
+                    if result.is_error():
+                        error = result.error_or_none
 
-                command_result = result.value
-                if command_result.success:
-                    output = "🎮 **RetroPie Setup - System Update**\n\n"
-                    output += "✅ System updated successfully\n\n"
-                    if command_result.stdout:
-                        output += f"**Update Details:**\n```\n{command_result.stdout}\n```"
-                    return [TextContent(type="text", text=output)]
-                else:
-                    return self.format_error(
-                        f"System update failed: {command_result.stderr or command_result.stdout}"
-                    )
+                        # Log audit event for failed operation
+                        audit_event = AuditEvent(
+                            action="retropie_setup",
+                            target="update",
+                            success=False,
+                            details={
+                                "error_message": error.message,
+                                "error_code": getattr(error, "code", "unknown"),
+                            },
+                        )
+                        self.container.structured_logger.audit_user_action(audit_event)
+
+                        self.container.structured_logger.error(
+                            f"System update failed: {error.message}",
+                            category=ErrorCategory.COMMAND_EXECUTION_ERROR,
+                            extra_data={
+                                "target": target,
+                                "error_code": getattr(error, "code", "unknown"),
+                            },
+                        )
+                        return self.format_error(
+                            f"System update failed: {error.message}"
+                        )
+
+                    command_result = result.value
+                    if command_result.success:
+                        # Log audit event for successful operation
+                        audit_event = AuditEvent(
+                            action="retropie_setup",
+                            target="update",
+                            success=True,
+                            details={
+                                "command": command_result.command,
+                                "exit_code": command_result.exit_code,
+                                "output_length": len(command_result.stdout)
+                                if command_result.stdout
+                                else 0,
+                            },
+                        )
+                        self.container.structured_logger.audit_user_action(audit_event)
+
+                        output = "🎮 **RetroPie Setup - System Update**\n\n"
+                        output += "✅ System updated successfully\n\n"
+                        if command_result.stdout:
+                            output += f"**Update Details:**\n```\n{command_result.stdout}\n```"
+                        return [TextContent(type="text", text=output)]
+                    else:
+                        # Log audit event for command failure
+                        audit_event = AuditEvent(
+                            action="retropie_setup",
+                            target="update",
+                            success=False,
+                            details={
+                                "command": command_result.command,
+                                "exit_code": command_result.exit_code,
+                                "stderr": command_result.stderr,
+                                "stdout": command_result.stdout,
+                            },
+                        )
+                        self.container.structured_logger.audit_user_action(audit_event)
+
+                        self.container.structured_logger.error(
+                            f"System update command failed with exit code {command_result.exit_code}",
+                            category=ErrorCategory.COMMAND_EXECUTION_ERROR,
+                            extra_data={
+                                "command": command_result.command,
+                                "exit_code": command_result.exit_code,
+                                "stderr": command_result.stderr,
+                            },
+                        )
+                        return self.format_error(
+                            f"System update failed: {command_result.stderr or command_result.stdout}"
+                        )
             else:
+                # Log security event for invalid target
+                self.container.structured_logger.audit_security_event(
+                    f"Invalid RetroPie setup target requested: {target}",
+                    blocked_action="retropie_setup",
+                    reason="invalid_target",
+                    extra_data={
+                        "requested_target": target,
+                        "component": "retropie",
+                        "action": "setup",
+                    },
+                )
+
                 valid_targets = self._get_valid_targets_message("retropie", "setup")
                 return self.format_error(
                     f"Unknown RetroPie setup target: {target}. {valid_targets}"
                 )
         except Exception as e:
+            # Log audit event for exception
+            audit_event = AuditEvent(
+                action="retropie_setup",
+                target=target,
+                success=False,
+                details={"exception": str(e), "exception_type": type(e).__name__},
+            )
+            self.container.structured_logger.audit_user_action(audit_event)
+
+            self.container.structured_logger.error(
+                f"RetroPie setup failed: {e!s}",
+                category=ErrorCategory.SYSTEM_ERROR,
+                extra_data={"target": target, "exception_type": type(e).__name__},
+            )
             return self.format_error(f"RetroPie setup failed: {e!s}")
 
     async def _retropie_install(
@@ -537,38 +708,89 @@ class GamingSystemTools(BaseTool):
     async def _controller_detect(self) -> List[TextContent]:
         """Handle controller detection operations."""
         try:
-            # Use the detect controllers use case
-            result = self.container.detect_controllers_use_case.execute()
+            with self.container.structured_logger.performance_timing(
+                "controller_detect"
+            ):
+                # Use the detect controllers use case
+                result = self.container.detect_controllers_use_case.execute()
 
-            # Handle Result pattern
-            if result.is_error():
-                error = result.error_or_none
-                return self.format_error(
-                    f"Controller detection failed: {error.message}"
-                )
+                # Handle Result pattern
+                if result.is_error():
+                    error = result.error_or_none
 
-            controllers = result.value
-
-            output = "🎮 **Controller Detection**\n\n"
-
-            if controllers:
-                output += "**Detected Controllers:**\n\n"
-                for controller in controllers:
-                    status = (
-                        "✅ Connected" if controller.connected else "❌ Disconnected"
+                    # Log audit event for failed operation
+                    audit_event = AuditEvent(
+                        action="controller_detect",
+                        target="controller",
+                        success=False,
+                        details={
+                            "error_message": error.message,
+                            "error_code": getattr(error, "code", "unknown"),
+                        },
                     )
-                    output += f"• **{controller.name}** ({controller.controller_type.value})\n"
-                    output += f"  - Device: {controller.device_path}\n"
-                    output += f"  - Status: {status}\n\n"
-            else:
-                output += "❌ No controllers detected\n\n"
-                output += "**Troubleshooting:**\n"
-                output += "- Ensure controllers are properly connected\n"
-                output += "- Check USB connections\n"
-                output += "- Try unplugging and reconnecting controllers"
+                    self.container.structured_logger.audit_user_action(audit_event)
 
-            return [TextContent(type="text", text=output)]
+                    self.container.structured_logger.error(
+                        f"Controller detection failed: {error.message}",
+                        category=ErrorCategory.SYSTEM_ERROR,
+                        extra_data={"error_code": getattr(error, "code", "unknown")},
+                    )
+                    return self.format_error(
+                        f"Controller detection failed: {error.message}"
+                    )
+
+                controllers = result.value
+
+                # Log audit event for successful operation
+                audit_event = AuditEvent(
+                    action="controller_detect",
+                    target="controller",
+                    success=True,
+                    details={
+                        "controllers_found": len(controllers),
+                        "controller_types": [
+                            c.controller_type.value for c in controllers
+                        ],
+                    },
+                )
+                self.container.structured_logger.audit_user_action(audit_event)
+
+                output = "🎮 **Controller Detection**\n\n"
+
+                if controllers:
+                    output += "**Detected Controllers:**\n\n"
+                    for controller in controllers:
+                        status = (
+                            "✅ Connected"
+                            if controller.connected
+                            else "❌ Disconnected"
+                        )
+                        output += f"• **{controller.name}** ({controller.controller_type.value})\n"
+                        output += f"  - Device: {controller.device_path}\n"
+                        output += f"  - Status: {status}\n\n"
+                else:
+                    output += "❌ No controllers detected\n\n"
+                    output += "**Troubleshooting:**\n"
+                    output += "- Ensure controllers are properly connected\n"
+                    output += "- Check USB connections\n"
+                    output += "- Try unplugging and reconnecting controllers"
+
+                return [TextContent(type="text", text=output)]
         except Exception as e:
+            # Log audit event for exception
+            audit_event = AuditEvent(
+                action="controller_detect",
+                target="controller",
+                success=False,
+                details={"exception": str(e), "exception_type": type(e).__name__},
+            )
+            self.container.structured_logger.audit_user_action(audit_event)
+
+            self.container.structured_logger.error(
+                f"Controller detection failed: {e!s}",
+                category=ErrorCategory.SYSTEM_ERROR,
+                extra_data={"exception_type": type(e).__name__},
+            )
             return self.format_error(f"Controller detection failed: {e!s}")
 
     async def _controller_setup(
