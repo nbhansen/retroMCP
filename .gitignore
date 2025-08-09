@@ -34,6 +34,9 @@ env/
 *.swo
 *~
 CLAUDE.md
+.claude
+.pytest_cache
+.ruff_cache
 
 
 # Project specific

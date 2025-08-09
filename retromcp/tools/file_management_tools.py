@@ -134,7 +134,17 @@ class FileManagementTools(BaseTool):
                 if create_parents:
                     parent_cmd = f"mkdir -p $(dirname {path})"
                     client.execute_command(parent_cmd)
-                write_cmd = f"echo '{content}' > {path}"
+
+                # Use safe file writing that handles all edge cases
+                if "\n" in content:
+                    # For multiline content, use heredoc (adds trailing newline)
+                    write_cmd = f"""cat << 'EOF' > {path}
+{content}
+EOF"""
+                else:
+                    # For single-line content, use printf for exact preservation
+                    escaped_content = content.replace("'", "'\\''")
+                    write_cmd = f"printf '%s' '{escaped_content}' > {path}"
                 result = client.execute_command(write_cmd)
                 if result.success:
                     return self.format_success(f"File written successfully to {path}")
@@ -143,7 +153,17 @@ class FileManagementTools(BaseTool):
             elif action == "append":
                 if not content:
                     return self.format_error("Content is required for append action")
-                append_cmd = f"echo '{content}' >> {path}"
+
+                # Use safe file appending that handles all edge cases
+                if "\n" in content:
+                    # For multiline content, use heredoc (adds trailing newline)
+                    append_cmd = f"""cat << 'EOF' >> {path}
+{content}
+EOF"""
+                else:
+                    # For single-line content, use printf for exact preservation
+                    escaped_content = content.replace("'", "'\\''")
+                    append_cmd = f"printf '%s' '{escaped_content}' >> {path}"
                 result = client.execute_command(append_cmd)
                 if result.success:
                     return self.format_success(f"Content appended to {path}")
@@ -188,9 +208,19 @@ class FileManagementTools(BaseTool):
                     if create_parents:
                         parent_cmd = f"mkdir -p $(dirname {path})"
                         client.execute_command(parent_cmd)
-                    touch_cmd = f"touch {path}"
                     if content:
-                        touch_cmd = f"echo '{content}' > {path}"
+                        # Use safe file creation with content
+                        if "\n" in content:
+                            # For multiline content, use heredoc (adds trailing newline)
+                            touch_cmd = f"""cat << 'EOF' > {path}
+{content}
+EOF"""
+                        else:
+                            # For single-line content, use printf for exact preservation
+                            escaped_content = content.replace("'", "'\\''")
+                            touch_cmd = f"printf '%s' '{escaped_content}' > {path}"
+                    else:
+                        touch_cmd = f"touch {path}"
                     result = client.execute_command(touch_cmd)
                     if result.success:
                         return self.format_success(f"File created: {path}")

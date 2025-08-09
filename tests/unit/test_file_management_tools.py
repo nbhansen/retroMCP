@@ -346,9 +346,9 @@ class TestFileManagementTools:
         assert "File written successfully to /test/file.txt" in result[0].text
         assert "✅" in result[0].text
 
-        # Verify the correct command was called
+        # Verify the correct command was called (now uses printf for single-line content)
         file_management_tools.container.retropie_client.execute_command.assert_called_with(
-            "echo 'test content' > /test/file.txt"
+            "printf '%s' 'test content' > /test/file.txt"
         )
 
     @pytest.mark.asyncio
@@ -391,7 +391,7 @@ class TestFileManagementTools:
         calls = file_management_tools.container.retropie_client.execute_command.call_args_list
         assert len(calls) == 2
         assert "mkdir -p $(dirname /test/new/dir/file.txt)" in calls[0][0][0]
-        assert "echo 'test content' > /test/new/dir/file.txt" in calls[1][0][0]
+        assert "printf '%s' 'test content' > /test/new/dir/file.txt" in calls[1][0][0]
 
     @pytest.mark.asyncio
     async def test_write_file_missing_content(
@@ -485,7 +485,7 @@ class TestFileManagementTools:
         assert "✅" in result[0].text
 
         file_management_tools.container.retropie_client.execute_command.assert_called_with(
-            "echo 'appended content' >> /test/file.txt"
+            "printf '%s' 'appended content' >> /test/file.txt"
         )
 
     @pytest.mark.asyncio
@@ -944,7 +944,7 @@ class TestFileManagementTools:
         assert "✅" in result[0].text
 
         file_management_tools.container.retropie_client.execute_command.assert_called_with(
-            "echo 'initial content' > /test/newfile.txt"
+            "printf '%s' 'initial content' > /test/newfile.txt"
         )
 
     @pytest.mark.asyncio
