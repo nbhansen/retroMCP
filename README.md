@@ -2,9 +2,9 @@
 
 An MCP server that connects AI assistants to Raspberry Pi systems for comprehensive system administration and RetroPie management.
 
-RetroMCP enables AI assistants like Claude to help configure and manage Raspberry Pi systems through SSH connections. From gaming setup to system administration - ask questions in natural language instead of learning Linux commands.
+RetroMCP enables AI assistants like Claude to help configure and manage Raspberry Pi systems through SSH connections. From gaming setup to system administration - ask questions in natural language instead of learning Linux commands. Also work with other LLMs, even local ones (as long as they support tool calling which is generally required for MCP so)
 
-## Claude Talking to Your RetroPie Setup
+## Claude Talking to Your Raspberry Pi Setup
 
 <img src="docs/screenshots/hardware-specs.png" alt="Claude analyzing Raspberry Pi hardware specifications" width="800">
 
@@ -43,7 +43,7 @@ Raspberry Pi and RetroPie administration typically requires Linux command line e
 
 **Current Phase**: v2.0 production implementation  
 **Security Status**: Comprehensive security validation  
-**Test Coverage**: 89% overall coverage with comprehensive testing infrastructure  
+**Test Coverage**: 93% overall coverage with comprehensive testing infrastructure  
 
 ## Installation
 
@@ -57,7 +57,7 @@ On your Raspberry Pi:
 
 ### 2. Configure Passwordless Sudo (Required)
 
-**WARNING: This allows any user with SSH access to run any command as root without a password. Only do this on dedicated gaming systems.**
+**WARNING: This allows any user with SSH access to run any command as root without a password. Only do this if you know what that means - its probably not dangerous unless you are in the habit of handing out SSH access to your system like candy and allow people from outside your local LAN to SSH in but... be wary**
 
 RetroMCP requires passwordless sudo for package installation, service management, and system configuration. On your RetroPie system:
 
@@ -220,13 +220,11 @@ npx @modelcontextprotocol/inspector python -m retromcp.server
 
 ## Background
 
-- **[RetroPie](https://retropie.org.uk/)** - Retro gaming platform for Raspberry Pi
 - **[MCP](https://modelcontextprotocol.io/)** - Protocol enabling AI assistants to interact with external systems
 
 ## Documentation
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete technical architecture documentation
-- **[CLAUDE.md](CLAUDE.md)** - AI assistant development guidelines
 
 ## License
 
