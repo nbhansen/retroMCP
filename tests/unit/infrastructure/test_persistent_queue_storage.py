@@ -241,7 +241,266 @@ class TestPersistentQueueStorage:
         """Test deleting a queue that doesn't exist."""
         from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
         storage = PersistentQueueStorage(temp_storage_path)
-        
+
         result = storage.delete_queue("nonexistent")
         assert result.is_error()
         assert result.error_value.code == "QUEUE_NOT_FOUND"
+
+    # Test Case: Update queue functionality
+    def test_update_queue_success(self, temp_storage_path: str, sample_queue: CommandQueue) -> None:
+        """Test updating an existing queue."""
+        from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
+        storage = PersistentQueueStorage(temp_storage_path)
+
+        # Create queue
+        storage.create_queue(sample_queue.id, sample_queue)
+
+        # Modify and update
+        sample_queue.add_command("echo 'new command'", "New command")
+        result = storage.update_queue(sample_queue.id, sample_queue)
+
+        assert result.is_success()
+
+        # Verify update persisted
+        retrieved = storage.get_queue(sample_queue.id)
+        assert retrieved is not None
+        assert len(retrieved.commands) == 3
+
+    # Test Case: Update non-existent queue
+    def test_update_nonexistent_queue(self, temp_storage_path: str, sample_queue: CommandQueue) -> None:
+        """Test updating a queue that doesn't exist."""
+        from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
+        storage = PersistentQueueStorage(temp_storage_path)
+
+        result = storage.update_queue("nonexistent", sample_queue)
+        assert result.is_error()
+        assert result.error_value.code == "QUEUE_NOT_FOUND"
+
+    # Test Case: Update queue with save failure and rollback
+    def test_update_queue_save_failure_rollback(self, temp_storage_path: str, sample_queue: CommandQueue) -> None:
+        """Test that update queue rolls back on save failure."""
+        from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
+        storage = PersistentQueueStorage(temp_storage_path)
+
+        # Create initial queue
+        storage.create_queue(sample_queue.id, sample_queue)
+        original_command_count = len(sample_queue.commands)
+
+        # Create modified queue
+        modified_queue = CommandQueue(id=sample_queue.id, name="Modified")
+        modified_queue.add_command("new cmd", "New")
+
+        # Mock _save_queues to fail
+        with patch.object(storage, '_save_queues') as mock_save:
+            mock_save.return_value = Result.error(
+                ValidationError(code="SAVE_FAILED", message="Save failed")
+            )
+
+            result = storage.update_queue(sample_queue.id, modified_queue)
+
+            # Should return error
+            assert result.is_error()
+
+            # Verify rollback - original queue should still be in storage
+            current_queue = storage.get_queue(sample_queue.id)
+            assert current_queue is not None
+            assert len(current_queue.commands) == original_command_count
+
+    # Test Case: Delete queue with save failure and rollback
+    def test_delete_queue_save_failure_rollback(self, temp_storage_path: str, sample_queue: CommandQueue) -> None:
+        """Test that delete queue rolls back on save failure."""
+        from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
+        storage = PersistentQueueStorage(temp_storage_path)
+
+        # Create queue
+        storage.create_queue(sample_queue.id, sample_queue)
+
+        # Mock _save_queues to fail
+        with patch.object(storage, '_save_queues') as mock_save:
+            mock_save.return_value = Result.error(
+                ValidationError(code="SAVE_FAILED", message="Save failed")
+            )
+
+            result = storage.delete_queue(sample_queue.id)
+
+            # Should return error
+            assert result.is_error()
+            assert result.error_value.code == "DELETE_QUEUE_SAVE_FAILED"
+
+            # Verify rollback - queue should still exist
+            assert storage.get_queue(sample_queue.id) is not None
+
+    # Test Case: Load queues with valid data structure
+    def test_load_queues_with_valid_data(self, temp_storage_path: str) -> None:
+        """Test loading queues from file with valid data structure."""
+        from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
+
+        # Create valid queue data
+        valid_data = {
+            "test_queue": {
+                "id": "test_queue",
+                "name": "Test Queue",
+                "commands": [
+                    {
+                        "id": "cmd1",
+                        "command": "echo test",
+                        "description": "Test command",
+                        "status": "pending",
+                        "result": None,
+                        "error": None,
+                        "start_time": None,
+                        "end_time": None
+                    }
+                ],
+                "current_index": 0,
+                "auto_execute": False,
+                "pause_between": 2,
+                "created_at": "2024-01-01T00:00:00"
+            }
+        }
+
+        # Write valid data to file
+        with open(temp_storage_path, 'w') as f:
+            json.dump(valid_data, f)
+
+        # Load storage - should successfully deserialize
+        storage = PersistentQueueStorage(temp_storage_path)
+
+        # Verify queue was loaded
+        assert len(storage.list_queues()) == 1
+        queue = storage.get_queue("test_queue")
+        assert queue is not None
+        assert queue.name == "Test Queue"
+        assert len(queue.commands) == 1
+
+    # Test Case: Deserialize queue with invalid type for current_index
+    def test_deserialize_queue_invalid_current_index_type(self, temp_storage_path: str) -> None:
+        """Test deserializing queue with invalid current_index type."""
+        from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
+
+        invalid_data = {
+            "bad_queue": {
+                "id": "bad_queue",
+                "name": "Bad Queue",
+                "commands": [],
+                "current_index": "not_a_number",  # Invalid type
+                "auto_execute": False,
+                "pause_between": 2,
+                "created_at": "2024-01-01T00:00:00"
+            }
+        }
+
+        with open(temp_storage_path, 'w') as f:
+            json.dump(invalid_data, f)
+
+        storage = PersistentQueueStorage(temp_storage_path)
+
+        # Should reject invalid queue
+        assert len(storage.list_queues()) == 0
+
+    # Test Case: Deserialize queue with invalid type for pause_between
+    def test_deserialize_queue_invalid_pause_between_type(self, temp_storage_path: str) -> None:
+        """Test deserializing queue with invalid pause_between type."""
+        from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
+
+        invalid_data = {
+            "bad_queue": {
+                "id": "bad_queue",
+                "name": "Bad Queue",
+                "commands": [],
+                "current_index": 0,
+                "auto_execute": False,
+                "pause_between": "not_a_number",  # Invalid type
+                "created_at": "2024-01-01T00:00:00"
+            }
+        }
+
+        with open(temp_storage_path, 'w') as f:
+            json.dump(invalid_data, f)
+
+        storage = PersistentQueueStorage(temp_storage_path)
+
+        # Should reject invalid queue
+        assert len(storage.list_queues()) == 0
+
+    # Test Case: Deserialize queue with invalid auto_execute type
+    def test_deserialize_queue_invalid_auto_execute_type(self, temp_storage_path: str) -> None:
+        """Test deserializing queue with invalid auto_execute type."""
+        from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
+
+        invalid_data = {
+            "bad_queue": {
+                "id": "bad_queue",
+                "name": "Bad Queue",
+                "commands": [],
+                "current_index": 0,
+                "auto_execute": "not_a_bool",  # Invalid type
+                "pause_between": 2,
+                "created_at": "2024-01-01T00:00:00"
+            }
+        }
+
+        with open(temp_storage_path, 'w') as f:
+            json.dump(invalid_data, f)
+
+        storage = PersistentQueueStorage(temp_storage_path)
+
+        # Should reject invalid queue
+        assert len(storage.list_queues()) == 0
+
+    # Test Case: Deserialize queue with invalid created_at format
+    def test_deserialize_queue_invalid_created_at_format(self, temp_storage_path: str) -> None:
+        """Test deserializing queue with invalid created_at timestamp."""
+        from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
+
+        invalid_data = {
+            "test_queue": {
+                "id": "test_queue",
+                "name": "Test Queue",
+                "commands": [],
+                "current_index": 0,
+                "auto_execute": False,
+                "pause_between": 2,
+                "created_at": "not_a_valid_timestamp"
+            }
+        }
+
+        with open(temp_storage_path, 'w') as f:
+            json.dump(invalid_data, f)
+
+        storage = PersistentQueueStorage(temp_storage_path)
+
+        # Should load queue but use fallback time
+        assert len(storage.list_queues()) == 1
+        queue = storage.get_queue("test_queue")
+        assert queue is not None
+        # created_at should be set to current time as fallback
+
+    # Test Case: Update queue with exception during save
+    def test_update_queue_exception_during_save(self, temp_storage_path: str, sample_queue: CommandQueue) -> None:
+        """Test update queue handles exceptions during save."""
+        from retromcp.infrastructure.persistent_queue_storage import PersistentQueueStorage
+        storage = PersistentQueueStorage(temp_storage_path)
+
+        # Create initial queue
+        storage.create_queue(sample_queue.id, sample_queue)
+        original_command_count = len(sample_queue.commands)
+
+        # Create modified queue
+        modified_queue = CommandQueue(id=sample_queue.id, name="Modified")
+        modified_queue.add_command("new cmd", "New")
+
+        # Mock _save_queues to raise exception
+        with patch.object(storage, '_save_queues') as mock_save:
+            mock_save.side_effect = Exception("Unexpected error")
+
+            result = storage.update_queue(sample_queue.id, modified_queue)
+
+            # Should return error
+            assert result.is_error()
+            assert result.error_value.code == "UPDATE_QUEUE_FAILED"
+
+            # Verify rollback occurred
+            current_queue = storage.get_queue(sample_queue.id)
+            assert current_queue is not None
+            assert len(current_queue.commands) == original_command_count
