@@ -154,7 +154,7 @@ class TestSSHHandler:
         assert exit_code == 0
         assert stdout == "file1.txt\nfile2.txt"
         assert stderr == ""
-        mock_client.exec_command.assert_called_once_with("ls")
+        mock_client.exec_command.assert_called_once_with("ls", timeout=10)
 
     def test_execute_command_with_error(self, ssh_handler: SSHHandler) -> None:
         """Test command execution with error output."""
@@ -290,8 +290,8 @@ class TestRetroPieSSH:
         # Set up mock client with system info commands
         mock_client = Mock()
 
-        # Mock responses for different commands
-        def mock_exec_command(command: str):
+        # Mock responses for different commands (now with timeout parameter)
+        def mock_exec_command(command: str, timeout=10):
             mock_stdin = Mock()
             mock_stdout = Mock()
             mock_stderr = Mock()

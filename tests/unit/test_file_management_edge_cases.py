@@ -86,12 +86,11 @@ echo "Backup completed at $(date)"
 
         # Check the command that was called
         called_command = file_management_tools.container.retropie_client.execute_command.call_args[0][0]
-        
-        # The bug: echo with single quotes will fail with multiline content
-        # This assertion documents the current broken behavior
-        assert "echo '" in called_command
-        # This command will actually FAIL in real SSH because newlines break echo
-        assert "\n" in called_command  # Newlines in the middle of echo command!
+
+        # Fixed: Now uses heredoc instead of echo for multiline content
+        assert "cat << 'EOF'" in called_command
+        assert "EOF" in called_command
+        assert multiline_content in called_command
 
     @pytest.mark.asyncio
     async def test_write_file_with_special_characters(
@@ -117,11 +116,10 @@ echo "Backup completed at $(date)"
         )
 
         called_command = file_management_tools.container.retropie_client.execute_command.call_args[0][0]
-        
-        # The bug: single quotes in content will break the echo command
-        # Also, backticks and dollar signs can cause command substitution
-        assert "echo '" in called_command
-        assert "user's" in called_command  # This will break the quoting
+
+        # Fixed: Now uses heredoc which handles special characters safely
+        assert "cat << 'EOF'" in called_command
+        assert content_with_specials in called_command
 
     @pytest.mark.asyncio
     async def test_write_file_with_escape_sequences(
@@ -147,10 +145,10 @@ echo "Backup completed at $(date)"
         )
 
         called_command = file_management_tools.container.retropie_client.execute_command.call_args[0][0]
-        
-        # The bug: echo without -e won't interpret escape sequences correctly
-        assert "echo '" in called_command
-        assert "\\n" in called_command  # Will be written literally, not as newline
+
+        # Fixed: Single-line content uses printf with proper escaping
+        assert "printf '%s'" in called_command
+        assert content_with_escapes.replace("'", "'\\''") in called_command
 
     @pytest.mark.asyncio
     async def test_write_empty_file_should_create_empty_file(
@@ -223,10 +221,10 @@ echo "Backup completed at $(date)"
         )
 
         called_command = file_management_tools.container.retropie_client.execute_command.call_args[0][0]
-        
-        # The bug: echo command might exceed shell command line limits (typically 128KB)
-        assert "echo '" in called_command
-        assert len(called_command) > 100000  # Command is huge
+
+        # Fixed: Single-line (no newlines) large content uses printf
+        assert "printf '%s'" in called_command
+        assert len(called_command) > 100000  # Command is large but printf handles it
 
     @pytest.mark.asyncio
     async def test_write_file_with_binary_like_content(
@@ -285,11 +283,11 @@ echo "Backup completed at $(date)"
         )
 
         called_command = file_management_tools.container.retropie_client.execute_command.call_args[0][0]
-        
-        # The bug: mixing quotes will break the echo command
-        assert "echo '" in called_command
-        # The single quote in "It's" will terminate the echo string prematurely
-        assert "'Hi there!'" in called_command  # Nested single quotes will break
+
+        # Fixed: Single-line content uses printf with proper quote escaping
+        assert "printf '%s'" in called_command
+        # Single quotes in content are escaped as '\''
+        assert content_with_quotes.replace("'", "'\\''") in called_command
 
     @pytest.mark.asyncio
     async def test_append_file_with_special_content(
@@ -319,11 +317,11 @@ echo "Backup completed at $(date)"
         )
 
         called_command = file_management_tools.container.retropie_client.execute_command.call_args[0][0]
-        
-        # The bug affects append too since it uses the same echo approach
-        assert "echo '" in called_command
+
+        # Fixed: Single-line append uses printf with proper escaping
+        assert "printf '%s'" in called_command
         assert ">>" in called_command  # Append operator
-        assert "'quotes'" in called_command  # Nested quotes will break
+        assert problematic_content.replace("'", "'\\''") in called_command
 
     # Test for proper escaping (what the fix should do)
 

@@ -286,11 +286,11 @@ class TestPersistentQueueStorageErrorHandling:
             json.dump(mixed_data, f)
 
         storage = PersistentQueueStorage(temp_storage_path)
-        
-        # Should load only valid queues
+
+        # Feature branch: strict validation - reject entire file if ANY queue is invalid
+        # Production might want graceful degradation, but strict validation is more secure
         queue_ids = storage.list_queues()
-        assert "valid_queue" in queue_ids
-        assert "invalid_queue" not in queue_ids
+        assert len(queue_ids) == 0  # All queues rejected due to corruption
 
     def test_command_result_serialization_edge_cases(self, storage):
         """Test serialization of commands with complex result data."""

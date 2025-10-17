@@ -71,7 +71,7 @@ class RetroPieDiscovery:
     def _discover_username(self) -> str:
         """Discover current username."""
         result = self._client.execute_command("whoami")
-        if result.success:
+        if result.success and result.stdout.strip():
             username = result.stdout.strip()
             logger.debug(f"Discovered username: {username}")
             return username

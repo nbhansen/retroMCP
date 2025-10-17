@@ -90,10 +90,12 @@ class TestManageStateUseCase:
         request = StateManagementRequest(action=StateAction.LOAD)
         result = use_case.execute(request)
 
-        assert result.success is True
-        assert result.action == StateAction.LOAD
-        assert result.state == sample_state
-        assert "loaded successfully" in result.message
+        assert result.is_success()
+        result_value = result.value
+        assert result_value.success is True
+        assert result_value.action == StateAction.LOAD
+        assert result_value.state == sample_state
+        assert "loaded successfully" in result_value.message
         mock_state_repository.load_state.assert_called_once()
 
     def test_load_state_not_found(
@@ -107,10 +109,10 @@ class TestManageStateUseCase:
         request = StateManagementRequest(action=StateAction.LOAD)
         result = use_case.execute(request)
 
-        assert result.success is False
-        assert result.action == StateAction.LOAD
-        assert result.state is None
-        assert "not found" in result.message
+        assert result.is_error()
+        error = result.error_value
+        assert error.code == "STATE_FILE_NOT_FOUND"
+        assert "not found" in error.message
 
     def test_save_state_with_scan(
         self,
@@ -167,8 +169,10 @@ class TestManageStateUseCase:
         request = StateManagementRequest(action=StateAction.SAVE)
         result = use_case.execute(request)
 
-        assert result.success is True
-        assert result.action == StateAction.SAVE
+        assert result.is_success()
+        result_value = result.value
+        assert result_value.success is True
+        assert result_value.action == StateAction.SAVE
         mock_state_repository.save_state.assert_called_once()
 
         # Verify the state was built correctly with v2.0 schema
@@ -204,8 +208,10 @@ class TestManageStateUseCase:
         )
         result = use_case.execute(request)
 
-        assert result.success is True
-        assert result.action == StateAction.UPDATE
+        assert result.is_success()
+        result_value = result.value
+        assert result_value.success is True
+        assert result_value.action == StateAction.UPDATE
         mock_state_repository.update_state_field.assert_called_once_with(
             "system.hardware", "Pi 5"
         )
@@ -215,8 +221,9 @@ class TestManageStateUseCase:
         request = StateManagementRequest(action=StateAction.UPDATE)
         result = use_case.execute(request)
 
-        assert result.success is False
-        assert "Path and value required" in result.message
+        assert result.is_error()
+        error = result.error_value
+        assert "Path and value required" in error.message
 
     def test_compare_state(
         self,
@@ -268,11 +275,13 @@ class TestManageStateUseCase:
         request = StateManagementRequest(action=StateAction.COMPARE)
         result = use_case.execute(request)
 
-        assert result.success is True
-        assert result.action == StateAction.COMPARE
-        assert result.diff is not None
-        assert "added" in result.diff
-        assert "changed" in result.diff
+        assert result.is_success()
+        result_value = result.value
+        assert result_value.success is True
+        assert result_value.action == StateAction.COMPARE
+        assert result_value.diff is not None
+        assert "added" in result_value.diff
+        assert "changed" in result_value.diff
 
     def test_export_state_success(
         self,
@@ -329,6 +338,6 @@ class TestManageStateUseCase:
         result = use_case.execute(invalid_request)
 
         assert result.is_error()
-        error = result.error
+        error = result.error_value
         assert error.code == "UNKNOWN_ACTION"
         assert "Unknown action" in error.message

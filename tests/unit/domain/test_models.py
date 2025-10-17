@@ -70,12 +70,14 @@ class TestController:
             vendor_id="045e",
             product_id="02ea",
             controller_type=ControllerType.XBOX,
+            connected=True,
             is_configured=True,
             driver_required="xboxdrv",
         )
 
         assert controller.name == "Xbox Wireless Controller"
         assert controller.controller_type == ControllerType.XBOX
+        assert controller.connected is True
         assert controller.is_configured is True
         assert controller.driver_required == "xboxdrv"
 
@@ -87,11 +89,13 @@ class TestController:
             vendor_id="1234",
             product_id="5678",
             controller_type=ControllerType.GENERIC,
+            connected=True,
             is_configured=False,
         )
 
         assert controller.driver_required is None
         assert controller.is_configured is False
+        assert controller.connected is True
 
     def test_controller_immutable(self):
         """Test Controller is immutable."""
@@ -101,6 +105,7 @@ class TestController:
             vendor_id="045e",
             product_id="02ea",
             controller_type=ControllerType.XBOX,
+            connected=True,
             is_configured=True,
         )
 

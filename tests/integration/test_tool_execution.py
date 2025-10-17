@@ -99,7 +99,12 @@ class TestToolExecution:
                 failed_tools: List[str] = []
                 for tool_name in tool_names:
                     try:
-                        result = await server.call_tool(tool_name, {})
+                        # Some tools require parameters
+                        params = {}
+                        if tool_name == "manage_command_queue":
+                            params = {"action": "status"}  # Minimal valid params
+
+                        result = await server.call_tool(tool_name, params)
 
                         # Verify successful response
                         assert len(result) == 1

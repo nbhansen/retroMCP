@@ -209,7 +209,7 @@ class TestRetroMCPServer:
 
             tools = await server.list_tools()
 
-            assert len(tools) == 2
+            assert len(tools) == 3  # test_connection, detect_controllers, manage_command_queue
             assert tools[0].name == "test_connection"
             assert tools[1].name == "detect_controllers"
             # list_tools doesn't require connection

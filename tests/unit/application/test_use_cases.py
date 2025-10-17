@@ -157,7 +157,7 @@ class TestInstallPackagesUseCase:
         ]
         mock_repo.get_packages.return_value = Result.success(installed_packages)
 
-        expected_result = CommandResult(
+        expected_cmd_result = CommandResult(
             command="apt install vim htop",
             exit_code=0,
             stdout="Successfully installed packages",
@@ -165,7 +165,7 @@ class TestInstallPackagesUseCase:
             success=True,
             execution_time=5.2,
         )
-        mock_repo.install_packages.return_value = expected_result
+        mock_repo.install_packages.return_value = Result.success(expected_cmd_result)
 
         use_case = InstallPackagesUseCase(mock_repo)
 
@@ -173,7 +173,8 @@ class TestInstallPackagesUseCase:
         result = use_case.execute(["git", "vim", "htop"])
 
         # Assert
-        assert result == expected_result
+        assert result.is_success()
+        assert result.value == expected_cmd_result
         mock_repo.install_packages.assert_called_once_with(["vim", "htop"])
 
 

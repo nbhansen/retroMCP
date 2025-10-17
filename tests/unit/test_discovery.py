@@ -582,5 +582,5 @@ class TestRetroPieDiscovery:
         paths = discovery.discover_system_paths()
 
         # Should use fallback values for empty outputs
-        assert paths.home_dir == ""  # Empty string from command
-        assert paths.username == ""  # Empty string from command
+        assert paths.home_dir == "unknown"  # Fallback value for empty command
+        assert paths.username == "unknown"  # Fallback value for empty command
