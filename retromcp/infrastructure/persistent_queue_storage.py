@@ -143,27 +143,55 @@ class PersistentQueueStorage:
         }
 
     def _deserialize_queue(self, data: Dict) -> Optional[CommandQueue]:
-        """Deserialize dictionary to CommandQueue."""
+        """Deserialize dictionary to CommandQueue with strict type validation."""
         try:
+            # Validate required fields exist and are correct types
+            queue_id = data["id"]
+            name = data["name"]
+
+            if not isinstance(queue_id, str) or not isinstance(name, str):
+                return None
+
+            # Validate and convert numeric types with strict checking
+            try:
+                current_index = int(data.get("current_index", 0))
+            except (ValueError, TypeError):
+                return None
+
+            try:
+                pause_between = int(data.get("pause_between", 2))
+            except (ValueError, TypeError):
+                return None
+
+            # Validate boolean type
+            auto_execute_val = data.get("auto_execute", False)
+            if not isinstance(auto_execute_val, bool):
+                return None
+
+            # Validate commands is a list
+            commands_data = data.get("commands", [])
+            if not isinstance(commands_data, list):
+                return None
+
             queue = CommandQueue(
-                id=data["id"],
-                name=data["name"],
-                current_index=data.get("current_index", 0),
-                auto_execute=data.get("auto_execute", False),
-                pause_between=data.get("pause_between", 2),
+                id=queue_id,
+                name=name,
+                current_index=current_index,
+                auto_execute=auto_execute_val,
+                pause_between=pause_between,
             )
 
             # Parse created_at if present
             if "created_at" in data:
                 try:
                     queue.created_at = datetime.fromisoformat(data["created_at"])
-                except ValueError:
+                except (ValueError, TypeError):
                     # Use current time if parsing fails
                     queue.created_at = datetime.now()
 
             # Deserialize commands
             queue.commands = []
-            for cmd_data in data.get("commands", []):
+            for cmd_data in commands_data:
                 cmd = self._deserialize_command(cmd_data)
                 if cmd:
                     queue.commands.append(cmd)
@@ -175,13 +203,14 @@ class PersistentQueueStorage:
             return None
 
     def _deserialize_command(self, data: Dict) -> Optional[QueuedCommand]:
-        """Deserialize dictionary to QueuedCommand."""
+        """Deserialize dictionary to QueuedCommand with strict validation."""
         try:
-            # Parse status
+            # Parse status - return None if invalid (strict validation)
             try:
                 status = CommandStatus(data["status"])
-            except ValueError:
-                status = CommandStatus.PENDING
+            except (ValueError, KeyError):
+                # Invalid status - reject the command entirely
+                return None
 
             # Parse timestamps
             start_time = None
@@ -257,29 +286,51 @@ class PersistentQueueStorage:
         """
         return list(self.queues.keys())
 
-    def delete_queue(self, queue_id: str) -> bool:
+    def delete_queue(self, queue_id: str) -> Result[None, ValidationError]:
         """Delete queue from storage.
 
         Args:
             queue_id: Unique identifier for the queue
 
         Returns:
-            True if queue was deleted, False if not found
+            Result indicating success or failure
         """
         if queue_id not in self.queues:
-            return False
+            return Result.error(
+                ValidationError(
+                    code="QUEUE_NOT_FOUND",
+                    message=f"Queue with ID '{queue_id}' not found",
+                )
+            )
 
+        # Store original queue for rollback
+        deleted_queue = self.queues[queue_id]
         del self.queues[queue_id]
 
-        # Persist the change
-        save_result = self._save_queues()
-        if save_result.is_error():
-            # If save failed, restore the queue to maintain consistency
-            # Note: This is a simplified approach - in production you might want
-            # more sophisticated error handling
-            return False
+        try:
+            # Persist the change
+            save_result = self._save_queues()
+            if save_result.is_error():
+                # Rollback on save failure
+                self.queues[queue_id] = deleted_queue
+                return Result.error(
+                    ValidationError(
+                        code="DELETE_QUEUE_SAVE_FAILED",
+                        message="Failed to save after deleting queue",
+                    )
+                )
 
-        return True
+            return Result.success(None)
+
+        except Exception as e:
+            # Rollback on exception
+            self.queues[queue_id] = deleted_queue
+            return Result.error(
+                ValidationError(
+                    code="DELETE_QUEUE_SAVE_FAILED",
+                    message="Failed to save after deleting queue",
+                )
+            )
 
     def update_queue(
         self, queue_id: str, queue: CommandQueue
@@ -301,5 +352,26 @@ class PersistentQueueStorage:
                 )
             )
 
+        # Store original queue for potential rollback
+        original_queue = self.queues[queue_id]
         self.queues[queue_id] = queue
-        return self._save_queues()
+
+        try:
+            save_result = self._save_queues()
+
+            if save_result.is_error():
+                # Rollback on save failure
+                self.queues[queue_id] = original_queue
+                return save_result
+
+            return Result.success(None)
+
+        except Exception as e:
+            # Rollback on exception and return error
+            self.queues[queue_id] = original_queue
+            return Result.error(
+                ValidationError(
+                    code="UPDATE_QUEUE_FAILED",
+                    message=f"Failed to update queue: {str(e)}",
+                )
+            )

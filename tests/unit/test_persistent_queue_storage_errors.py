@@ -206,12 +206,13 @@ class TestPersistentQueueStorageErrorHandling:
     def test_update_nonexistent_queue_error(self, storage):
         """Test updating a queue that doesn't exist."""
         queue = CommandQueue(id="nonexistent", name="Test Queue")
-        
+
         result = storage.update_queue("nonexistent", queue)
-        
+
         # Should return error for non-existent queue
         assert result.is_error()
-        assert "Queue not found" in result.error_value.message
+        assert "not found" in result.error_value.message
+        assert result.error_value.code == "QUEUE_NOT_FOUND"
 
     def test_storage_directory_creation_permission_error(self):
         """Test storage directory creation when permission is denied."""

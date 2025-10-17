@@ -96,9 +96,9 @@ class TestPersistentQueueStorage:
         
         # Create and delete queue
         storage.create_queue(sample_queue.id, sample_queue)
-        deleted = storage.delete_queue(sample_queue.id)
-        
-        assert deleted is True
+        result = storage.delete_queue(sample_queue.id)
+
+        assert result.is_success()
         assert storage.get_queue(sample_queue.id) is None
 
     # Test Case: Storage corruption handling
@@ -243,4 +243,5 @@ class TestPersistentQueueStorage:
         storage = PersistentQueueStorage(temp_storage_path)
         
         result = storage.delete_queue("nonexistent")
-        assert result is False
+        assert result.is_error()
+        assert result.error_value.code == "QUEUE_NOT_FOUND"

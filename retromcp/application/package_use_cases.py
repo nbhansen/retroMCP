@@ -36,7 +36,9 @@ class InstallPackagesUseCase:
             for package in packages:
                 self._validate_package_name(package)
         except ValueError as e:
-            return Result.error(ValidationError(str(e)))
+            return Result.error(
+                ValidationError(code="INVALID_PACKAGE_NAME", message=str(e))
+            )
 
         # Get installed packages - handle Result pattern
         installed_packages_result = self._system_repo.get_packages()
@@ -83,19 +85,29 @@ class InstallPackagesUseCase:
 
                 # If we found specific failures, enhance the error
                 if failed_packages:
-                    # Update error details
-                    if not hasattr(error, "details") or error.details is None:
-                        error.details = {}
+                    # Create enhanced details dict
+                    enhanced_details = dict(error.details) if error.details else {}
+                    enhanced_details["failed_packages"] = failed_packages
 
-                    error.details["failed_packages"] = failed_packages
                     if len(failed_packages) < len(packages_to_install):
                         # Some succeeded
                         succeeded = [
                             p for p in packages_to_install if p not in failed_packages
                         ]
-                        error.details["succeeded"] = succeeded
-                        error.details["failed"] = failed_packages
-                        error.details["total"] = len(packages_to_install)
+                        enhanced_details["succeeded"] = succeeded
+                        enhanced_details["failed"] = failed_packages
+                        enhanced_details["total"] = len(packages_to_install)
+
+                    # Create new error with enhanced details (frozen dataclass)
+                    enhanced_error = ExecutionError(
+                        code=error.code,
+                        message=error.message,
+                        command=error.command,
+                        exit_code=error.exit_code,
+                        stderr=error.stderr,
+                        details=enhanced_details,
+                    )
+                    return Result.error(enhanced_error)
 
         return result
 
