@@ -11,12 +11,17 @@ from .models import CommandResult
 from .models import ConfigFile
 from .models import ConnectionInfo
 from .models import Controller
+from .models import CoreConfiguration
+from .models import CoreOption
 from .models import DockerManagementRequest
 from .models import DockerManagementResult
+from .models import DomainError
 from .models import Emulator
+from .models import EmulatorMapping
 from .models import ESSystemsConfig
 from .models import Package
 from .models import Result
+from .models import RetroArchCore
 from .models import RomDirectory
 from .models import StateManagementResult
 from .models import SystemInfo
@@ -142,6 +147,77 @@ class EmulatorRepository(ABC):
     @abstractmethod
     def set_theme(self, theme_name: str) -> CommandResult:
         """Set active theme."""
+
+    @abstractmethod
+    def list_cores(self) -> Result[List[RetroArchCore], DomainError]:
+        """List all installed RetroArch cores.
+
+        Returns:
+            Result containing list of RetroArchCore objects or DomainError.
+        """
+
+    @abstractmethod
+    def get_core_info(self, core_name: str) -> Result[RetroArchCore, DomainError]:
+        """Get detailed information about a specific core.
+
+        Args:
+            core_name: Name of the core (e.g., 'lr-mupen64plus-next').
+
+        Returns:
+            Result containing RetroArchCore object or DomainError.
+        """
+
+    @abstractmethod
+    def get_core_options(self, core_name: str) -> Result[List[CoreOption], DomainError]:
+        """Get configurable options for a specific core.
+
+        Args:
+            core_name: Name of the core (e.g., 'lr-mupen64plus-next').
+
+        Returns:
+            Result containing list of CoreOption objects or DomainError.
+        """
+
+    @abstractmethod
+    def update_core_option(
+        self, core_name: str, option: CoreOption
+    ) -> Result[bool, DomainError]:
+        """Update a core-specific configuration option.
+
+        Args:
+            core_name: Name of the core (e.g., 'lr-mupen64plus-next').
+            option: CoreOption object with key and value to update.
+
+        Returns:
+            Result containing success boolean or DomainError.
+        """
+
+    @abstractmethod
+    def get_emulator_mappings(
+        self, system: str
+    ) -> Result[List[EmulatorMapping], DomainError]:
+        """Get available emulators/cores for a system.
+
+        Args:
+            system: System name (e.g., 'n64', 'nes').
+
+        Returns:
+            Result containing list of EmulatorMapping objects or DomainError.
+        """
+
+    @abstractmethod
+    def set_default_emulator(
+        self, system: str, emulator_name: str
+    ) -> Result[bool, DomainError]:
+        """Set the default emulator/core for a system.
+
+        Args:
+            system: System name (e.g., 'n64', 'nes').
+            emulator_name: Emulator name (e.g., 'lr-mupen64plus-next').
+
+        Returns:
+            Result containing success boolean or DomainError.
+        """
 
 
 class StateRepository(ABC):

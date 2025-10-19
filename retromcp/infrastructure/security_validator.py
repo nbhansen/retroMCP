@@ -411,6 +411,39 @@ class SecurityValidator:
         """Check if resolved path matches safe patterns."""
         return any(pattern.match(path) for pattern in self._safe_path_patterns)
 
+    def validate_package_name(self, name: str) -> ValidationResult[str, str]:
+        """Validate package/core/emulator/system names.
+
+        Args:
+            name: Package, core, emulator, or system name to validate
+
+        Returns:
+            ValidationResult with success message or error
+        """
+        if not name or not name.strip():
+            return ValidationResult.error("Empty name not allowed")
+
+        name = name.strip()
+
+        # Package names should only contain alphanumeric, hyphens, underscores, and dots
+        # This covers: lr-mame2003, mupen64plus, lr-beetle-pce-fast, n64, nes, etc.
+        if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$", name):
+            return ValidationResult.error(
+                f"Invalid name format: {name}. Must contain only alphanumeric, dots, hyphens, underscores, and plus signs"
+            )
+
+        # Prevent path traversal attempts
+        if ".." in name or "/" in name or "\\" in name:
+            return ValidationResult.error(
+                f"Path traversal attempt detected in name: {name}"
+            )
+
+        # Prevent names that are too long (DoS prevention)
+        if len(name) > 255:
+            return ValidationResult.error(f"Name too long: {name}")
+
+        return ValidationResult.success(f"Name validated: {name}")
+
     def sanitize_input(self, input_str: str) -> ValidationResult[str, str]:
         """Sanitize input string by removing or escaping dangerous characters.
 

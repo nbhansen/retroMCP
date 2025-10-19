@@ -6,6 +6,12 @@ from typing import Callable
 from typing import Dict
 from typing import Optional
 
+from .application.core_use_cases import GetCoreInfoUseCase
+from .application.core_use_cases import GetEmulatorMappingsUseCase
+from .application.core_use_cases import ListCoreOptionsUseCase
+from .application.core_use_cases import ListCoresUseCase
+from .application.core_use_cases import SetDefaultEmulatorUseCase
+from .application.core_use_cases import UpdateCoreOptionUseCase
 from .application.use_cases import CheckConnectionUseCase
 from .application.use_cases import DetectControllersUseCase
 from .application.use_cases import ExecuteCommandUseCase
@@ -262,6 +268,56 @@ class Container:
         return self._get_or_create(
             "manage_docker_use_case",
             lambda: ManageDockerUseCase(self.docker_repository),
+        )
+
+    # Core management use cases
+
+    @property
+    def list_cores_use_case(self) -> ListCoresUseCase:
+        """Get list cores use case."""
+        return self._get_or_create(
+            "list_cores_use_case",
+            lambda: ListCoresUseCase(self.emulator_repository),
+        )
+
+    @property
+    def get_core_info_use_case(self) -> GetCoreInfoUseCase:
+        """Get core info use case."""
+        return self._get_or_create(
+            "get_core_info_use_case",
+            lambda: GetCoreInfoUseCase(self.emulator_repository),
+        )
+
+    @property
+    def list_core_options_use_case(self) -> ListCoreOptionsUseCase:
+        """Get list core options use case."""
+        return self._get_or_create(
+            "list_core_options_use_case",
+            lambda: ListCoreOptionsUseCase(self.emulator_repository),
+        )
+
+    @property
+    def update_core_option_use_case(self) -> UpdateCoreOptionUseCase:
+        """Get update core option use case."""
+        return self._get_or_create(
+            "update_core_option_use_case",
+            lambda: UpdateCoreOptionUseCase(self.emulator_repository),
+        )
+
+    @property
+    def get_emulator_mappings_use_case(self) -> GetEmulatorMappingsUseCase:
+        """Get emulator mappings use case."""
+        return self._get_or_create(
+            "get_emulator_mappings_use_case",
+            lambda: GetEmulatorMappingsUseCase(self.emulator_repository),
+        )
+
+    @property
+    def set_default_emulator_use_case(self) -> SetDefaultEmulatorUseCase:
+        """Get set default emulator use case."""
+        return self._get_or_create(
+            "set_default_emulator_use_case",
+            lambda: SetDefaultEmulatorUseCase(self.emulator_repository),
         )
 
     def connect(self) -> bool:

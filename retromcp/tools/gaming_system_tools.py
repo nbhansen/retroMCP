@@ -72,7 +72,7 @@ class GamingSystemTools(BaseTool):
                     "Unified gaming system management tool. "
                     "Components: retropie (setup/install/configure), emulationstation (configure/restart/scan), "
                     "controller (detect/setup/test/configure), roms (scan/list/configure), "
-                    "emulator (install/configure/list), audio (configure/test), video (configure/test). "
+                    "emulator (install/configure/list), core (list/info/options), audio (configure/test), video (configure/test). "
                     "Most actions require a 'target' parameter - error messages will show valid targets."
                 ),
                 inputSchema={
@@ -86,6 +86,7 @@ class GamingSystemTools(BaseTool):
                                 "controller",
                                 "roms",
                                 "emulator",
+                                "core",
                                 "audio",
                                 "video",
                             ],
@@ -103,7 +104,8 @@ class GamingSystemTools(BaseTool):
                                 "controller setup: 'xbox', 'ps3', 'ps4', '8bitdo', 'generic'; "
                                 "audio configure: 'hdmi', 'analog'; "
                                 "roms scan: system name (e.g., 'nes', 'arcade'); "
-                                "emulator install: emulator name (e.g., 'lr-mame2003')"
+                                "emulator install: emulator name (e.g., 'lr-mame2003'); "
+                                "core info/options: core name (e.g., 'lr-mupen64plus-next')"
                             ),
                         },
                         "options": {
@@ -228,6 +230,7 @@ class GamingSystemTools(BaseTool):
             "controller",
             "roms",
             "emulator",
+            "core",
             "audio",
             "video",
         ]
@@ -254,6 +257,8 @@ class GamingSystemTools(BaseTool):
             return await self._handle_roms(action, arguments)
         elif component == "emulator":
             return await self._handle_emulator(action, arguments)
+        elif component == "core":
+            return await self._handle_core(action, arguments)
         elif component == "audio":
             return await self._handle_audio(action, arguments)
         elif component == "video":
@@ -357,7 +362,7 @@ class GamingSystemTools(BaseTool):
         self, action: str, arguments: Dict[str, Any]
     ) -> List[TextContent]:
         """Handle emulator management operations."""
-        valid_actions = ["install", "configure", "test"]
+        valid_actions = ["install", "configure", "set_default", "test"]
         if action not in valid_actions:
             return self.format_error(
                 f"Invalid action: {action}. Must be one of: {', '.join(valid_actions)}"
@@ -370,6 +375,8 @@ class GamingSystemTools(BaseTool):
             return await self._emulator_install(target, options)
         elif action == "configure":
             return await self._emulator_configure(target, options)
+        elif action == "set_default":
+            return await self._emulator_set_default(arguments)
         elif action == "test":
             return await self._emulator_test(target, options)
         else:
@@ -1023,9 +1030,67 @@ class GamingSystemTools(BaseTool):
     async def _emulator_configure(
         self, target: str, options: Optional[Dict[str, Any]] = None
     ) -> List[TextContent]:
-        """Handle emulator configuration operations."""
-        return self.format_info(
-            f"Emulator configuration for {target} not yet implemented"
+        """Handle emulator configuration operations.
+
+        Updates core options for a specific emulator/core.
+
+        Args:
+            target: Core name (e.g., 'lr-mupen64plus-next')
+            options: Dict of option key-value pairs to update
+
+        Returns:
+            List of TextContent with results
+        """
+        if not target:
+            return self.format_error("Target core name is required")
+
+        if not options:
+            return self.format_error("Options dictionary is required for configuration")
+
+        # Update each option
+        results = []
+        use_case = self.container.update_core_option_use_case
+
+        for key, value in options.items():
+            result = use_case.execute(target, key, str(value))
+
+            if result.is_error():
+                error = result.error_value
+                results.append(f"❌ Failed to update {key}: {error.message}")
+            else:
+                results.append(f"✅ Updated {key} = {value}")
+
+        return self.format_success("\n".join(results))
+
+    async def _emulator_set_default(
+        self, arguments: Dict[str, Any]
+    ) -> List[TextContent]:
+        """Set the default emulator for a system.
+
+        Args:
+            arguments: Must contain 'system' and 'target' (emulator name)
+
+        Returns:
+            List of TextContent with results
+        """
+        system = arguments.get("system")
+        target = arguments.get("target")
+
+        if not system:
+            return self.format_error("System name is required")
+
+        if not target:
+            return self.format_error("Target emulator name is required")
+
+        use_case = self.container.set_default_emulator_use_case
+        result = use_case.execute(system, target)
+
+        if result.is_error():
+            error = result.error_value
+            return self.format_error(f"Failed to set default emulator: {error.message}")
+
+        return self.format_success(
+            f"✅ Set {target} as default emulator for {system}"
         )
 
     async def _emulator_test(
@@ -1033,6 +1098,121 @@ class GamingSystemTools(BaseTool):
     ) -> List[TextContent]:
         """Handle emulator testing operations."""
         return self.format_info(f"Emulator testing for {target} not yet implemented")
+
+    # Core component methods
+
+    async def _handle_core(
+        self, action: str, arguments: Dict[str, Any]
+    ) -> List[TextContent]:
+        """Handle RetroArch core management operations."""
+        valid_actions = ["list", "info", "options"]
+        if action not in valid_actions:
+            return self.format_error(
+                f"Invalid action: {action}. Must be one of: {', '.join(valid_actions)}"
+            )
+
+        if action == "list":
+            return await self._core_list()
+        elif action == "info":
+            target = arguments.get("target")
+            return await self._core_info(target)
+        elif action == "options":
+            target = arguments.get("target")
+            return await self._core_options(target)
+        else:
+            return self.format_error(f"Core action '{action}' not implemented")
+
+    async def _core_list(self) -> List[TextContent]:
+        """List all installed RetroArch cores."""
+        use_case = self.container.list_cores_use_case
+        result = use_case.execute()
+
+        if result.is_error():
+            error = result.error_value
+            return self.format_error(f"Failed to list cores: {error.message}")
+
+        cores = result.success_value
+
+        if not cores:
+            return self.format_info("No RetroArch cores found")
+
+        # Format core list
+        output = [f"Found {len(cores)} RetroArch cores:\n"]
+
+        for core in cores:
+            systems_str = ", ".join(core.systems) if core.systems else "no systems"
+            output.append(f"  • {core.name}")
+            output.append(f"    Display: {core.display_name}")
+            output.append(f"    Systems: {systems_str}")
+            output.append(f"    Path: {core.core_path}")
+            if core.version:
+                output.append(f"    Version: {core.version}")
+            output.append("")
+
+        return self.format_success("\n".join(output))
+
+    async def _core_info(self, target: str) -> List[TextContent]:
+        """Get detailed information about a specific core."""
+        if not target:
+            return self.format_error("Target core name is required")
+
+        use_case = self.container.get_core_info_use_case
+        result = use_case.execute(target)
+
+        if result.is_error():
+            error = result.error_value
+            return self.format_error(f"Failed to get core info: {error.message}")
+
+        core = result.success_value
+
+        # Format core information
+        output = [f"Core Information: {core.name}\n"]
+        output.append(f"Display Name: {core.display_name}")
+        if core.description:
+            output.append(f"Description: {core.description}")
+        if core.version:
+            output.append(f"Version: {core.version}")
+        output.append(f"Core Path: {core.core_path}")
+
+        if core.systems:
+            output.append(f"\nSupported Systems:")
+            for system in core.systems:
+                output.append(f"  • {system}")
+        else:
+            output.append(f"\nNo systems configured to use this core")
+
+        return self.format_success("\n".join(output))
+
+    async def _core_options(self, target: str) -> List[TextContent]:
+        """List configurable options for a specific core."""
+        if not target:
+            return self.format_error("Target core name is required")
+
+        use_case = self.container.list_core_options_use_case
+        result = use_case.execute(target)
+
+        if result.is_error():
+            error = result.error_value
+            return self.format_error(f"Failed to get core options: {error.message}")
+
+        options = result.success_value
+
+        if not options:
+            return self.format_info(f"No options found for core: {target}")
+
+        # Format options list
+        output = [f"Configuration options for {target}:\n"]
+
+        for option in options:
+            output.append(f"  {option.key} = \"{option.value}\"")
+            if option.description:
+                output.append(f"    ({option.description})")
+
+        output.append(f"\nTotal: {len(options)} options")
+        output.append(f"\nTo update an option, use:")
+        output.append(f'  component="emulator", action="configure", target="{target}", options={{"key": "value"}}')
+
+        return self.format_success("\n".join(output))
 
     # Audio component methods
 

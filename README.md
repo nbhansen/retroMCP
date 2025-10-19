@@ -137,8 +137,24 @@ Restart Claude Desktop to load the server.
 ### System Management
 - **manage_system** - Connection testing, system info, package management, updates
 
-### Gaming System  
-- **manage_gaming** - RetroPie configuration, EmulationStation, controllers, ROMs, emulators, audio/video
+### Gaming System
+- **manage_gaming** - RetroPie configuration, EmulationStation, controllers, ROMs, emulators, RetroArch cores, audio/video
+
+**RetroArch Core Management:**
+- List installed RetroArch cores and their supported systems
+- Get detailed core information (version, path, display name)
+- View and update core-specific configuration options
+- Manage emulator mappings and set default emulators per system
+- Change RetroArch settings like aspect ratio, CPU core type, graphics options
+
+**Examples:**
+```
+"List all installed RetroArch cores"
+"Show me the configuration options for lr-mupen64plus-next"
+"Change the N64 aspect ratio to 16:9"
+"Set mupen64plus-GLideN64 as the default N64 emulator"
+"What emulators are available for SNES?"
+```
 
 ### Hardware Monitoring
 - **manage_hardware** - Temperature monitoring, fan control, power status, GPIO operations

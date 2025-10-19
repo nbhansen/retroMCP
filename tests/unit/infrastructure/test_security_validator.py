@@ -200,6 +200,130 @@ class TestSecurityValidator:
                 assert "`" not in sanitized
                 assert "$" not in sanitized
 
+    def test_validate_package_name_accepts_valid_names(self):
+        """Test that valid package/core/emulator names are accepted."""
+        # Arrange - Valid names from real RetroPie systems
+        valid_names = [
+            "lr-mupen64plus-next",
+            "lr-snes9x",
+            "lr-beetle-pce-fast",
+            "mupen64plus",
+            "n64",
+            "nes",
+            "snes",
+            "fbneo",
+            "mame2003-plus",
+            "lr-mame2003",
+            "8bitdo",
+            "package.with.dots",
+            "package_with_underscores",
+            "package+with+plus",
+        ]
+
+        # Act & Assert
+        for name in valid_names:
+            result = self.validator.validate_package_name(name)
+            assert result.is_success(), f"Valid name should be accepted: {name}"
+            assert "validated" in result.value.lower()
+
+    def test_validate_package_name_blocks_empty_names(self):
+        """Test that empty names are blocked."""
+        # Arrange
+        empty_names = ["", "   ", "\t", "\n"]
+
+        # Act & Assert
+        for name in empty_names:
+            result = self.validator.validate_package_name(name)
+            assert result.is_error(), f"Empty name should be blocked: {repr(name)}"
+            assert "empty" in result.error_value.lower()
+
+    def test_validate_package_name_blocks_path_traversal(self):
+        """Test that path traversal attempts are blocked."""
+        # Arrange
+        malicious_names = [
+            "../etc/passwd",
+            "../../root/.ssh",
+            "lr-../../bin/sh",
+            "package/../../../etc",
+            "lr-snes9x/../config",
+            "package/with/slash",
+            "package\\with\\backslash",
+        ]
+
+        # Act & Assert
+        for name in malicious_names:
+            result = self.validator.validate_package_name(name)
+            assert result.is_error(), f"Path traversal should be blocked: {name}"
+            assert (
+                "traversal" in result.error_value.lower()
+                or "invalid" in result.error_value.lower()
+            )
+
+    def test_validate_package_name_blocks_special_chars(self):
+        """Test that names with dangerous special characters are blocked."""
+        # Arrange
+        malicious_names = [
+            "package;rm -rf /",
+            "core|cat /etc/passwd",
+            "emulator`whoami`",
+            "system$HOME",
+            "name&evil",
+            "lr-(subshell)",
+            "package<redirect",
+            "name>output",
+        ]
+
+        # Act & Assert
+        for name in malicious_names:
+            result = self.validator.validate_package_name(name)
+            assert result.is_error(), f"Special chars should be blocked: {name}"
+
+    def test_validate_package_name_blocks_long_names(self):
+        """Test that excessively long names are blocked (DOS prevention)."""
+        # Arrange
+        long_name = "a" * 256
+
+        # Act
+        result = self.validator.validate_package_name(long_name)
+
+        # Assert
+        assert result.is_error()
+        assert "too long" in result.error_value.lower()
+
+    def test_validate_package_name_max_length_accepted(self):
+        """Test that names at the maximum length are accepted."""
+        # Arrange
+        max_length_name = "a" * 255
+
+        # Act
+        result = self.validator.validate_package_name(max_length_name)
+
+        # Assert
+        assert result.is_success()
+
+    def test_validate_package_name_strips_whitespace(self):
+        """Test that leading/trailing whitespace is handled."""
+        # Arrange
+        name_with_spaces = "  lr-snes9x  "
+
+        # Act
+        result = self.validator.validate_package_name(name_with_spaces)
+
+        # Assert
+        assert result.is_success()
+        assert "lr-snes9x" in result.value
+
+    def test_validate_package_name_must_start_with_alphanumeric(self):
+        """Test that names must start with alphanumeric character."""
+        # Arrange
+        invalid_names = ["-starts-with-dash", ".starts-with-dot", "+starts-with-plus"]
+
+        # Act & Assert
+        for name in invalid_names:
+            result = self.validator.validate_package_name(name)
+            assert result.is_error(), f"Name starting with non-alphanum should fail: {name}"
+            assert "invalid" in result.error_value.lower()
+
     def test_whitelist_is_comprehensive(self):
         """Test that the command whitelist covers all legitimate use cases."""
         # Arrange - Commands that should be supported by the system

@@ -104,6 +104,48 @@ class Emulator:
 
 
 @dataclass(frozen=True)
+class RetroArchCore:
+    """RetroArch libretro core model."""
+
+    name: str
+    core_path: str
+    systems: List[str]
+    version: Optional[str] = None
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class CoreOption:
+    """RetroArch core configuration option."""
+
+    key: str
+    value: str
+    core_name: Optional[str] = None
+    description: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class CoreConfiguration:
+    """RetroArch core configuration container."""
+
+    core_name: str
+    options: List[CoreOption]
+    config_path: str
+
+
+@dataclass(frozen=True)
+class EmulatorMapping:
+    """System-to-emulator/core mapping."""
+
+    system: str
+    emulator_name: str
+    command: str
+    is_default: bool
+    core_path: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class BiosFile:
     """BIOS file model."""
 

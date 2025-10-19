@@ -382,10 +382,15 @@ class TestGamingSystemToolsWorkflow:
 
         mock_ssh_handler.execute_command.return_value = mock_result
 
-        # Execute the tool workflow
+        # Execute the tool workflow - test core option configuration
         result = await gaming_tools.handle_tool_call(
             "manage_gaming",
-            {"component": "emulator", "action": "configure", "target": "bios"},
+            {
+                "component": "emulator",
+                "action": "configure",
+                "target": "lr-mgba",
+                "options": {"mgba_use_bios": "ON"},
+            },
         )
 
         # Verify MCP compliance
@@ -395,9 +400,9 @@ class TestGamingSystemToolsWorkflow:
         response = result[0]
         assert hasattr(response, "text"), "Response should have text for MCP compliance"
 
-        # Verify BIOS information
+        # Verify configuration was attempted
         response_text = response.text
-        assert "bios" in response_text.lower() or "gba" in response_text
+        assert "mgba_use_bios" in response_text.lower() or "updated" in response_text.lower()
 
 
 class TestCrossComponentWorkflow:
